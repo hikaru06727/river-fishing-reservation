@@ -9,6 +9,7 @@ import {
 } from "@/lib/slots/affected-slots";
 import { computeRemainingCount } from "@/lib/slots/remaining-count";
 import type { GetAvailableSlotsWithPlanResponse, SlotDTO } from "@/types/api";
+import { isAllowedStartTime } from "@/validations/reservation";
 
 export type GetAvailableSlotsWithPlanParams = {
   spotId: string;
@@ -86,6 +87,10 @@ export async function getAvailableSlotsWithPlan(
   const bookableSlots: SlotDTO[] = [];
 
   for (const candidate of allSlots) {
+    if (!isAllowedStartTime(plan.slug, candidate.start_time)) {
+      continue;
+    }
+
     const affectedStartTimes = getAffectedSlotStartTimes(
       candidate.start_time,
       plan.duration_minutes,

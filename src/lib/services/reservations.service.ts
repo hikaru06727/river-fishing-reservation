@@ -167,6 +167,15 @@ export async function createReservation(
     };
   } catch (err) {
     console.error("[createReservation]", err);
+    if (err instanceof Error) {
+      console.error("[createReservation] error details:", {
+        name: err.name,
+        message: err.message,
+        stack: err.stack,
+      });
+    } else {
+      console.error("[createReservation] non-Error thrown:", err);
+    }
     return { ok: false, error: "予約の作成に失敗しました。再度お試しください。", status: 500 };
   }
 }
