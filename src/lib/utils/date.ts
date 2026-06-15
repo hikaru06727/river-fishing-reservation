@@ -43,3 +43,28 @@ export function getAvailableDates(days: number): string[] {
   }
   return dates;
 }
+
+const JST_OFFSET = "+09:00";
+
+/** reservation_date + start_time を Asia/Tokyo 基準の Date に変換 */
+export function getReservationStartAtJst(
+  reservationDate: string,
+  startTime: string,
+): Date {
+  const normalizedTime =
+    startTime.length >= 8 ? startTime.slice(0, 8) : `${startTime.slice(0, 5)}:00`;
+  return new Date(`${reservationDate}T${normalizedTime}${JST_OFFSET}`);
+}
+
+/** 一般ユーザー向けキャンセル期限（利用開始24時間前） */
+export function getUserCancelDeadline(startAt: Date): Date {
+  return new Date(startAt.getTime() - 24 * 60 * 60 * 1000);
+}
+
+/** now < startAt - 24h のとき true（キャンセル可能） */
+export function isBeforeUserCancelDeadline(
+  startAt: Date,
+  now: Date = new Date(),
+): boolean {
+  return now.getTime() < getUserCancelDeadline(startAt).getTime();
+}

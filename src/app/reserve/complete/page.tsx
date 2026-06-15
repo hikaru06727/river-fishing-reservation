@@ -40,7 +40,8 @@ async function CompleteContent({
       .maybeSingle();
 
     if (reservation) {
-      planName = (reservation.plans as { name: string } | null)?.name ?? null;
+      const plans = reservation.plans as unknown as { name: string } | null;
+      planName = plans?.name ?? null;
       totalAmount = reservation.total_amount_yen;
     }
   }

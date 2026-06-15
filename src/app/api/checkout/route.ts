@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
+    const stripe = getStripe();
     const spotName = reservation.fishing_spots?.name ?? "釣り場";
     const planName = reservation.plans?.name ?? "プラン";
 

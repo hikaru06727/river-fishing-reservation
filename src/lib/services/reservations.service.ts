@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { canCancelReservation } from "@/lib/reservations/cancel-policy";
 import {
   fetchAffectedSlots,
   getAffectedSlotStartTimes,
@@ -8,6 +9,7 @@ import { findActivePlanById, findPlanById } from "@/lib/repositories/plans.repos
 import {
   cancelReservationAtomic,
   createReservationAtomic,
+  findReservationByIdAdmin,
   findReservationByIdForUser,
   findSpotSlugById,
 } from "@/lib/repositories/reservations.repository";
@@ -26,10 +28,16 @@ export type CreateReservationResult = {
 
 export type CancelReservationResult = {
   reservationId: string;
+  refundInitiated: boolean;
+};
+
+export type CancelReservationOptions = {
+  isAdmin?: boolean;
 };
 
 function revalidateReservationPaths(spotId: string, spotSlug: string | null) {
   revalidatePath("/my/reservations");
+  revalidatePath("/admin/reservations");
   revalidatePath(`/reserve/${spotId}`);
   if (spotSlug) {
     revalidatePath(`/spots/${spotSlug}`);
@@ -166,6 +174,7 @@ export async function createReservation(
 export async function cancelReservation(
   userId: string,
   input: unknown,
+  options: CancelReservationOptions = {},
 ): Promise<ServiceResult<CancelReservationResult>> {
   const parsed = cancelReservationSchema.safeParse(input);
 
@@ -178,15 +187,29 @@ export async function cancelReservation(
   }
 
   const { reservationId } = parsed.data;
+  const isAdmin = options.isAdmin ?? false;
 
-  const reservation = await findReservationByIdForUser(reservationId, userId);
+  const reservation = isAdmin
+    ? await findReservationByIdAdmin(reservationId)
+    : await findReservationByIdForUser(reservationId, userId);
 
   if (!reservation) {
     return { ok: false, error: "予約が見つかりません。", status: 404 };
   }
 
-  if (reservation.status !== "pending" && reservation.status !== "confirmed") {
-    return { ok: false, error: "この予約はキャンセルできません。", status: 422 };
+  const policy = canCancelReservation({
+    status: reservation.status,
+    reservationDate: reservation.reservation_date,
+    startTime: reservation.start_time,
+    isAdmin,
+  });
+
+  if (!policy.allowed) {
+    return {
+      ok: false,
+      error: policy.reason ?? "この予約はキャンセルできません。",
+      status: 422,
+    };
   }
 
   const plan = await findPlanById(reservation.plan_id);
@@ -217,7 +240,7 @@ export async function cancelReservation(
   try {
     const rpcResult = await cancelReservationAtomic({
       reservation_id: reservationId,
-      user_id: userId,
+      user_id: reservation.user_id,
       affected_slot_ids: affectedSlots.map((s) => s.id),
       guest_count: reservation.guest_count,
     });
@@ -233,10 +256,16 @@ export async function cancelReservation(
       };
     }
 
+    // 将来: Stripe 返金（refunds.create）をここで実行する。
+    // confirmed かつ payments.status === 'succeeded' の場合のみ対象。
+    // 返金失敗時はログ記録 + 管理者通知とし、予約キャンセル自体はロールバックしない。
+    const refundInitiated = false;
+
     const spotSlug = await findSpotSlugById(reservation.spot_id);
     revalidateReservationPaths(reservation.spot_id, spotSlug);
+    revalidatePath(`/my/reservations/${reservationId}`);
 
-    return { ok: true, data: { reservationId } };
+    return { ok: true, data: { reservationId, refundInitiated } };
   } catch (err) {
     console.error("[cancelReservation]", err);
     return {

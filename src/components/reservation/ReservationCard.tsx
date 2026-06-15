@@ -16,6 +16,11 @@ interface ReservationCardProps {
 export function ReservationCard({ reservation }: ReservationCardProps) {
   const spotName = reservation.fishing_spots?.name ?? "—";
   const planName = reservation.plans?.name ?? "—";
+  const cancelPolicy = canCancelReservation({
+    status: reservation.status,
+    reservationDate: reservation.reservation_date,
+    startTime: reservation.start_time,
+  });
 
   return (
     <Card>
@@ -55,18 +60,29 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
       </dl>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        {reservation.fishing_spots?.slug && (
+        <div className="flex flex-wrap gap-3">
           <Link
-            href={`/spots/${reservation.fishing_spots.slug}`}
+            href={`/my/reservations/${reservation.id}`}
             className="text-sm font-medium text-primary hover:underline"
           >
-            釣り場詳細を見る
+            詳細を見る
           </Link>
-        )}
-        {canCancelReservation(reservation.status) && (
+          {reservation.fishing_spots?.slug && (
+            <Link
+              href={`/spots/${reservation.fishing_spots.slug}`}
+              className="text-sm font-medium text-muted hover:text-primary hover:underline"
+            >
+              釣り場詳細
+            </Link>
+          )}
+        </div>
+        {cancelPolicy.allowed && (
           <CancelReservationButton reservationId={reservation.id} />
         )}
       </div>
+      {!cancelPolicy.allowed && reservation.status === "confirmed" && cancelPolicy.reason && (
+        <p className="mt-3 text-xs text-muted">{cancelPolicy.reason}</p>
+      )}
     </Card>
   );
 }

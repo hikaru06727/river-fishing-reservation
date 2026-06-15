@@ -52,5 +52,5 @@ export async function cancelReservationAction(
     return { error: result.error, success: false };
   }
 
-  return { error: null, success: true };
+  redirect("/my/reservations");
 }

@@ -15,3 +15,11 @@ export const cancelReservationInitialState: CancelReservationState = {
   error: null,
   success: false,
 };
+
+export type AdminCancelReservationState = {
+  error: string | null;
+};
+
+export const adminCancelReservationInitialState: AdminCancelReservationState = {
+  error: null,
+};

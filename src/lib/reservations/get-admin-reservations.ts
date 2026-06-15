@@ -1,7 +1,7 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { toISODate } from "@/lib/utils/date";
-import type { ReservationStatus } from "@/types/database";
+import type { Reservation, ReservationStatus } from "@/types/database";
 
 export const ADMIN_RESERVATIONS_PAGE_SIZE = 15;
 
@@ -87,7 +87,7 @@ export async function getAdminReservations(
   const totalCount = count ?? 0;
 
   return {
-    reservations: (data ?? []) as AdminReservationRow[],
+    reservations: (data ?? []) as unknown as AdminReservationRow[],
     totalCount,
     page,
     pageSize,
@@ -112,7 +112,8 @@ export async function getTodayReservationSummary(): Promise<TodayReservationSumm
     throw new Error("本日のサマリー取得に失敗しました。");
   }
 
-  const rows = data ?? [];
+  type SummaryRow = Pick<Reservation, "guest_count" | "total_amount_yen" | "status">;
+  const rows = (data ?? []) as SummaryRow[];
 
   return {
     totalReservations: rows.length,

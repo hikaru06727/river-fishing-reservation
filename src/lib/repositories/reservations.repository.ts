@@ -149,6 +149,22 @@ export async function findReservationByIdForUser(
   return data;
 }
 
+export async function findReservationByIdAdmin(id: string): Promise<Reservation | null> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("reservations")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
 /** @deprecated cancelReservationAtomic を使用すること */
 export async function updateReservationStatus(
   id: string,

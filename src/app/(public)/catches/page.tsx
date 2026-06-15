@@ -15,16 +15,26 @@ export default async function CatchesPage() {
     .eq("status", "published")
     .order("caught_date", { ascending: false });
 
+  type CatchListItem = {
+    id: string;
+    caught_date: string | null;
+    fish_species: string | null;
+    length_cm: number | null;
+    title: string;
+    description: string | null;
+  };
+  const catchItems: CatchListItem[] = catches ?? [];
+
   return (
     <div>
       <h1 className="text-2xl font-bold">釣果情報</h1>
       <p className="mt-2 text-sm text-muted">最新の釣果をお届けします</p>
 
-      {(catches ?? []).length === 0 ? (
+      {catchItems.length === 0 ? (
         <p className="mt-8 text-sm text-muted">釣果レポートはまだありません。</p>
       ) : (
         <ul className="mt-8 space-y-4">
-          {(catches ?? []).map((item) => {
+          {catchItems.map((item) => {
             const sizeLabel =
               item.length_cm != null ? `${item.length_cm}cm` : null;
             const excerpt =

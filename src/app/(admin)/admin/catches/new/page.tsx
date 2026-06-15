@@ -13,6 +13,9 @@ export default async function AdminCatchNewPage() {
     .eq("is_active", true)
     .order("name");
 
+  type SpotOption = { id: string; name: string };
+  const spotOptions: SpotOption[] = spots ?? [];
+
   return (
     <div>
       <div className="mx-auto max-w-lg">
@@ -32,7 +35,7 @@ export default async function AdminCatchNewPage() {
               className="mt-1 w-full min-h-12 rounded-xl border border-border px-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
               <option value="">選択してください</option>
-              {(spots ?? []).map((spot) => (
+              {spotOptions.map((spot) => (
                 <option key={spot.id} value={spot.id}>
                   {spot.name}
                 </option>

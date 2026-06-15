@@ -1,23 +1,25 @@
 "use client";
 
 import { useActionState } from "react";
-import { cancelReservationAction } from "@/actions/reservation";
+import { adminCancelReservationAction } from "@/app/(admin)/admin/reservations/actions";
 import { Button } from "@/components/ui/Button";
-import { cancelReservationInitialState } from "@/types/reservation-action";
+import { adminCancelReservationInitialState } from "@/types/reservation-action";
 
-interface CancelReservationButtonProps {
+interface AdminCancelReservationButtonProps {
   reservationId: string;
 }
 
-export function CancelReservationButton({ reservationId }: CancelReservationButtonProps) {
+export function AdminCancelReservationButton({
+  reservationId,
+}: AdminCancelReservationButtonProps) {
   const [state, formAction, pending] = useActionState(
-    cancelReservationAction,
-    cancelReservationInitialState,
+    adminCancelReservationAction,
+    adminCancelReservationInitialState,
   );
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     const confirmed = window.confirm(
-      "この予約をキャンセルしますか？\nキャンセル後は元に戻せません。",
+      "この予約をキャンセルしますか？\n空き枠が解放され、元に戻せません。",
     );
     if (!confirmed) {
       event.preventDefault();
@@ -35,11 +37,11 @@ export function CancelReservationButton({ reservationId }: CancelReservationButt
           disabled={pending}
           className="border-red-200 text-red-700 hover:bg-red-50"
         >
-          {pending ? "キャンセル中..." : "予約をキャンセル"}
+          {pending ? "処理中..." : "キャンセル"}
         </Button>
       </form>
       {state.error && (
-        <p className="mt-2 text-xs text-red-600" role="alert">
+        <p className="mt-1 text-xs text-red-600" role="alert">
           {state.error}
         </p>
       )}

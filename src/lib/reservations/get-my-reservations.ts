@@ -30,12 +30,14 @@ export async function getMyReservations(userId: string): Promise<MyReservation[]
     throw new Error("予約一覧の取得に失敗しました。");
   }
 
-  return (data ?? []) as MyReservation[];
+  return (data ?? []) as unknown as MyReservation[];
 }
 
-export function canCancelReservation(status: ReservationStatus): boolean {
-  return status === "pending" || status === "confirmed";
-}
+export {
+  canCancelReservation,
+  type CancelPolicyInput,
+  type CancelPolicyResult,
+} from "@/lib/reservations/cancel-policy";
 
 export function getReservationStatusLabel(status: ReservationStatus): string {
   const labels: Record<ReservationStatus, string> = {

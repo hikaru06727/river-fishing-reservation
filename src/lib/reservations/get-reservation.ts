@@ -30,5 +30,5 @@ export async function getReservationById(
     throw new Error("予約情報の取得に失敗しました。");
   }
 
-  return data as ReservationDetail | null;
+  return data as unknown as ReservationDetail | null;
 }
