@@ -41,26 +41,14 @@ export async function POST(request: Request) {
       );
     }
 
-    const admin = createAdminClient();
-
-    const { data: existing } = await admin
-      .from("reservations")
-      .select("id")
-      .eq("plan_id", reservation.plan_id)
-      .eq("reservation_date", reservation.reservation_date)
-      .eq("start_time", reservation.start_time)
-      .eq("status", "confirmed")
-      .neq("id", reservation.id)
-      .maybeSingle();
-
-    if (existing) {
+    if (!reservation.expires_at || new Date(reservation.expires_at) <= new Date()) {
       return NextResponse.json(
-        { error: "この日時はすでに予約済みです" },
-        { status: 409 },
+        { error: "決済期限が切れています。再度予約してください。" },
+        { status: 422 },
       );
     }
 
-    const stripe = getStripe();
+    const admin = createAdminClient();
     const spotName = reservation.fishing_spots?.name ?? "釣り場";
     const planName = reservation.plans?.name ?? "プラン";
 
