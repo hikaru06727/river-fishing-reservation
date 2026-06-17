@@ -78,7 +78,7 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
             事前のカード決済は不要です。
           </p>
           <p className="mt-2 text-xs text-amber-700">
-            確認メールをお送りしました。釣り場の住所・持ち物は釣り場詳細をご確認ください。
+            内容はマイ予約からいつでもご確認いただけます。メール通知は設定されている場合に送信されます。
           </p>
         </Card>
       )}

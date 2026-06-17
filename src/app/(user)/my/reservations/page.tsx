@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ReservationCard } from "@/components/reservation/ReservationCard";
 import { getUser } from "@/lib/auth/get-user";
@@ -33,6 +34,12 @@ export default async function MyReservationsPage() {
           </p>
           <p className="mt-3 font-medium text-foreground">予約がありません</p>
           <p className="mt-1 text-sm text-muted">釣り場から予約してみましょう</p>
+          <Link
+            href="/spots"
+            className="mt-6 inline-flex min-h-11 items-center rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground hover:opacity-90"
+          >
+            釣り場一覧を見る
+          </Link>
         </div>
       ) : (
         <ul className="space-y-4">

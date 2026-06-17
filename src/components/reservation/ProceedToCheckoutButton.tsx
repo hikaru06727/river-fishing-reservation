@@ -25,7 +25,11 @@ export function ProceedToCheckoutButton({ reservationId }: ProceedToCheckoutButt
       const json = (await response.json()) as { checkout_url?: string; url?: string; error?: string };
 
       if (!response.ok) {
-        throw new Error(json.error ?? "決済ページの作成に失敗しました");
+        const message = json.error ?? "決済ページの作成に失敗しました";
+        if (message.includes("決済期限")) {
+          throw new Error(`${message} マイ予約から再度お試しください。`);
+        }
+        throw new Error(message);
       }
 
       const checkoutUrl = json.checkout_url ?? json.url;

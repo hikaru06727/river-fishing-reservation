@@ -43,6 +43,19 @@
 - migration ファイル: `supabase/migrations/007_harden_rls.sql`（一括適用可）
 - `reservation_email_logs` テーブルは未実装のため対象外
 
+## 008 系列（当日現金精算 payment_method）
+
+| 順番 | ファイル | 内容 |
+|------|---------|------|
+| 8a | `008a_add_payment_method_to_reservations.sql` | payment_method カラム追加 |
+| 8b | `008b_update_expire_pending_reservations.sql` | 失効 RPC（online pending のみ） |
+| 8c | `008c_update_create_reservation_atomic.sql` | create RPC（cash / online 分岐） |
+| 8d | `008d_verify_cash_payment_method.sql` | 確認 SQL |
+
+**008 実行順序:** 008a → 008b → 008c → 008d（007 適用後）
+
+- migration ファイル: `supabase/migrations/008_add_cash_payment_method.sql`（一括適用可）
+
 ## 006 実行順序
 
 **006a → 006b → 006c → 006d → 006f → 006g → 006h → 006i**（1 ファイルずつ）

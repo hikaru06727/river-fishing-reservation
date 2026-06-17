@@ -120,6 +120,12 @@ export default async function ReservationDetailPage({
               カード決済が完了すると予約が確定します。
             </p>
             <ProceedToCheckoutButton reservationId={reservation.id} />
+            {reservation.expires_at && (
+              <p className="mt-3 text-xs text-muted">
+                決済期限: {new Date(reservation.expires_at).toLocaleString("ja-JP")}
+                （期限を過ぎると自動的にキャンセルされます）
+              </p>
+            )}
           </div>
         )}
 
