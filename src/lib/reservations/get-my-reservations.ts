@@ -1,10 +1,13 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import type { Reservation, ReservationStatus } from "@/types/database";
+import type { PaymentStatus, Reservation, ReservationStatus } from "@/types/database";
+import type { PaymentMethod } from "@/lib/reservations/payment-method";
 
 export type MyReservation = Reservation & {
+  payment_method?: PaymentMethod | null;
   fishing_spots: { name: string; slug: string } | null;
   plans: { name: string; slug: string } | null;
+  payments: Array<{ status: PaymentStatus }> | null;
 };
 
 export async function getMyReservations(userId: string): Promise<MyReservation[]> {
@@ -18,7 +21,8 @@ export async function getMyReservations(userId: string): Promise<MyReservation[]
       `
       *,
       fishing_spots ( name, slug ),
-      plans ( name, slug )
+      plans ( name, slug ),
+      payments ( status )
     `,
     )
     .eq("user_id", userId)

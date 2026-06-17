@@ -170,4 +170,14 @@ describe("webhook email trigger conditions", () => {
     expect(shouldSendEmail(1, false)).toBe(false);
     expect(shouldSendEmail(1, true)).toBe(true);
   });
+
+  it("cash_at_venue は決済完了メール対象外", () => {
+    const shouldSendPaymentEmail = (
+      paymentMethod: string,
+      updatedCount: number,
+    ) => paymentMethod === "online" && updatedCount === 1;
+
+    expect(shouldSendPaymentEmail("cash_at_venue", 1)).toBe(false);
+    expect(shouldSendPaymentEmail("online", 1)).toBe(true);
+  });
 });

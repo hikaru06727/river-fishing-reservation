@@ -1,14 +1,19 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CancelReservationButton } from "@/components/reservation/CancelReservationButton";
+import { ProceedToCheckoutButton } from "@/components/reservation/ProceedToCheckoutButton";
+import {
+  buildReservationPaymentInfo,
+  ReservationPaymentSummary,
+} from "@/components/reservation/ReservationPaymentSummary";
 import { Card } from "@/components/ui/Card";
+import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
 import { getUser } from "@/lib/auth/get-user";
 import {
   canCancelReservation,
-  getReservationStatusColor,
-  getReservationStatusLabel,
 } from "@/lib/reservations/get-my-reservations";
 import { getReservationById } from "@/lib/reservations/get-reservation";
+import { shouldProceedToStripeCheckout } from "@/lib/reservations/payment-method";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
 import { formatDuration } from "@/lib/utils/plan";
 
@@ -45,6 +50,10 @@ export default async function ReservationDetailPage({
     reservationDate: reservation.reservation_date,
     startTime: reservation.start_time,
   });
+  const paymentInfo = buildReservationPaymentInfo(reservation);
+  const showCheckout =
+    reservation.status === "pending" &&
+    shouldProceedToStripeCheckout(paymentInfo.paymentMethod);
 
   return (
     <div className="space-y-6">
@@ -65,11 +74,7 @@ export default async function ReservationDetailPage({
             <h2 className="font-semibold text-foreground">{spotName}</h2>
             <p className="mt-0.5 text-sm text-muted">{plan?.name ?? "—"}</p>
           </div>
-          <span
-            className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${getReservationStatusColor(reservation.status)}`}
-          >
-            {getReservationStatusLabel(reservation.status)}
-          </span>
+          <ReservationStatusBadge status={reservation.status} />
         </div>
 
         <dl className="mt-4 space-y-3 text-sm">
@@ -100,6 +105,23 @@ export default async function ReservationDetailPage({
             </dd>
           </div>
         </dl>
+
+        <div className="mt-4 border-t border-border pt-4">
+          <ReservationPaymentSummary
+            paymentMethodLabel={paymentInfo.paymentMethodLabel}
+            paymentStateLabel={paymentInfo.paymentStateLabel}
+            paymentStateColor={paymentInfo.paymentStateColor}
+          />
+        </div>
+
+        {showCheckout && (
+          <div className="mt-6 border-t border-border pt-4">
+            <p className="mb-3 text-sm text-muted">
+              カード決済が完了すると予約が確定します。
+            </p>
+            <ProceedToCheckoutButton reservationId={reservation.id} />
+          </div>
+        )}
 
         {cancelPolicy.allowed ? (
           <div className="mt-6 border-t border-border pt-4">

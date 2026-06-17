@@ -39,6 +39,9 @@ export const createReservationSchema = z
       .int("参加人数は整数で入力してください")
       .min(1, "参加人数は1名以上です")
       .max(20, "参加人数は20名以下です"),
+    paymentMethod: z.enum(["online", "cash_at_venue"], {
+      error: "支払い方法を選択してください",
+    }),
   })
   .refine((data) => isTodayOrFuture(data.reservationDate), {
     message: "過去の日付は選択できません",

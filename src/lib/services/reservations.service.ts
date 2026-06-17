@@ -12,9 +12,14 @@ import {
   findReservationByIdAdmin,
   findReservationByIdForUser,
   findSpotNotificationMetaById,
+  insertPendingPaymentForReservation,
 } from "@/lib/repositories/reservations.repository";
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
+import {
+  getExpiresAtForPaymentMethod,
+  getInitialReservationStatusForPaymentMethod,
+} from "@/lib/reservations/payment-method";
 import { createReservationSchema, cancelReservationSchema, isAllowedStartTime } from "@/validations/reservation";
 import { sendReservationCancelledEmails } from "@/lib/email/reservation-cancellation-emails";
 import { sendReservationCreatedEmails } from "@/lib/email/reservation-emails";
@@ -64,6 +69,9 @@ function mapRpcErrorToHttpStatus(errorCode: string | null): number {
     case "INVALID_GUEST_COUNT":
     case "INVALID_SLOTS":
       return 422;
+    case "INVALID_PAYMENT_METHOD":
+    case "INVALID_EXPIRES_AT":
+      return 422;
     default:
       return 500;
   }
@@ -83,7 +91,7 @@ export async function createReservation(
     };
   }
 
-  const { spotId, planId, slotId, reservationDate, guestCount } = parsed.data;
+  const { spotId, planId, slotId, reservationDate, guestCount, paymentMethod } = parsed.data;
 
   const plan = await findActivePlanById(planId);
   if (!plan) {
@@ -130,7 +138,9 @@ export async function createReservation(
 
   const startTime = toDbTime(startSlot.start_time);
   const endTime = toDbTime(addMinutes(startSlot.start_time.slice(0, 5), plan.duration_minutes));
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const onlineExpiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const expiresAt = getExpiresAtForPaymentMethod(paymentMethod, onlineExpiresAt);
+  const reservationStatus = getInitialReservationStatusForPaymentMethod(paymentMethod);
   const totalAmount = plan.price_yen * guestCount;
 
   try {
@@ -144,7 +154,8 @@ export async function createReservation(
       end_time: endTime,
       guest_count: guestCount,
       total_amount_yen: totalAmount,
-      status: "pending",
+      status: reservationStatus,
+      payment_method: paymentMethod,
       expires_at: expiresAt,
       affected_slot_ids: affectedSlots.map((s) => s.id),
     });
@@ -163,6 +174,15 @@ export async function createReservation(
     const spotMeta = await findSpotNotificationMetaById(spotId);
     revalidateReservationPaths(spotId, spotMeta?.slug ?? null);
 
+    if (paymentMethod === "cash_at_venue") {
+      try {
+        await insertPendingPaymentForReservation(rpcResult.reservation_id, totalAmount);
+      } catch (paymentErr) {
+        console.error("[createReservation] cash payment record failed:", paymentErr);
+        // 予約自体は確定済みのためロールバックしない（将来: 管理者通知）
+      }
+    }
+
     void sendReservationCreatedEmails({
       reservationId: rpcResult.reservation_id,
       userId,
@@ -174,7 +194,8 @@ export async function createReservation(
       endTime,
       guestCount,
       totalAmountYen: totalAmount,
-      status: "pending",
+      status: reservationStatus,
+      paymentMethod,
     }).catch((err) => {
       console.warn("[createReservation] reservation email notification error:", err);
     });

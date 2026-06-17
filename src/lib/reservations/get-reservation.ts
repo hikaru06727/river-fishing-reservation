@@ -1,9 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Reservation } from "@/types/database";
+import type { PaymentStatus, Reservation } from "@/types/database";
+import type { PaymentMethod } from "@/lib/reservations/payment-method";
 
 export type ReservationDetail = Reservation & {
+  payment_method?: PaymentMethod | null;
   fishing_spots: { name: string; slug: string } | null;
   plans: { name: string; slug: string; duration_minutes: number; price_yen: number } | null;
+  payments: Array<{ status: PaymentStatus }> | null;
 };
 
 export async function getReservationById(
@@ -18,7 +21,8 @@ export async function getReservationById(
       `
       *,
       fishing_spots ( name, slug ),
-      plans ( name, slug, duration_minutes, price_yen )
+      plans ( name, slug, duration_minutes, price_yen ),
+      payments ( status )
     `,
     )
     .eq("id", id)

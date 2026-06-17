@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth/get-user";
+import { evaluateStripeCheckoutEligibility } from "@/lib/reservations/checkout-eligibility";
+import { inferPaymentMethod } from "@/lib/reservations/payment-method";
 import { getReservationById } from "@/lib/reservations/get-reservation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -34,18 +36,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "予約が見つかりません" }, { status: 404 });
     }
 
-    if (reservation.status !== "pending") {
-      return NextResponse.json(
-        { error: "この予約は決済できません" },
-        { status: 422 },
-      );
-    }
+    const eligibility = evaluateStripeCheckoutEligibility({
+      payment_method: inferPaymentMethod(reservation),
+      status: reservation.status,
+      expires_at: reservation.expires_at,
+    });
 
-    if (!reservation.expires_at || new Date(reservation.expires_at) <= new Date()) {
-      return NextResponse.json(
-        { error: "決済期限が切れています。再度予約してください。" },
-        { status: 422 },
-      );
+    if (!eligibility.ok) {
+      return NextResponse.json({ error: eligibility.error }, { status: eligibility.status });
     }
 
     const admin = createAdminClient();

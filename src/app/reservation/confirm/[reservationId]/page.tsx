@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { ProceedToCheckoutButton } from "@/components/reservation/ProceedToCheckoutButton";
+import {
+  buildReservationPaymentInfo,
+  ReservationPaymentSummary,
+} from "@/components/reservation/ReservationPaymentSummary";
 import { Card } from "@/components/ui/Card";
+import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
 import { getUser } from "@/lib/auth/get-user";
 import { getReservationById } from "@/lib/reservations/get-reservation";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
@@ -29,20 +35,73 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
 
   const spotName = reservation.fishing_spots?.name ?? "—";
   const plan = reservation.plans;
+  const paymentInfo = buildReservationPaymentInfo(reservation);
+  const isOnlinePending =
+    paymentInfo.paymentMethod === "online" && reservation.status === "pending";
+  const isCashConfirmed =
+    paymentInfo.paymentMethod === "cash_at_venue" && reservation.status === "confirmed";
 
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <div className="text-center">
         <p className="text-5xl" aria-hidden="true">
-          ✅
+          {isOnlinePending ? "💳" : "✅"}
         </p>
         <h1 className="mt-4 text-2xl font-bold text-foreground">
-          予約を受け付けました
+          {isOnlinePending
+            ? "仮予約を受け付けました"
+            : isCashConfirmed
+              ? "予約が確定しました"
+              : "予約を受け付けました"}
         </h1>
         <p className="mt-2 text-sm text-muted">
           予約番号: <span className="font-mono text-xs">{reservation.id}</span>
         </p>
+        {isOnlinePending ? (
+          <p className="mt-3 text-sm text-foreground">
+            続いてカード決済をお願いします。決済完了後に予約が確定します。
+          </p>
+        ) : isCashConfirmed ? (
+          <p className="mt-3 text-sm text-foreground">
+            当日、現地受付にて現金でお支払いください。
+          </p>
+        ) : (
+          <p className="mt-3 text-sm text-foreground">予約内容をご確認ください。</p>
+        )}
       </div>
+
+      {isCashConfirmed && (
+        <Card className="border-amber-200 bg-amber-50">
+          <h2 className="text-sm font-semibold text-amber-900">当日現金精算</h2>
+          <p className="mt-2 text-sm text-amber-800">
+            合計 {formatYen(reservation.total_amount_yen)} を、利用当日の受付にて現金でお支払いください。
+            事前のカード決済は不要です。
+          </p>
+          <p className="mt-2 text-xs text-amber-700">
+            確認メールをお送りしました。釣り場の住所・持ち物は釣り場詳細をご確認ください。
+          </p>
+        </Card>
+      )}
+
+      {isOnlinePending && (
+        <Card className="border-sky-200 bg-sky-50">
+          <h2 className="text-sm font-semibold text-sky-900">次のステップ：カード決済</h2>
+          <p className="mt-2 text-sm text-sky-800">
+            下のボタンから Stripe の安全な決済ページへ進んでください。
+            決済が完了するまで予約は確定しません。
+          </p>
+          <div className="mt-4">
+            <ProceedToCheckoutButton reservationId={reservation.id} />
+          </div>
+          {reservation.expires_at && (
+            <p className="mt-3 text-center text-xs text-sky-700">
+              決済期限: {new Date(reservation.expires_at).toLocaleString("ja-JP")}
+              <br />
+              期限を過ぎると予約は自動的にキャンセルされます。
+            </p>
+          )}
+        </Card>
+      )}
 
       <Card>
         <h2 className="text-sm font-medium text-muted">予約内容</h2>
@@ -82,27 +141,21 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
             </dd>
           </div>
           <div className="flex justify-between gap-4">
-            <dt className="shrink-0 text-muted">ステータス</dt>
+            <dt className="shrink-0 text-muted">予約状態</dt>
             <dd className="text-right">
-              <span className="rounded-full bg-yellow-100 px-2.5 py-0.5 text-xs font-medium text-yellow-800">
-                仮予約（決済待ち）
-              </span>
+              <ReservationStatusBadge status={reservation.status} />
             </dd>
           </div>
         </dl>
+        <div className="mt-4 border-t border-border pt-4">
+          <ReservationPaymentSummary {...paymentInfo} layout="stack" />
+        </div>
       </Card>
-
-      {reservation.expires_at && (
-        <p className="text-center text-xs text-muted">
-          決済期限:{" "}
-          {new Date(reservation.expires_at).toLocaleString("ja-JP")}
-        </p>
-      )}
 
       <div className="flex flex-col gap-3">
         <Link
           href="/my/reservations"
-          className="flex h-11 items-center justify-center rounded-lg bg-primary text-sm font-semibold text-primary-foreground hover:opacity-90"
+          className="flex h-11 items-center justify-center rounded-lg border border-border text-sm font-semibold hover:bg-slate-50"
         >
           マイ予約を見る
         </Link>

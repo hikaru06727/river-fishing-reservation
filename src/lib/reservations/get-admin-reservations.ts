@@ -6,12 +6,14 @@ import {
   resolveReservationDateFilters,
 } from "@/lib/reservations/admin-reservation-filters";
 import { resolveReservationPaymentStatus } from "@/lib/reservations/payment-status-display";
+import type { PaymentMethod } from "@/lib/reservations/payment-method";
 import type { PaymentStatus, ReservationStatus } from "@/types/database";
 
 export const ADMIN_RESERVATIONS_PAGE_SIZE = 15;
 
 const RESERVATION_LIST_SELECT = `
   id,
+  payment_method,
   reservation_date,
   start_time,
   end_time,
@@ -30,6 +32,7 @@ const RESERVATION_LIST_SELECT = `
 
 export type AdminReservationRow = {
   id: string;
+  payment_method: PaymentMethod;
   reservation_date: string;
   start_time: string;
   end_time: string;

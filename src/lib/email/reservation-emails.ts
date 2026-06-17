@@ -1,5 +1,9 @@
 import { resolveAdminNotificationRecipients } from "@/lib/email/admin-notification-recipients";
 import { sendEmail } from "@/lib/email/send-email";
+import {
+  getPaymentMethodLabel,
+  type PaymentMethod,
+} from "@/lib/reservations/payment-method";
 import { findProfileEmailByUserId } from "@/lib/repositories/reservations.repository";
 import type { ReservationStatus } from "@/types/database";
 
@@ -15,6 +19,7 @@ export type ReservationCreatedEmailInput = {
   guestCount: number;
   totalAmountYen: number;
   status?: ReservationStatus;
+  paymentMethod?: PaymentMethod;
 };
 
 export type ReservationCreatedEmailContext = {
@@ -28,6 +33,7 @@ export type ReservationCreatedEmailContext = {
   guestCount: number;
   totalAmountYen: number;
   status: ReservationStatus;
+  paymentMethod: PaymentMethod;
   paymentMethodLabel: string;
 };
 
@@ -50,12 +56,32 @@ export function formatReservationStatusLabel(status: ReservationStatus): string 
   }
 }
 
-/** 現行フローは Stripe オンライン決済のみ。作成直後は pending。 */
-export function formatPaymentMethodLabel(status: ReservationStatus): string {
+/** @deprecated getPaymentMethodLabel を直接使用 */
+export function formatPaymentMethodLabel(
+  status: ReservationStatus,
+  paymentMethod: PaymentMethod = "online",
+): string {
+  if (paymentMethod === "cash_at_venue") {
+    return getPaymentMethodLabel("cash_at_venue");
+  }
   if (status === "pending") {
     return "オンライン決済（決済待ち）";
   }
-  return "オンライン決済";
+  return getPaymentMethodLabel("online");
+}
+
+function buildCustomerClosingLines(context: ReservationCreatedEmailContext): string[] {
+  if (context.paymentMethod === "cash_at_venue") {
+    return [
+      "お支払いは当日、現地受付にて現金でお願いいたします。",
+      "ご不明点があれば釣り場までお問い合わせください。",
+    ];
+  }
+
+  return [
+    "カード決済が完了すると予約が確定します（30分以内）。",
+    "ご不明点があれば釣り場までお問い合わせください。",
+  ];
 }
 
 function formatAmountYen(amount: number): string {
@@ -84,26 +110,22 @@ export function buildCustomerReservationCreatedEmail(context: ReservationCreated
   html: string;
 } {
   const lines = buildReservationDetailsLines(context);
-  const text = [
-    "ご予約を受け付けました。",
-    "",
-    ...lines,
-    "",
-    "決済が完了すると予約が確定します。",
-    "ご不明点があれば釣り場までお問い合わせください。",
-  ].join("\n");
+  const closing = buildCustomerClosingLines(context);
+  const subjectPrefix =
+    context.paymentMethod === "cash_at_venue" ? "【予約確定】" : "【予約受付】";
+
+  const text = ["ご予約を受け付けました。", "", ...lines, "", ...closing].join("\n");
 
   const html = [
     "<p>ご予約を受け付けました。</p>",
     "<ul>",
     ...lines.map((line) => `<li>${escapeHtml(line)}</li>`),
     "</ul>",
-    "<p>決済が完了すると予約が確定します。</p>",
-    "<p>ご不明点があれば釣り場までお問い合わせください。</p>",
+    ...closing.map((line) => `<p>${escapeHtml(line)}</p>`),
   ].join("\n");
 
   return {
-    subject: `【予約受付】${context.spotName} ${context.reservationDate}`,
+    subject: `${subjectPrefix}${context.spotName} ${context.reservationDate}`,
     text,
     html,
   };
@@ -172,6 +194,7 @@ export async function sendReservationCreatedEmails(
     }
 
     const status = input.status ?? "pending";
+    const paymentMethod = input.paymentMethod ?? "online";
     const context: ReservationCreatedEmailContext = {
       reservationId: input.reservationId,
       customerEmail: customerEmail ?? "",
@@ -183,7 +206,8 @@ export async function sendReservationCreatedEmails(
       guestCount: input.guestCount,
       totalAmountYen: input.totalAmountYen,
       status,
-      paymentMethodLabel: formatPaymentMethodLabel(status),
+      paymentMethod,
+      paymentMethodLabel: formatPaymentMethodLabel(status, paymentMethod),
     };
 
     if (customerEmail) {
