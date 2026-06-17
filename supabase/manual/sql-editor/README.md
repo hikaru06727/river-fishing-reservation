@@ -29,12 +29,26 @@
 | 6h | `006h_rls_policies_business_admin.sql` | RLS ポリシー |
 | 6i | `006i_verify_business_admin.sql` | 確認 SQL |
 
+## 007 系列（RLS hardening）
+
+| 順番 | ファイル | 内容 |
+|------|---------|------|
+| 7a | `007a_harden_helper_functions.sql` | helper 関数 hardening |
+| 7b | `007b_profile_role_trigger.sql` | role 変更防止トリガー |
+| 7c | `007c_harden_rls_policies.sql` | RLS ポリシー再定義 |
+| 7i | `007i_verify_harden_rls.sql` | 確認 SQL |
+
+**007 実行順序:** 007a → 007b → 007c → 007i（006 適用後）
+
+- migration ファイル: `supabase/migrations/007_harden_rls.sql`（一括適用可）
+- `reservation_email_logs` テーブルは未実装のため対象外
+
 ## 006 実行順序
 
 **006a → 006b → 006c → 006d → 006f → 006g → 006h → 006i**（1 ファイルずつ）
 
 - **006e はスキップ**（006f が seed 兼ねる）
-- 007 RLS hardening 未適用の DB でも 006h は DROP IF EXISTS で適用可能
+- **007** は 006 適用後に `007_harden_rls.sql` または 007a→007c を実行
 
 ## 注意
 
