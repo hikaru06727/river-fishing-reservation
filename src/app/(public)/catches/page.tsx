@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { findPublishedCatchReportsList } from "@/lib/repositories/catch-reports.repository";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "釣果情報" };
@@ -8,22 +8,12 @@ export const metadata: Metadata = { title: "釣果情報" };
 export const dynamic = "force-dynamic";
 
 export default async function CatchesPage() {
-  const supabase = await createClient();
-  const { data: catches } = await supabase
-    .from("catch_reports")
-    .select("id, caught_date, fish_species, length_cm, title, description")
-    .eq("status", "published")
-    .order("caught_date", { ascending: false });
-
-  type CatchListItem = {
-    id: string;
-    caught_date: string | null;
-    fish_species: string | null;
-    length_cm: number | null;
-    title: string;
-    description: string | null;
-  };
-  const catchItems: CatchListItem[] = catches ?? [];
+  let catchItems: Awaited<ReturnType<typeof findPublishedCatchReportsList>> = [];
+  try {
+    catchItems = await findPublishedCatchReportsList();
+  } catch (error) {
+    console.error("[CatchesPage]", error instanceof Error ? error.message : error);
+  }
 
   return (
     <div>

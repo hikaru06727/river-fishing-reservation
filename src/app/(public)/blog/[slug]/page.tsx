@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import {
+  findPublishedBlogPostDetailBySlug,
+  findPublishedBlogPostTitleBySlug,
+} from "@/lib/repositories/blog.repository";
 import { formatDate } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
@@ -12,26 +15,23 @@ interface BlogPostPageProps {
 
 export async function generateMetadata({ params }: BlogPostPageProps): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data: post } = await supabase
-    .from("blog_posts")
-    .select("title")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle();
-
-  return { title: post?.title ?? "ブログ記事" };
+  try {
+    const title = await findPublishedBlogPostTitleBySlug(slug);
+    return { title: title ?? "ブログ記事" };
+  } catch (error) {
+    console.error("[BlogPostPage metadata]", error instanceof Error ? error.message : error);
+    return { title: "ブログ記事" };
+  }
 }
 
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data: post } = await supabase
-    .from("blog_posts")
-    .select("title, published_at, content")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .maybeSingle();
+  let post: Awaited<ReturnType<typeof findPublishedBlogPostDetailBySlug>> = null;
+  try {
+    post = await findPublishedBlogPostDetailBySlug(slug);
+  } catch (error) {
+    console.error("[BlogPostPage]", error instanceof Error ? error.message : error);
+  }
 
   if (!post) {
     notFound();

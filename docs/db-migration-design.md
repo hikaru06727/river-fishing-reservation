@@ -477,3 +477,98 @@ export interface AuthProvider {
 | `supabase.auth.getUser()` 抽象化 | Auth Provider 設計後に Phase 3 |
 
 ### 残タスク（Phase 3）
+
+- ~~blog/catches ページ・API（一覧・詳細）~~ ✅
+- Auth Provider 抽象化（設計のみ → セクション 15）
+- middleware.ts の Supabase client 生成（要設計）
+- `api/reservations/[id]`
+
+---
+
+## 14. 進捗（Repository 集約 Phase 3 — 2025-06）
+
+### 完了
+
+| 項目 | 移行先 |
+|------|--------|
+| `(public)/blog/*` | `blog.repository.ts` |
+| `(public)/catches/*` | `catch-reports.repository.ts` |
+| `api/blog/*` | `blog.repository.ts` |
+| `api/catches/*` | `catch-reports.repository.ts` |
+| `admin/blog/actions.ts` | `insertBlogPostAdmin` |
+| `admin/catches/actions.ts` | `insertCatchReportAdmin` |
+
+### 新規 Repository
+
+- `blog.repository.ts` — 公開読取 + 管理 INSERT（service_role）
+- `catch-reports.repository.ts` — 同上
+
+### 実装せず（Storage / 権限拡大リスク）
+
+| 項目 | 理由 |
+|------|------|
+| `cover_image_url` / `image_url` アップロード | Supabase Storage bucket / policy 変更が必要 |
+| 釣果画像の新規アップロード UI | 現行は image_url 未設定のまま INSERT のみ |
+
+---
+
+## 15. Auth Provider 抽象化 — 設計案（未実装）
+
+### 現状の `supabase.auth` 使用箇所
+
+| ファイル | 操作 |
+|----------|------|
+| `middleware.ts` | `getUser()` — Cookie セッション |
+| `get-user.ts` | `getUser()` |
+| `(auth)/actions.ts` | `signInWithOtp`, `signOut` |
+| `auth/callback/route.ts` | `exchangeCodeForSession`, `signOut` |
+| `admin/login/actions.ts` | `signInWithPassword`, `signOut` |
+| `api/admin/set-password/route.ts` | `auth.admin.updateUserById` |
+
+### 推奨 interface（将来）
+
+```typescript
+// lib/auth/provider.ts
+export type AuthUser = { id: string; email: string | null };
+
+export interface AuthProvider {
+  getSessionUser(): Promise<AuthUser | null>;
+  signInWithEmailOtp(email: string, redirectTo: string): Promise<{ error?: string }>;
+  signInWithPassword(email: string, password: string): Promise<{ user: AuthUser | null; error?: string }>;
+  signOut(): Promise<void>;
+  exchangeCodeForSession(code: string): Promise<{ ok: boolean; error?: string }>;
+}
+```
+
+- `SupabaseAuthProvider` — 現行 `@supabase/ssr` + `createClient()` を内部に閉じ込める
+- middleware 専用: `getSessionUserFromRequest(request)` — Cookie コンテキストが Server Component と異なるため **別メソッド**
+
+### 差し替え境界
+
+| 層 | 責務 |
+|----|------|
+| AuthProvider | セッション・OTP・パスワード・callback |
+| profiles.repository | profile 読取（Phase 2 済み） |
+| middleware | AuthProvider の request-scoped メソッドのみ呼ぶ |
+| get-user.ts | AuthProvider + profiles.repository を組み合わせ |
+
+### 段階的移行手順（提案）
+
+1. **Phase A** — `SupabaseAuthProvider` を新設し、`get-user.ts` の `getUser()` のみ delegate（profile は現状維持）
+2. **Phase B** — `(auth)/actions.ts` / `auth/callback` を Provider 経由に（ステージングで E2E）
+3. **Phase C** — `admin/login/actions.ts` を Provider 経由に
+4. **Phase D** — middleware を `AuthProvider.getSessionUserFromRequest` に（最もリスク高）
+5. **Phase E** — Cognito / Auth.js 等の第二実装を追加し env で切替
+
+### リスク
+
+| リスク | 緩和 |
+|--------|------|
+| Cookie / セッション形式が Supabase 固有 | middleware は最後に移行。ロールバック用に Supabase 実装を残す |
+| OTP メール送信方式変更 | Resend 連携は Supabase Auth 設定依存。Provider 差し替え時はメールテンプレ移行が必要 |
+| 全ユーザーログアウト | メンテナンスウィンドウ + 事前告知 |
+| admin パスワードログイン | business_admin / admin 専用フロー。一般 OTP と分離してテスト |
+
+### 今回実装しない理由
+
+ログイン不能は本番致命傷のため、Repository 集約（Phase 1〜3）完了後、ステージング E2E とロールバック手順が整ってから Phase A から着手する。
