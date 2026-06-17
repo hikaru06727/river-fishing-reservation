@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReservationStatus } from "@/types/database";
+import type { ReservationStatus } from "@/types/domain";
 import type { ManageableSpot } from "@/lib/reservations/get-admin-reservations";
 
 const STATUS_OPTIONS: Array<{ value: ReservationStatus | "all"; label: string }> = [

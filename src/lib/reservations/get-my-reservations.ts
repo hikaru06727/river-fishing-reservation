@@ -1,40 +1,21 @@
 import { unstable_noStore as noStore } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import type { PaymentStatus, Reservation, ReservationStatus } from "@/types/database";
-import type { PaymentMethod } from "@/lib/reservations/payment-method";
+import {
+  findMyReservationsByUserId,
+  type MyReservationRow,
+} from "@/lib/repositories/reservations.repository";
+import type { ReservationStatus } from "@/types/database";
 
-export type MyReservation = Reservation & {
-  payment_method?: PaymentMethod | null;
-  fishing_spots: { name: string; slug: string } | null;
-  plans: { name: string; slug: string } | null;
-  payments: Array<{ status: PaymentStatus }> | null;
-};
+export type MyReservation = MyReservationRow;
 
 export async function getMyReservations(userId: string): Promise<MyReservation[]> {
   noStore();
 
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("reservations")
-    .select(
-      `
-      *,
-      fishing_spots ( name, slug ),
-      plans ( name, slug ),
-      payments ( status )
-    `,
-    )
-    .eq("user_id", userId)
-    .order("reservation_date", { ascending: false })
-    .order("start_time", { ascending: false });
-
-  if (error) {
-    console.error("[getMyReservations]", error.message);
+  try {
+    return await findMyReservationsByUserId(userId);
+  } catch (error) {
+    console.error("[getMyReservations]", error instanceof Error ? error.message : error);
     throw new Error("予約一覧の取得に失敗しました。");
   }
-
-  return (data ?? []) as unknown as MyReservation[];
 }
 
 export {

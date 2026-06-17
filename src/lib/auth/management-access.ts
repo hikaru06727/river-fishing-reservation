@@ -1,4 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import {
+  findAssignedBusinessIdsByUserId,
+  findBusinessNamesByIds,
+  findReservationSpotIdByReservationId,
+  findSpotBusinessIdBySpotId,
+} from "@/lib/repositories/businesses.repository";
 import { getProfile, getUser } from "@/lib/auth/get-user";
 import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
 import type { Profile, UserRole } from "@/types/database";
@@ -49,18 +54,15 @@ export function canManageReservationForProfile(
 }
 
 async function getAssignedBusinessIds(userId: string): Promise<string[]> {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("business_admin_assignments")
-    .select("business_id")
-    .eq("user_id", userId);
-
-  if (error) {
-    console.error("[getAssignedBusinessIds]", error.message);
+  try {
+    return await findAssignedBusinessIdsByUserId(userId);
+  } catch (error) {
+    console.error(
+      "[getAssignedBusinessIds]",
+      error instanceof Error ? error.message : error,
+    );
     return [];
   }
-
-  return (data ?? []).map((row) => row.business_id);
 }
 
 async function getManagementProfile(): Promise<Profile | null> {
@@ -111,20 +113,19 @@ export async function canCurrentUserManageSpot(
     return false;
   }
 
-  const supabase = await createClient();
-  const { data: spot, error } = await supabase
-    .from("fishing_spots")
-    .select("business_id")
-    .eq("id", spotId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[canCurrentUserManageSpot]", error.message);
+  let spotBusinessId: string | null;
+  try {
+    spotBusinessId = await findSpotBusinessIdBySpotId(spotId);
+  } catch (error) {
+    console.error(
+      "[canCurrentUserManageSpot]",
+      error instanceof Error ? error.message : error,
+    );
     return false;
   }
 
   const assignedIds = await getAssignedBusinessIds(profile.id);
-  return canManageSpotForProfile(profile, spot?.business_id ?? null, assignedIds);
+  return canManageSpotForProfile(profile, spotBusinessId, assignedIds);
 }
 
 export async function canCurrentUserManageReservation(
@@ -145,23 +146,22 @@ export async function canCurrentUserManageReservation(
     return false;
   }
 
-  const supabase = await createClient();
-  const { data: reservation, error } = await supabase
-    .from("reservations")
-    .select("spot_id")
-    .eq("id", reservationId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[canCurrentUserManageReservation]", error.message);
+  let spotId: string | null;
+  try {
+    spotId = await findReservationSpotIdByReservationId(reservationId);
+  } catch (error) {
+    console.error(
+      "[canCurrentUserManageReservation]",
+      error instanceof Error ? error.message : error,
+    );
     return false;
   }
 
-  if (!reservation) {
+  if (!spotId) {
     return false;
   }
 
-  return canCurrentUserManageSpot(reservation.spot_id);
+  return canCurrentUserManageSpot(spotId);
 }
 
 /** 管理画面の簡易表示用（business_admin は担当事業名を返す） */
@@ -175,25 +175,16 @@ export async function getManagementScope(): Promise<ManagementScope | null> {
     return { role: profile.role, businessNames: null };
   }
 
-  const supabase = await createClient();
   const assignedIds = await getAssignedBusinessIds(profile.id);
   if (assignedIds.length === 0) {
     return { role: profile.role, businessNames: [] };
   }
 
-  const { data: businesses, error } = await supabase
-    .from("businesses")
-    .select("name")
-    .in("id", assignedIds)
-    .order("name");
-
-  if (error) {
-    console.error("[getManagementScope]", error.message);
+  try {
+    const businessNames = await findBusinessNamesByIds(assignedIds);
+    return { role: profile.role, businessNames };
+  } catch (error) {
+    console.error("[getManagementScope]", error instanceof Error ? error.message : error);
     return { role: profile.role, businessNames: [] };
   }
-
-  return {
-    role: profile.role,
-    businessNames: (businesses ?? []).map((b) => b.name),
-  };
 }

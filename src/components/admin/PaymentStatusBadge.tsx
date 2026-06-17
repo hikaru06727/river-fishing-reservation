@@ -2,7 +2,7 @@ import {
   getPaymentStatusColor,
   getPaymentStatusLabel,
 } from "@/lib/reservations/payment-status-display";
-import type { PaymentStatus } from "@/types/database";
+import type { PaymentStatus } from "@/types/domain";
 
 interface PaymentStatusBadgeProps {
   status: PaymentStatus | null | undefined;

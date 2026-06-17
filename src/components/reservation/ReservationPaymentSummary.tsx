@@ -7,7 +7,7 @@ import {
   type PaymentMethod,
 } from "@/lib/reservations/payment-method";
 import { resolveReservationPaymentStatus } from "@/lib/reservations/payment-status-display";
-import type { PaymentStatus, ReservationStatus } from "@/types/database";
+import type { PaymentStatus, ReservationStatus } from "@/types/domain";
 
 export type ReservationPaymentInfo = {
   paymentMethod: PaymentMethod;

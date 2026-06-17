@@ -83,7 +83,8 @@ UPDATE profiles SET role = 'admin' WHERE id = '<your-user-uuid>';
 | [docs/supabase-setup.md](./docs/supabase-setup.md) | Supabase 適用手順 |
 | [docs/stripe-setup.md](./docs/stripe-setup.md) | Stripe 設定手順 |
 | [docs/admin-operations.md](./docs/admin-operations.md) | 管理者向け運用 |
-| [docs/architecture.md](./docs/architecture.md) | アーキテクチャ |
+| [docs/architecture.md](./docs/architecture.md) | アーキテクチャ・レイヤ責務 |
+| [docs/db-migration-design.md](./docs/db-migration-design.md) | DB 移行・依存低減設計 |
 | [docs/db-schema.md](./docs/db-schema.md) | DB スキーマ |
 
 ## 予約フロー概要

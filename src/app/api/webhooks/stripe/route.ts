@@ -6,8 +6,13 @@ import {
   shouldConfirmReservationViaStripeWebhook,
 } from "@/lib/reservations/checkout-eligibility";
 import { inferPaymentMethod } from "@/lib/reservations/payment-method";
-import { findReservationPaymentEmailMetaById } from "@/lib/repositories/reservations.repository";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { upsertStripePaymentFromWebhook } from "@/lib/repositories/payments.repository";
+import {
+  confirmPendingReservationFromStripeWebhook,
+  findReservationForStripeWebhook,
+  findReservationPaymentEmailMetaById,
+  findReservationStatusForStripeWebhook,
+} from "@/lib/repositories/reservations.repository";
 import { getStripe } from "@/lib/stripe/server";
 import type { ReservationStatus } from "@/types/database";
 
@@ -65,17 +70,11 @@ export async function POST(request: Request) {
       return skippedResponse("missing_metadata");
     }
 
-    const admin = createAdminClient();
-
-    const { data: reservation, error: fetchError } = await admin
-      .from("reservations")
-      .select("id, user_id, status, total_amount_yen, payment_method")
-      .eq("id", reservationId)
-      .eq("user_id", userId)
-      .maybeSingle();
-
-    if (fetchError) {
-      console.error("[stripe webhook] fetch reservation failed:", fetchError.message);
+    let reservation;
+    try {
+      reservation = await findReservationForStripeWebhook(reservationId, userId);
+    } catch (fetchError) {
+      console.error("[stripe webhook] fetch reservation failed:", fetchError);
       return NextResponse.json({ error: "Failed to fetch reservation" }, { status: 500 });
     }
 
@@ -88,46 +87,39 @@ export async function POST(request: Request) {
 
     if (!shouldConfirmReservationViaStripeWebhook({
       payment_method: paymentMethod,
-      status: reservation.status as ReservationStatus,
+      status: reservation.status,
     })) {
       const reason = getWebhookSkipReasonForCashOrNonPending({
         payment_method: paymentMethod,
-        status: reservation.status as ReservationStatus,
+        status: reservation.status,
       });
       console.info(
         `[stripe webhook] skip confirm: reservation ${reservationId} payment_method=${paymentMethod} status=${reservation.status}`,
       );
-      return skippedResponse(reason, reservation.status as ReservationStatus);
+      return skippedResponse(reason, reservation.status);
     }
 
-    // pending のみ更新。.select() は配列を返す（single/maybeSingle は使わない）
-    const { data: updatedRows, error: updateError } = await admin
-      .from("reservations")
-      .update({
-        status: "confirmed",
-        stripe_checkout_session_id: session.id,
-      })
-      .eq("id", reservationId)
-      .eq("user_id", userId)
-      .eq("status", "pending")
-      .select("id");
-
-    if (updateError) {
-      console.error("[stripe webhook] confirm update failed:", updateError.message);
+    let updatedCount: number;
+    try {
+      const result = await confirmPendingReservationFromStripeWebhook({
+        reservationId,
+        userId,
+        stripeCheckoutSessionId: session.id,
+      });
+      updatedCount = result.updatedCount;
+    } catch (updateError) {
+      console.error("[stripe webhook] confirm update failed:", updateError);
       return NextResponse.json({ error: "Failed to confirm reservation" }, { status: 500 });
     }
 
-    const updatedCount = updatedRows?.length ?? 0;
-
     if (updatedCount === 0) {
-      const { data: current } = await admin
-        .from("reservations")
-        .select("status")
-        .eq("id", reservationId)
-        .eq("user_id", userId)
-        .maybeSingle();
+      let currentStatus: ReservationStatus | null = null;
+      try {
+        currentStatus = await findReservationStatusForStripeWebhook(reservationId, userId);
+      } catch (statusError) {
+        console.error("[stripe webhook] status fetch failed:", statusError);
+      }
 
-      const currentStatus = current?.status as ReservationStatus | undefined;
       const reason = currentStatus
         ? skipReasonForStatus(currentStatus)
         : "concurrent_state_change";
@@ -136,23 +128,19 @@ export async function POST(request: Request) {
         `[stripe webhook] skip confirm: reservation ${reservationId} updated 0 rows (status=${currentStatus ?? "unknown"})`,
       );
 
-      return skippedResponse(reason, currentStatus);
+      return skippedResponse(reason, currentStatus ?? undefined);
     }
 
-    const { error: paymentError } = await admin.from("payments").upsert(
-      {
+    try {
+      await upsertStripePaymentFromWebhook({
         reservation_id: reservationId,
         stripe_checkout_session_id: session.id,
         amount_yen: session.amount_total ?? reservation.total_amount_yen,
         currency: session.currency ?? "jpy",
-        status: "succeeded",
         paid_at: new Date().toISOString(),
-      },
-      { onConflict: "reservation_id" },
-    );
-
-    if (paymentError) {
-      console.error("[stripe webhook] payment upsert failed:", paymentError.message);
+      });
+    } catch (paymentError) {
+      console.error("[stripe webhook] payment upsert failed:", paymentError);
       return NextResponse.json({ error: "Failed to record payment" }, { status: 500 });
     }
 
