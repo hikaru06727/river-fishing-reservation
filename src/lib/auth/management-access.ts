@@ -39,6 +39,15 @@ export function canManageSpotForProfile(
   return canManageBusinessForProfile(profile, spotBusinessId, assignedBusinessIds);
 }
 
+/** 純粋関数: reservation の spot → business 経由で予約操作可否 */
+export function canManageReservationForProfile(
+  profile: Pick<Profile, "role" | "id"> | null | undefined,
+  spotBusinessId: string | null | undefined,
+  assignedBusinessIds: readonly string[],
+): boolean {
+  return canManageSpotForProfile(profile, spotBusinessId, assignedBusinessIds);
+}
+
 async function getAssignedBusinessIds(userId: string): Promise<string[]> {
   const supabase = await createClient();
   const { data, error } = await supabase

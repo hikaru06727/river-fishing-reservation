@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils/format";
-import type { ReservationStatus } from "@/types/database";
 
 interface PaginationProps {
   page: number;
@@ -16,14 +15,16 @@ function buildPageUrl(
 ): string {
   const params = new URLSearchParams();
 
-  if (searchParams.date) {
-    params.set("date", searchParams.date);
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value) {
+      params.set(key, value);
+    }
   }
-  if (searchParams.status && searchParams.status !== "all") {
-    params.set("status", searchParams.status);
-  }
+
   if (page > 1) {
     params.set("page", String(page));
+  } else {
+    params.delete("page");
   }
 
   const qs = params.toString();

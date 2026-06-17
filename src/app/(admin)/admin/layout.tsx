@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ManagementContextBar } from "@/components/admin/ManagementContextBar";
 import { getAuthenticatedManagement, getUser } from "@/lib/auth/get-user";
 
 const adminLinks = [
+  { href: "/admin", label: "トップ" },
+  { href: "/admin/reservations", label: "予約管理" },
   { href: "/admin/spots", label: "釣り場管理" },
   { href: "/admin/slots", label: "空き枠管理" },
-  { href: "/admin/reservations", label: "予約管理" },
   { href: "/admin/catches", label: "釣果管理" },
   { href: "/admin/blog", label: "ブログ管理" },
 ];
@@ -38,6 +40,7 @@ export default async function AdminLayout({
           ))}
         </nav>
       </div>
+      <ManagementContextBar />
       {children}
     </div>
   );

@@ -6,6 +6,13 @@ import { canCurrentUserManageReservation } from "@/lib/auth/management-access";
 import { cancelReservation } from "@/lib/services/reservations.service";
 import type { AdminCancelReservationState } from "@/types/reservation-action";
 
+function sanitizeReturnTo(value: FormDataEntryValue | null): string {
+  if (typeof value !== "string" || !value.startsWith("/admin")) {
+    return "/admin/reservations";
+  }
+  return value;
+}
+
 export async function adminCancelReservationAction(
   _prevState: AdminCancelReservationState,
   formData: FormData,
@@ -38,5 +45,5 @@ export async function adminCancelReservationAction(
     return { error: result.error };
   }
 
-  redirect("/admin/reservations");
+  redirect(sanitizeReturnTo(formData.get("returnTo")));
 }

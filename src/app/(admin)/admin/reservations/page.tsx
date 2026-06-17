@@ -4,11 +4,15 @@ import { ReservationFilters } from "@/components/admin/ReservationFilters";
 import { ReservationSummaryCards } from "@/components/admin/ReservationSummaryCards";
 import { getManagementScope } from "@/lib/auth/management-access";
 import {
+  buildAdminReservationSearchParams,
+  parseAdminReservationFilters,
+} from "@/lib/reservations/admin-reservation-filters";
+import {
   getAdminReservations,
+  getManageableSpots,
   getTodayReservationSummary,
 } from "@/lib/reservations/get-admin-reservations";
 import { isAdminRole } from "@/lib/auth/role";
-import type { ReservationStatus } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -20,38 +24,25 @@ export const metadata = {
 interface AdminReservationsPageProps {
   searchParams: Promise<{
     date?: string;
+    dateFrom?: string;
+    dateTo?: string;
     status?: string;
+    spotId?: string;
     page?: string;
   }>;
-}
-
-const VALID_STATUSES: Array<ReservationStatus | "all"> = [
-  "all",
-  "pending",
-  "confirmed",
-  "cancelled",
-  "expired",
-];
-
-function parseStatus(value?: string): ReservationStatus | "all" {
-  if (value && VALID_STATUSES.includes(value as ReservationStatus | "all")) {
-    return value as ReservationStatus | "all";
-  }
-  return "all";
 }
 
 export default async function AdminReservationsPage({
   searchParams,
 }: AdminReservationsPageProps) {
   const params = await searchParams;
-  const date = params.date || undefined;
-  const status = parseStatus(params.status);
-  const page = Math.max(1, Number(params.page ?? "1") || 1);
+  const filters = parseAdminReservationFilters(params);
 
-  const [summary, result, scope] = await Promise.all([
+  const [summary, result, scope, spots] = await Promise.all([
     getTodayReservationSummary(),
-    getAdminReservations({ date, status, page }),
+    getAdminReservations(filters),
     getManagementScope(),
+    getManageableSpots(),
   ]);
 
   const scopeDescription =
@@ -63,10 +54,20 @@ export default async function AdminReservationsPage({
           ? "担当事業が未割当のため、操作可能な予約はありません"
           : "予約一覧";
 
-  const filterParams = {
-    date,
-    status: status === "all" ? undefined : status,
-  };
+  const filterParams = buildAdminReservationSearchParams({
+    date: filters.date,
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+    status: filters.status,
+    spotId: filters.spotId,
+  });
+
+  const returnToQuery = new URLSearchParams(
+    Object.entries(filterParams).filter((entry): entry is [string, string] => !!entry[1]),
+  ).toString();
+  const returnTo = returnToQuery
+    ? `/admin/reservations?${returnToQuery}`
+    : "/admin/reservations";
 
   return (
     <div className="space-y-6">
@@ -79,9 +80,16 @@ export default async function AdminReservationsPage({
 
       <ReservationSummaryCards summary={summary} />
 
-      <ReservationFilters date={date} status={status} />
+      <ReservationFilters
+        date={filters.date}
+        dateFrom={filters.dateFrom}
+        dateTo={filters.dateTo}
+        status={filters.status}
+        spotId={filters.spotId}
+        spots={spots}
+      />
 
-      <AdminReservationsTable reservations={result.reservations} />
+      <AdminReservationsTable reservations={result.reservations} returnTo={returnTo} />
 
       <div className="flex flex-col items-center gap-2">
         <Pagination
