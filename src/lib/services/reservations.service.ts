@@ -16,6 +16,7 @@ import {
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import { createReservationSchema, cancelReservationSchema, isAllowedStartTime } from "@/validations/reservation";
+import { sendReservationCancelledEmails } from "@/lib/email/reservation-cancellation-emails";
 import { sendReservationCreatedEmails } from "@/lib/email/reservation-emails";
 
 export type ServiceResult<T> =
@@ -32,8 +33,11 @@ export type CancelReservationResult = {
   refundInitiated: boolean;
 };
 
+export type CancelledBy = "customer" | "admin" | "business_admin";
+
 export type CancelReservationOptions = {
   isAdmin?: boolean;
+  cancelledBy?: CancelledBy;
 };
 
 function revalidateReservationPaths(spotId: string, spotSlug: string | null) {
@@ -214,6 +218,8 @@ export async function cancelReservation(
 
   const { reservationId } = parsed.data;
   const isAdmin = options.isAdmin ?? false;
+  const cancelledBy: CancelledBy =
+    options.cancelledBy ?? (isAdmin ? "admin" : "customer");
 
   const reservation = isAdmin
     ? await findReservationByIdAdmin(reservationId)
@@ -290,6 +296,21 @@ export async function cancelReservation(
     const spotMeta = await findSpotNotificationMetaById(reservation.spot_id);
     revalidateReservationPaths(reservation.spot_id, spotMeta?.slug ?? null);
     revalidatePath(`/my/reservations/${reservationId}`);
+
+    void sendReservationCancelledEmails({
+      reservationId,
+      customerUserId: reservation.user_id,
+      spotName: spotMeta?.name ?? "釣り場",
+      businessId: spotMeta?.businessId ?? null,
+      planName: plan.name,
+      reservationDate: reservation.reservation_date,
+      startTime: reservation.start_time,
+      endTime: reservation.end_time,
+      guestCount: reservation.guest_count,
+      cancelledBy,
+    }).catch((err) => {
+      console.warn("[cancelReservation] cancellation email notification error:", err);
+    });
 
     return { ok: true, data: { reservationId, refundInitiated } };
   } catch (err) {

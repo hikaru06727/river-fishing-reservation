@@ -25,10 +25,13 @@ export async function adminCancelReservationAction(
     return { error: "この予約を操作する権限がありません。" };
   }
 
+  const cancelledBy =
+    session.profile.role === "business_admin" ? "business_admin" : "admin";
+
   const result = await cancelReservation(
     session.user.id,
     { reservationId },
-    { isAdmin: true },
+    { isAdmin: true, cancelledBy },
   );
 
   if (!result.ok) {
