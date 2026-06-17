@@ -1,4 +1,5 @@
 import { resolveAdminNotificationRecipients } from "@/lib/email/admin-notification-recipients";
+import { logEmailHandlerResult } from "@/lib/email/log-send-result";
 import { sendEmail } from "@/lib/email/send-email";
 import {
   getPaymentMethodLabel,
@@ -168,13 +169,9 @@ function escapeHtml(value: string): string {
 async function logSendResult(
   label: string,
   result: Awaited<ReturnType<typeof sendEmail>>,
+  context: { to: string | string[]; subject: string },
 ): Promise<void> {
-  if (result.ok && result.skipped) {
-    return;
-  }
-  if (!result.ok) {
-    console.warn(`[sendReservationCreatedEmails] ${label} failed:`, result.error);
-  }
+  logEmailHandlerResult("sendReservationCreatedEmails", label, result, context);
 }
 
 /**
@@ -218,7 +215,10 @@ export async function sendReservationCreatedEmails(
         text: customerEmailContent.text,
         html: customerEmailContent.html,
       });
-      await logSendResult("customer email", customerResult);
+      await logSendResult("customer email", customerResult, {
+        to: customerEmail,
+        subject: customerEmailContent.subject,
+      });
     }
 
     const adminRecipients = await resolveAdminNotificationRecipients(input.businessId);
@@ -237,7 +237,10 @@ export async function sendReservationCreatedEmails(
       text: adminEmailContent.text,
       html: adminEmailContent.html,
     });
-    await logSendResult("admin notification", adminResult);
+    await logSendResult("admin notification", adminResult, {
+      to: adminRecipients,
+      subject: adminEmailContent.subject,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.warn("[sendReservationCreatedEmails]", message);

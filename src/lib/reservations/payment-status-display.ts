@@ -1,5 +1,36 @@
 import type { PaymentStatus } from "@/types/database";
 
+export type ReservationPaymentEmbed = {
+  status: PaymentStatus;
+  paid_at?: string | null;
+};
+
+/**
+ * Supabase の embed: 1:1 関係（payments.reservation_id UNIQUE）では object、
+ * 1:N として解釈される場合は array で返ることがある。
+ */
+export function normalizeReservationPayments<T extends ReservationPaymentEmbed>(
+  payments: T | T[] | null | undefined,
+): T[] {
+  if (payments == null) {
+    return [];
+  }
+  if (Array.isArray(payments)) {
+    return payments;
+  }
+  if (typeof payments === "object" && "status" in payments) {
+    return [payments];
+  }
+  return [];
+}
+
+/** 正規化後の先頭 payment（通常 1 件） */
+export function getLatestReservationPayment<T extends ReservationPaymentEmbed>(
+  payments: T | T[] | null | undefined,
+): T | null {
+  return normalizeReservationPayments(payments)[0] ?? null;
+}
+
 export function getPaymentStatusLabel(status: PaymentStatus | null | undefined): string {
   if (!status) {
     return "未決済";
@@ -30,20 +61,25 @@ export function getPaymentStatusColor(status: PaymentStatus | null | undefined):
   return colors[status];
 }
 
-/** 予約に紐づく payments 配列から表示用ステータスを決定 */
+/** 予約に紐づく payments から表示用ステータスを決定 */
 export function resolveReservationPaymentStatus(
-  payments: Array<{ status: PaymentStatus }> | null | undefined,
+  payments:
+    | Array<{ status: PaymentStatus }>
+    | { status: PaymentStatus }
+    | null
+    | undefined,
 ): PaymentStatus | null {
-  if (!payments?.length) {
+  const list = normalizeReservationPayments(payments);
+  if (!list.length) {
     return null;
   }
 
   const priority: PaymentStatus[] = ["succeeded", "refunded", "pending", "failed"];
   for (const status of priority) {
-    if (payments.some((p) => p.status === status)) {
+    if (list.some((p) => p.status === status)) {
       return status;
     }
   }
 
-  return payments[0]?.status ?? null;
+  return list[0]?.status ?? null;
 }

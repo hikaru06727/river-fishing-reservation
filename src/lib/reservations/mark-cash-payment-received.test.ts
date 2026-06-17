@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canMarkCashPaymentReceived,
+  getAdminCashPaymentUiState,
   isCashPaymentAlreadyReceived,
 } from "@/lib/reservations/mark-cash-payment-received";
 
@@ -13,6 +14,15 @@ const cashConfirmedPending = {
 describe("canMarkCashPaymentReceived", () => {
   it("cash + confirmed + pending → true", () => {
     expect(canMarkCashPaymentReceived(cashConfirmedPending)).toBe(true);
+  });
+
+  it("cash + confirmed + pending + paid_at あり → false", () => {
+    expect(
+      canMarkCashPaymentReceived({
+        ...cashConfirmedPending,
+        paid_at: "2025-06-01T00:00:00.000Z",
+      }),
+    ).toBe(false);
   });
 
   it("cash + confirmed + succeeded → false（操作不要）", () => {
@@ -90,5 +100,78 @@ describe("isCashPaymentAlreadyReceived", () => {
 
   it("cash + confirmed + pending → false", () => {
     expect(isCashPaymentAlreadyReceived(cashConfirmedPending)).toBe(false);
+  });
+});
+
+describe("getAdminCashPaymentUiState", () => {
+  const base = {
+    payment_method: "cash_at_venue" as const,
+    reservation_status: "confirmed" as const,
+  };
+
+  it("cash + confirmed + payments.pending（array）→ ボタン表示", () => {
+    expect(
+      getAdminCashPaymentUiState({
+        ...base,
+        payments: [{ status: "pending", paid_at: null }],
+      }),
+    ).toEqual({
+      showMarkButton: true,
+      showAlreadyPaid: false,
+      showMissingPaymentNote: false,
+    });
+  });
+
+  it("cash + confirmed + payments.pending（object）→ ボタン表示", () => {
+    expect(
+      getAdminCashPaymentUiState({
+        ...base,
+        payments: { status: "pending", paid_at: null },
+      }),
+    ).toEqual({
+      showMarkButton: true,
+      showAlreadyPaid: false,
+      showMissingPaymentNote: false,
+    });
+  });
+
+  it("cash + confirmed + payments.succeeded → ボタンなし・現地精算済", () => {
+    expect(
+      getAdminCashPaymentUiState({
+        ...base,
+        payments: { status: "succeeded", paid_at: "2025-06-01T00:00:00.000Z" },
+      }),
+    ).toEqual({
+      showMarkButton: false,
+      showAlreadyPaid: true,
+      showMissingPaymentNote: false,
+    });
+  });
+
+  it("online → ボタンなし", () => {
+    expect(
+      getAdminCashPaymentUiState({
+        payment_method: "online",
+        reservation_status: "confirmed",
+        payments: { status: "pending", paid_at: null },
+      }),
+    ).toEqual({
+      showMarkButton: false,
+      showAlreadyPaid: false,
+      showMissingPaymentNote: false,
+    });
+  });
+
+  it("payment レコードなし → ボタンなし・注記", () => {
+    expect(
+      getAdminCashPaymentUiState({
+        ...base,
+        payments: null,
+      }),
+    ).toEqual({
+      showMarkButton: false,
+      showAlreadyPaid: false,
+      showMissingPaymentNote: true,
+    });
   });
 });

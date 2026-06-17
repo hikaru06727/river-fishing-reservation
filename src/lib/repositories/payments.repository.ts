@@ -1,3 +1,4 @@
+import { getLatestReservationPayment } from "@/lib/reservations/payment-status-display";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { PaymentMethod, PaymentStatus, ReservationStatus } from "@/types/database";
 
@@ -28,8 +29,9 @@ export async function findReservationPaymentMetaByIdAdmin(
     return null;
   }
 
-  const payments = data.payments as unknown as Array<{ status: PaymentStatus }> | null;
-  const payment = payments?.[0] ?? null;
+  const payment = getLatestReservationPayment(
+    data.payments as unknown as { status: PaymentStatus } | Array<{ status: PaymentStatus }> | null,
+  );
 
   return {
     payment_method: data.payment_method as PaymentMethod,

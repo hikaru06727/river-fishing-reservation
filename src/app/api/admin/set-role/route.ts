@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { DB_USER_ROLES } from "@/lib/auth/role";
+import {
+  getDevAdminApiGateDebug,
+  isDevAdminApiEnabled,
+  logDevAdminApiGateDenied,
+  logDevAdminSecretRejected,
+  validateDevAdminSecret,
+} from "@/lib/dev/dev-admin-api";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { UserRole } from "@/types/database";
 
@@ -7,27 +14,29 @@ import type { UserRole } from "@/types/database";
  * 開発専用: profiles.role を更新する API。
  * 権限の Single Source of Truth は profiles.role（RLS の is_admin() と一致）。
  *
- * - NODE_ENV=production では常に 403
+ * - Vercel 上では常に 403
  * - ADMIN_SECRET 未設定時も 403
  * - user_metadata は更新しない
  */
-function isDevSetRoleApiEnabled(): boolean {
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-  return Boolean(process.env.ADMIN_SECRET);
-}
+const ROUTE_LABEL = "admin/set-role";
 
 export async function POST(request: Request) {
-  if (!isDevSetRoleApiEnabled()) {
+  const gateDebug = getDevAdminApiGateDebug();
+
+  if (!isDevAdminApiEnabled()) {
+    logDevAdminApiGateDenied(ROUTE_LABEL, gateDebug);
     return NextResponse.json(
-      { error: "This endpoint is disabled in production or when ADMIN_SECRET is unset" },
+      {
+        error: "This endpoint is disabled on hosted environments or when ADMIN_SECRET is unset",
+        debug: gateDebug,
+      },
       { status: 403 },
     );
   }
 
-  const secret = request.headers.get("x-admin-secret");
-  if (!secret || secret !== process.env.ADMIN_SECRET) {
+  const secretValidation = validateDevAdminSecret(request);
+  if (!secretValidation.ok) {
+    logDevAdminSecretRejected(ROUTE_LABEL, secretValidation);
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
