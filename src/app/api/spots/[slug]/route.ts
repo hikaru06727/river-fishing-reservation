@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { findActiveSpotFullBySlug } from "@/lib/repositories/fishing-spots.repository";
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -7,18 +7,12 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { slug } = await context.params;
-  const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("fishing_spots")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .single();
+  const spot = await findActiveSpotFullBySlug(slug);
 
-  if (error) {
+  if (!spot) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ spot: data });
+  return NextResponse.json({ spot });
 }

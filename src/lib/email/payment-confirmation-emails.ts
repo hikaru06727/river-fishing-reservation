@@ -1,7 +1,7 @@
 import { resolveAdminNotificationRecipients } from "@/lib/email/admin-notification-recipients";
 import { formatReservationTime } from "@/lib/email/reservation-emails";
 import { sendEmail } from "@/lib/email/send-email";
-import { findProfileEmailByUserId } from "@/lib/repositories/reservations.repository";
+import { findProfileEmailByUserIdAdmin as findProfileEmailByUserId } from "@/lib/repositories/profiles.repository";
 
 export type PaymentConfirmedEmailInput = {
   reservationId: string;

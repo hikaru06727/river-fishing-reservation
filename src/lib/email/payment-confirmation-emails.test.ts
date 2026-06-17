@@ -20,8 +20,8 @@ vi.mock("@/lib/email/admin-notification-recipients", () => ({
   resolveAdminNotificationRecipients: resolveRecipientsMock,
 }));
 
-vi.mock("@/lib/repositories/reservations.repository", () => ({
-  findProfileEmailByUserId: findProfileEmailMock,
+vi.mock("@/lib/repositories/profiles.repository", () => ({
+  findProfileEmailByUserIdAdmin: findProfileEmailMock,
 }));
 
 const baseContext: PaymentConfirmedEmailContext = {

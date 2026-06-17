@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
- * Repository 集約後、get-* / management-access / checkout / webhook が
+ * Repository 集約後、get-* / auth / email / page が
  * Supabase client を直接 import していないことを文書化するテスト。
  */
 describe("Supabase client isolation (static)", () => {
@@ -14,6 +14,12 @@ describe("Supabase client isolation (static)", () => {
     expect(content).not.toContain(forbidden);
   }
 
+  function fileMustNotImportFrom(relativePath: string, forbidden: string) {
+    const content = readFileSync(resolve(root, relativePath), "utf-8");
+    expect(content).not.toMatch(new RegExp(`\\.from\\(["']${forbidden}`));
+  }
+
+  // Phase 1
   it("get-reservation.ts は createClient を直接使わない", () => {
     fileMustNotImport("lib/reservations/get-reservation.ts", "createClient");
     fileMustNotImport("lib/reservations/get-reservation.ts", "@/lib/supabase/server");
@@ -38,5 +44,51 @@ describe("Supabase client isolation (static)", () => {
 
   it("webhook route は createAdminClient を直接使わない", () => {
     fileMustNotImport("app/api/webhooks/stripe/route.ts", "createAdminClient");
+  });
+
+  // Phase 2
+  it("get-user.ts は profiles テーブルを直接クエリしない", () => {
+    fileMustNotImportFrom("lib/auth/get-user.ts", "profiles");
+  });
+
+  it("fetch-profile-role.ts は profiles テーブルを直接クエリしない", () => {
+    fileMustNotImportFrom("lib/auth/fetch-profile-role.ts", "profiles");
+  });
+
+  it("get-spots.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/spots/get-spots.ts", "createClient");
+    fileMustNotImport("lib/spots/get-spots.ts", "@/lib/supabase/server");
+  });
+
+  it("get-spot-by-id.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/spots/get-spot-by-id.ts", "createClient");
+  });
+
+  it("get-spot-by-slug.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/spots/get-spot-by-slug.ts", "createClient");
+  });
+
+  it("get-plans.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/get-plans.ts", "createClient");
+  });
+
+  it("get-plan-by-slug.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/get-plan-by-slug.ts", "createClient");
+  });
+
+  it("admin-notification-recipients.ts は createAdminClient を直接使わない", () => {
+    fileMustNotImport("lib/email/admin-notification-recipients.ts", "createAdminClient");
+  });
+
+  it("reserve/complete/page.tsx は createAdminClient を直接使わない", () => {
+    fileMustNotImport("app/reserve/complete/page.tsx", "createAdminClient");
+  });
+
+  it("api/spots route は createClient を直接使わない", () => {
+    fileMustNotImport("app/api/spots/route.ts", "createClient");
+  });
+
+  it("api/plans route は createClient を直接使わない", () => {
+    fileMustNotImport("app/api/plans/route.ts", "createClient");
   });
 });

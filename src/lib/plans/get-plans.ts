@@ -1,19 +1,11 @@
-import { createClient } from "@/lib/supabase/server";
+import { findAllActivePlans } from "@/lib/repositories/plans.repository";
 import type { Plan } from "@/types/database";
 
 export async function getActivePlans(): Promise<Plan[]> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("plans")
-    .select("*")
-    .eq("is_active", true)
-    .order("duration_minutes", { ascending: true });
-
-  if (error) {
-    console.error("[getActivePlans]", error.message);
+  try {
+    return await findAllActivePlans();
+  } catch (error) {
+    console.error("[getActivePlans]", error instanceof Error ? error.message : error);
     throw new Error("プラン情報の取得に失敗しました。");
   }
-
-  return data ?? [];
 }
