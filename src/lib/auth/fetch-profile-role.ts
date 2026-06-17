@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { findProfileRoleByUserIdWithClient } from "@/lib/repositories/profiles.repository";
 import type { UserRole } from "@/types/database";
 
 /** middleware / server 共通: profiles.role を取得（RLS: 本人 SELECT 可） */
@@ -6,16 +7,13 @@ export async function fetchProfileRoleByUserId(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<UserRole | null> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[fetchProfileRoleByUserId]", error.message);
+  try {
+    return await findProfileRoleByUserIdWithClient(
+      supabase as Parameters<typeof findProfileRoleByUserIdWithClient>[0],
+      userId,
+    );
+  } catch (error) {
+    console.error("[fetchProfileRoleByUserId]", error instanceof Error ? error.message : error);
     return null;
   }
-
-  return (data?.role as UserRole | undefined) ?? null;
 }

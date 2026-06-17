@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { findReservationCompleteDisplayByIdAdmin } from "@/lib/repositories/reservations.repository";
 import { getStripe } from "@/lib/stripe/server";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
 
@@ -31,17 +31,13 @@ async function CompleteContent({
   let totalAmount: number | null = session.amount_total;
 
   if (reservationId && userId) {
-    const admin = createAdminClient();
-    const { data: reservation } = await admin
-      .from("reservations")
-      .select("total_amount_yen, reservation_date, start_time, plans(name)")
-      .eq("id", reservationId)
-      .eq("user_id", userId)
-      .maybeSingle();
+    const reservation = await findReservationCompleteDisplayByIdAdmin(
+      reservationId,
+      userId,
+    );
 
     if (reservation) {
-      const plans = reservation.plans as unknown as { name: string } | null;
-      planName = plans?.name ?? null;
+      planName = reservation.planName;
       totalAmount = reservation.total_amount_yen;
     }
   }

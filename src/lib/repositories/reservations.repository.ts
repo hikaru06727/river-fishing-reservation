@@ -252,20 +252,43 @@ export async function findSpotSlugById(spotId: string): Promise<string | null> {
   return meta?.slug ?? null;
 }
 
-export async function findProfileEmailByUserId(userId: string): Promise<string | null> {
+export type ReservationCompleteDisplayRow = {
+  total_amount_yen: number;
+  reservation_date: string;
+  start_time: string;
+  planName: string | null;
+};
+
+/** 決済完了画面表示用（service_role・Stripe metadata と突合） */
+export async function findReservationCompleteDisplayByIdAdmin(
+  reservationId: string,
+  userId: string,
+): Promise<ReservationCompleteDisplayRow | null> {
   const admin = createAdminClient();
 
   const { data, error } = await admin
-    .from("profiles")
-    .select("email")
-    .eq("id", userId)
+    .from("reservations")
+    .select("total_amount_yen, reservation_date, start_time, plans(name)")
+    .eq("id", reservationId)
+    .eq("user_id", userId)
     .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data?.email ?? null;
+  if (!data) {
+    return null;
+  }
+
+  const plans = data.plans as unknown as { name: string } | null;
+
+  return {
+    total_amount_yen: data.total_amount_yen,
+    reservation_date: data.reservation_date,
+    start_time: data.start_time,
+    planName: plans?.name ?? null,
+  };
 }
 
 export type ReservationPaymentEmailMeta = {

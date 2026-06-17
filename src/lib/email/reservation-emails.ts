@@ -4,7 +4,7 @@ import {
   getPaymentMethodLabel,
   type PaymentMethod,
 } from "@/lib/reservations/payment-method";
-import { findProfileEmailByUserId } from "@/lib/repositories/reservations.repository";
+import { findProfileEmailByUserIdAdmin as findProfileEmailByUserId } from "@/lib/repositories/profiles.repository";
 import type { ReservationStatus } from "@/types/database";
 
 export type ReservationCreatedEmailInput = {

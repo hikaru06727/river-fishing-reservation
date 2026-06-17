@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { findAllActivePlans } from "@/lib/repositories/plans.repository";
 
 export async function GET() {
-  const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("plans")
-    .select("*")
-    .eq("is_active", true)
-    .order("duration_minutes");
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const plans = await findAllActivePlans();
+    return NextResponse.json({ plans });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ plans: data });
 }

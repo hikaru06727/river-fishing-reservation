@@ -435,8 +435,45 @@ export interface AuthProvider {
 
 ### 残タスク（Phase 2）
 
-- `get-user.ts` / `fetch-profile-role.ts` → `profiles.repository.ts`
-- spots/plans getters → 既存 repository へ
-- blog/catches ページ・API
-- `reserve/complete/page.tsx` admin client
+- ~~`get-user.ts` / `fetch-profile-role.ts` → `profiles.repository.ts`~~ ✅
+- ~~spots/plans getters → 既存 repository へ~~ ✅
+- ~~`reserve/complete/page.tsx` admin client~~ ✅
+- ~~admin-notification-recipients.ts~~ ✅
+- blog/catches ページ・API（一覧・詳細）
 - Auth Provider 抽象化
+- middleware.ts の Supabase client 生成（要設計）
+
+---
+
+## 13. 進捗（Repository 集約 Phase 2 — 2025-06）
+
+### 完了
+
+| 項目 | 移行先 |
+|------|--------|
+| `get-user.ts` profile 取得 | `profiles.repository.ts`（`getUser()` は Auth のまま） |
+| `fetch-profile-role.ts` | `findProfileRoleByUserIdWithClient` |
+| `get-spots` / `get-spot-by-id` / `get-spot-by-slug` | `fishing-spots.repository.ts` |
+| `get-plans` / `get-plan-by-slug` | `plans.repository.ts`（既存関数へ delegate） |
+| `reserve/complete/page.tsx` | `findReservationCompleteDisplayByIdAdmin` |
+| `admin-notification-recipients.ts` | `findBusinessAdminEmailsByBusinessId` |
+| メール `findProfileEmailByUserId` | `profiles.repository.ts` |
+| `api/spots` / `api/plans` / `api/spots/[slug]` | fishing-spots / plans repository |
+| `admin/catches/new` 釣り場選択 | `findActiveSpotIdAndNames` |
+
+### 新規 Repository
+
+- `profiles.repository.ts` — profile 読取、通知先メール（service_role）
+- `fishing-spots.repository.ts` — 釣り場 CRUD 読取
+
+### 実装せず案のみ（Auth リスク）
+
+| 項目 | 理由 |
+|------|------|
+| `middleware.ts` | Cookie 付き Supabase client を自前生成。Repository 化は client 注入設計が必要 |
+| `admin/login/actions.ts` | signInWithPassword 直後の profile 確認。Auth と一体 |
+| `(auth)/actions.ts` | signInWithOtp / signOut |
+| `auth/callback/route.ts` | exchangeCodeForSession |
+| `supabase.auth.getUser()` 抽象化 | Auth Provider 設計後に Phase 3 |
+
+### 残タスク（Phase 3）

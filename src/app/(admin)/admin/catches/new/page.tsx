@@ -1,20 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { createCatch } from "../actions";
-import { createClient } from "@/lib/supabase/server";
+import { findActiveSpotIdAndNames } from "@/lib/repositories/fishing-spots.repository";
 
 export const metadata: Metadata = { title: "釣果投稿" };
 
 export default async function AdminCatchNewPage() {
-  const supabase = await createClient();
-  const { data: spots } = await supabase
-    .from("fishing_spots")
-    .select("id, name")
-    .eq("is_active", true)
-    .order("name");
-
-  type SpotOption = { id: string; name: string };
-  const spotOptions: SpotOption[] = spots ?? [];
+  const spotOptions = await findActiveSpotIdAndNames();
 
   return (
     <div>

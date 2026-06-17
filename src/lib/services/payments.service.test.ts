@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { canManageReservationForProfile } from "@/lib/auth/management-access";
 import { markCashPaymentReceived } from "@/lib/services/payments.service";
 
 const {
@@ -139,10 +140,7 @@ describe("markCashPaymentReceived permission boundary", () => {
     expect(actionChecksPermission).toBe(true);
   });
 
-  it("business_admin は canManageReservationForProfile で担当事業のみ（RLS 整合）", async () => {
-    const { canManageReservationForProfile } = await import(
-      "@/lib/auth/management-access"
-    );
+  it("business_admin は canManageReservationForProfile で担当事業のみ（RLS 整合）", () => {
     const bizAdmin = { id: "ba-1", role: "business_admin" as const };
     expect(canManageReservationForProfile(bizAdmin, "biz-a", ["biz-a"])).toBe(true);
     expect(canManageReservationForProfile(bizAdmin, "biz-b", ["biz-a"])).toBe(false);

@@ -1,5 +1,10 @@
 import type { User } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
+import {
+  findProfileByUserId,
+  findProfileByUserIdMaybe,
+  findProfileEmailAndRoleByUserId,
+} from "@/lib/repositories/profiles.repository";
 import { isManagementProfile } from "@/lib/auth/role";
 import type { Profile } from "@/types/database";
 
@@ -15,18 +20,22 @@ export async function getAuthNavState(): Promise<AuthNavState> {
     return { isLoggedIn: false, email: null, isAdmin: false };
   }
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("email, role")
-    .eq("id", user.id)
-    .maybeSingle();
+  try {
+    const profile = await findProfileEmailAndRoleByUserId(user.id);
 
-  return {
-    isLoggedIn: true,
-    email: profile?.email ?? user.email ?? null,
-    isAdmin: isManagementProfile(profile),
-  };
+    return {
+      isLoggedIn: true,
+      email: profile?.email ?? user.email ?? null,
+      isAdmin: isManagementProfile(profile),
+    };
+  } catch (error) {
+    console.error("[getAuthNavState]", error instanceof Error ? error.message : error);
+    return {
+      isLoggedIn: true,
+      email: user.email ?? null,
+      isAdmin: false,
+    };
+  }
 }
 
 export async function getUser(): Promise<User | null> {
@@ -50,14 +59,12 @@ export async function getProfile(): Promise<Profile | null> {
     return null;
   }
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  return profile;
+  try {
+    return await findProfileByUserId(user.id);
+  } catch (error) {
+    console.error("[getProfile]", error instanceof Error ? error.message : error);
+    return null;
+  }
 }
 
 export async function getAuthenticatedManagement(): Promise<{
@@ -69,18 +76,21 @@ export async function getAuthenticatedManagement(): Promise<{
     return null;
   }
 
-  const supabase = await createClient();
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .maybeSingle();
+  try {
+    const profile = await findProfileByUserIdMaybe(user.id);
 
-  if (!profile || !isManagementProfile(profile)) {
+    if (!profile || !isManagementProfile(profile)) {
+      return null;
+    }
+
+    return { user, profile };
+  } catch (error) {
+    console.error(
+      "[getAuthenticatedManagement]",
+      error instanceof Error ? error.message : error,
+    );
     return null;
   }
-
-  return { user, profile };
 }
 
 /** @deprecated getAuthenticatedManagement を使用 */

@@ -1,23 +1,16 @@
 import { cache } from "react";
-import { createClient } from "@/lib/supabase/server";
-import type { FishingSpot } from "@/types/database";
+import {
+  findActiveSpotSummaryById,
+  type SpotSummaryRow,
+} from "@/lib/repositories/fishing-spots.repository";
 
-export type SpotSummary = Pick<FishingSpot, "id" | "name" | "slug">;
+export type SpotSummary = SpotSummaryRow;
 
 export const getSpotById = cache(async (id: string): Promise<SpotSummary | null> => {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("fishing_spots")
-    .select("id, name, slug")
-    .eq("id", id)
-    .eq("is_active", true)
-    .maybeSingle();
-
-  if (error) {
-    console.error("[getSpotById]", error.message);
+  try {
+    return await findActiveSpotSummaryById(id);
+  } catch (error) {
+    console.error("[getSpotById]", error instanceof Error ? error.message : error);
     throw new Error("釣り場データの取得に失敗しました。");
   }
-
-  return data;
 });

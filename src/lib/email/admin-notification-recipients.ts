@@ -1,5 +1,5 @@
 import { getAdminNotificationEmail } from "@/lib/email/config";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { findBusinessAdminEmailsByBusinessId } from "@/lib/repositories/profiles.repository";
 
 function dedupeEmails(emails: string[]): string[] {
   const seen = new Set<string>();
@@ -20,37 +20,8 @@ function dedupeEmails(emails: string[]): string[] {
 export async function getBusinessAdminEmailsForBusiness(
   businessId: string,
 ): Promise<string[]> {
-  const admin = createAdminClient();
-
-  const { data: assignments, error: assignmentError } = await admin
-    .from("business_admin_assignments")
-    .select("user_id")
-    .eq("business_id", businessId);
-
-  if (assignmentError) {
-    throw new Error(assignmentError.message);
-  }
-
-  const userIds = (assignments ?? []).map((row) => row.user_id);
-  if (userIds.length === 0) {
-    return [];
-  }
-
-  const { data: profiles, error: profileError } = await admin
-    .from("profiles")
-    .select("email")
-    .in("id", userIds)
-    .eq("role", "business_admin");
-
-  if (profileError) {
-    throw new Error(profileError.message);
-  }
-
-  return dedupeEmails(
-    (profiles ?? [])
-      .map((profile) => profile.email)
-      .filter((email): email is string => Boolean(email?.trim())),
-  );
+  const emails = await findBusinessAdminEmailsByBusinessId(businessId);
+  return dedupeEmails(emails);
 }
 
 /**
