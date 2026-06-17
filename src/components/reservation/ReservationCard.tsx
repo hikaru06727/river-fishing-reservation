@@ -1,5 +1,9 @@
 import Link from "next/link";
 import { CancelReservationButton } from "@/components/reservation/CancelReservationButton";
+import {
+  buildReservationPaymentInfo,
+  ReservationPaymentSummary,
+} from "@/components/reservation/ReservationPaymentSummary";
 import { Card } from "@/components/ui/Card";
 import {
   canCancelReservation,
@@ -21,6 +25,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
     reservationDate: reservation.reservation_date,
     startTime: reservation.start_time,
   });
+  const paymentInfo = buildReservationPaymentInfo(reservation);
 
   return (
     <Card>
@@ -58,6 +63,15 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
           </dd>
         </div>
       </dl>
+
+      <div className="mt-4 border-t border-border pt-3">
+        <ReservationPaymentSummary
+          paymentMethodLabel={paymentInfo.paymentMethodLabel}
+          paymentStateLabel={paymentInfo.paymentStateLabel}
+          paymentStateColor={paymentInfo.paymentStateColor}
+          layout="stack"
+        />
+      </div>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-3">

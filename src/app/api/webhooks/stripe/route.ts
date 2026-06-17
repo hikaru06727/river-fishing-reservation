@@ -1,6 +1,11 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { sendPaymentConfirmedEmails } from "@/lib/email/payment-confirmation-emails";
+import {
+  getWebhookSkipReasonForCashOrNonPending,
+  shouldConfirmReservationViaStripeWebhook,
+} from "@/lib/reservations/checkout-eligibility";
+import { inferPaymentMethod } from "@/lib/reservations/payment-method";
 import { findReservationPaymentEmailMetaById } from "@/lib/repositories/reservations.repository";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
@@ -64,7 +69,7 @@ export async function POST(request: Request) {
 
     const { data: reservation, error: fetchError } = await admin
       .from("reservations")
-      .select("id, user_id, status, total_amount_yen")
+      .select("id, user_id, status, total_amount_yen, payment_method")
       .eq("id", reservationId)
       .eq("user_id", userId)
       .maybeSingle();
@@ -79,11 +84,20 @@ export async function POST(request: Request) {
       return skippedResponse("not_found");
     }
 
-    if (reservation.status !== "pending") {
+    const paymentMethod = inferPaymentMethod(reservation);
+
+    if (!shouldConfirmReservationViaStripeWebhook({
+      payment_method: paymentMethod,
+      status: reservation.status as ReservationStatus,
+    })) {
+      const reason = getWebhookSkipReasonForCashOrNonPending({
+        payment_method: paymentMethod,
+        status: reservation.status as ReservationStatus,
+      });
       console.info(
-        `[stripe webhook] skip confirm: reservation ${reservationId} is ${reservation.status}`,
+        `[stripe webhook] skip confirm: reservation ${reservationId} payment_method=${paymentMethod} status=${reservation.status}`,
       );
-      return skippedResponse(skipReasonForStatus(reservation.status), reservation.status);
+      return skippedResponse(reason, reservation.status as ReservationStatus);
     }
 
     // pending のみ更新。.select() は配列を返す（single/maybeSingle は使わない）

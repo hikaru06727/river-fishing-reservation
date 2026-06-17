@@ -4,10 +4,12 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createReservationAction } from "@/actions/reservation";
 import { createReservationInitialState } from "@/types/reservation-action";
+import { PaymentMethodSelector } from "@/components/reservation/PaymentMethodSelector";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAvailableSlotsWithPlan } from "@/hooks/use-available-slots-with-plan";
 import { getUniqueSlotDates } from "@/lib/slots/group-slots-by-date";
+import type { PaymentMethod } from "@/lib/reservations/payment-method";
 import type { SpotSummary } from "@/lib/spots/get-spot-by-id";
 import { formatDate, formatTime, formatYen, cn } from "@/lib/utils/format";
 import { formatDuration } from "@/lib/utils/plan";
@@ -27,6 +29,7 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [guestCount, setGuestCount] = useState(1);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
 
   const { data, loading, error } = useAvailableSlotsWithPlan({
     spotId: spot.id,
@@ -224,6 +227,18 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
         </div>
       </Card>
 
+      <Card>
+        <h2 className="mb-4 text-base font-semibold">お支払い方法</h2>
+        <PaymentMethodSelector
+          value={paymentMethod}
+          onChange={setPaymentMethod}
+          disabled={pending || loading}
+        />
+        {paymentMethod && (
+          <input type="hidden" name="paymentMethod" value={paymentMethod} />
+        )}
+      </Card>
+
       <Card className="bg-sky-50">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-muted">合計金額</span>
@@ -243,7 +258,13 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
         type="submit"
         className="w-full"
         size="lg"
-        disabled={pending || loading || !selectedSlotId || slotsForDate.length === 0}
+        disabled={
+          pending ||
+          loading ||
+          !selectedSlotId ||
+          !paymentMethod ||
+          slotsForDate.length === 0
+        }
       >
         {pending ? "予約処理中..." : "予約する"}
       </Button>

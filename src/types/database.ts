@@ -10,6 +10,7 @@ export type UserRole = "user" | "admin" | "business_admin";
 /** @deprecated UserRole と同一。後方互換用 */
 export type AppUserRole = UserRole;
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "expired";
+export type PaymentMethod = "online" | "cash_at_venue";
 export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
 export type ContentStatus = "draft" | "published";
 export type SlotStatus = "open" | "closed";
@@ -213,6 +214,7 @@ export interface Database {
           guest_count: number;
           total_amount_yen: number;
           status: ReservationStatus;
+          payment_method: PaymentMethod;
           stripe_checkout_session_id: string | null;
           expires_at: string | null;
           created_at: string;
@@ -230,6 +232,7 @@ export interface Database {
           guest_count?: number;
           total_amount_yen: number;
           status?: ReservationStatus;
+          payment_method?: PaymentMethod;
           stripe_checkout_session_id?: string | null;
           expires_at?: string | null;
           created_at?: string;
@@ -247,6 +250,7 @@ export interface Database {
           guest_count?: number;
           total_amount_yen?: number;
           status?: ReservationStatus;
+          payment_method?: PaymentMethod;
           stripe_checkout_session_id?: string | null;
           expires_at?: string | null;
           created_at?: string;

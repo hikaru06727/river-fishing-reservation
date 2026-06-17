@@ -37,6 +37,7 @@ const baseContext: ReservationCreatedEmailContext = {
   guestCount: 2,
   totalAmountYen: 10000,
   status: "pending",
+  paymentMethod: "online",
   paymentMethodLabel: "オンライン決済（決済待ち）",
 };
 
@@ -46,7 +47,21 @@ describe("reservation email content", () => {
   });
 
   it("formatPaymentMethodLabel は pending 時に決済待ちを表示", () => {
-    expect(formatPaymentMethodLabel("pending")).toBe("オンライン決済（決済待ち）");
+    expect(formatPaymentMethodLabel("pending", "online")).toBe("オンライン決済（決済待ち）");
+  });
+
+  it("現金精算メールに当日現金精算の文言を含める", () => {
+    const email = buildCustomerReservationCreatedEmail({
+      ...baseContext,
+      status: "confirmed",
+      paymentMethod: "cash_at_venue",
+      paymentMethodLabel: "当日現金精算",
+    });
+
+    expect(email.subject).toContain("【予約確定】");
+    expect(email.text).toContain("当日現金精算");
+    expect(email.text).toContain("当日、現地受付にて現金");
+    expect(email.text).not.toContain("カード決済が完了すると");
   });
 
   it("buildCustomerReservationCreatedEmail に予約情報を含める", () => {

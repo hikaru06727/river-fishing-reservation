@@ -81,7 +81,28 @@ describe("createReservationSchema", () => {
     planId: "22222222-2222-4222-8222-222222222222",
     slotId: "33333333-3333-4333-8333-333333333333",
     guestCount: 2,
+    paymentMethod: "online" as const,
   };
+
+  it("paymentMethod 必須", () => {
+    const result = createReservationSchema.safeParse({
+      spotId: validBase.spotId,
+      planId: validBase.planId,
+      slotId: validBase.slotId,
+      guestCount: validBase.guestCount,
+      reservationDate: "2026-06-16",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("cash_at_venue を受け付ける", () => {
+    const result = createReservationSchema.safeParse({
+      ...validBase,
+      paymentMethod: "cash_at_venue",
+      reservationDate: "2026-06-16",
+    });
+    expect(result.success).toBe(true);
+  });
 
   it("過去の reservationDate を拒否する", () => {
     const result = createReservationSchema.safeParse({

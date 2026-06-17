@@ -1,8 +1,11 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AdminCancelReservationButton } from "@/components/admin/AdminCancelReservationButton";
-import { PaymentStatusBadge } from "@/components/admin/PaymentStatusBadge";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
+import {
+  buildReservationPaymentInfo,
+  ReservationPaymentSummary,
+} from "@/components/reservation/ReservationPaymentSummary";
 import { Card } from "@/components/ui/Card";
 import { canCurrentUserManageReservation } from "@/lib/auth/management-access";
 import { canCancelReservation } from "@/lib/reservations/get-my-reservations";
@@ -47,6 +50,9 @@ export default async function AdminReservationDetailPage({
 
   const returnTo = `/admin/reservations/${id}`;
   const latestPayment = reservation.payments?.[0] ?? null;
+  const paymentInfo = buildReservationPaymentInfo(reservation);
+  const isCashPending =
+    paymentInfo.paymentMethod === "cash_at_venue" && latestPayment?.status !== "succeeded";
 
   return (
     <div className="space-y-6">
@@ -63,7 +69,11 @@ export default async function AdminReservationDetailPage({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <ReservationStatusBadge status={reservation.status} />
-          <PaymentStatusBadge status={reservation.payment_status} />
+          <span
+            className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${paymentInfo.paymentStateColor}`}
+          >
+            {paymentInfo.paymentStateLabel}
+          </span>
         </div>
       </header>
 
@@ -132,16 +142,22 @@ export default async function AdminReservationDetailPage({
           </dl>
         </Card>
 
-        <Card className="lg:col-span-2">
+        <Card>
           <h3 className="font-semibold text-foreground">支払い情報</h3>
+          <div className="mt-3">
+            <ReservationPaymentSummary
+              paymentMethodLabel={paymentInfo.paymentMethodLabel}
+              paymentStateLabel={paymentInfo.paymentStateLabel}
+              paymentStateColor={paymentInfo.paymentStateColor}
+            />
+          </div>
+          {isCashPending && (
+            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              現金精算予約です。現地での受け取り後に「現地で支払い済みにする」操作を行えるようにする予定です（未実装）。
+            </p>
+          )}
           {latestPayment ? (
-            <dl className="mt-3 space-y-2 text-sm">
-              <div className="flex justify-between gap-4">
-                <dt className="text-muted">決済ステータス</dt>
-                <dd>
-                  <PaymentStatusBadge status={latestPayment.status} />
-                </dd>
-              </div>
+            <dl className="mt-4 space-y-2 border-t border-border pt-4 text-sm">
               <div className="flex justify-between gap-4">
                 <dt className="text-muted">決済金額</dt>
                 <dd>{formatYen(latestPayment.amount_yen)}</dd>
@@ -161,11 +177,11 @@ export default async function AdminReservationDetailPage({
                 </div>
               )}
             </dl>
-          ) : (
+          ) : paymentInfo.paymentMethod === "online" ? (
             <p className="mt-3 text-sm text-muted">
-              決済レコードはまだありません（仮予約中、またはオフライン予約の可能性があります）。
+              決済レコードはまだありません（仮予約中の可能性があります）。
             </p>
-          )}
+          ) : null}
         </Card>
       </div>
 

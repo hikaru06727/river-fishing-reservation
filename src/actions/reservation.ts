@@ -26,6 +26,7 @@ export async function createReservationAction(
     slotId: formData.get("slotId"),
     reservationDate: formData.get("reservationDate"),
     guestCount: formData.get("guestCount"),
+    paymentMethod: formData.get("paymentMethod"),
   });
 
   if (!result.ok) {

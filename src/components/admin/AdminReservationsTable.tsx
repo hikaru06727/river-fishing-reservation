@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AdminCancelReservationButton } from "@/components/admin/AdminCancelReservationButton";
-import { PaymentStatusBadge } from "@/components/admin/PaymentStatusBadge";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
+import { buildReservationPaymentInfo } from "@/components/reservation/ReservationPaymentSummary";
 import { canCancelReservation } from "@/lib/reservations/get-my-reservations";
 import type { AdminReservationRow } from "@/lib/reservations/get-admin-reservations";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils/format";
@@ -25,7 +25,7 @@ export function AdminReservationsTable({
 
   return (
     <div className="overflow-x-auto rounded-xl border border-border bg-card">
-      <table className="w-full min-w-[1100px] text-left text-sm">
+      <table className="w-full min-w-[1200px] text-left text-sm">
         <thead className="border-b border-border bg-slate-50 text-xs text-muted">
           <tr>
             <th className="px-4 py-3 font-medium">予約ID</th>
@@ -35,7 +35,8 @@ export function AdminReservationsTable({
             <th className="px-4 py-3 font-medium">予約者</th>
             <th className="px-4 py-3 font-medium">人数</th>
             <th className="px-4 py-3 font-medium">ステータス</th>
-            <th className="px-4 py-3 font-medium">決済</th>
+            <th className="px-4 py-3 font-medium">支払い方法</th>
+            <th className="px-4 py-3 font-medium">支払い状態</th>
             <th className="px-4 py-3 font-medium">作成日時</th>
             <th className="px-4 py-3 font-medium">操作</th>
           </tr>
@@ -50,6 +51,7 @@ export function AdminReservationsTable({
             });
 
             const detailHref = `/admin/reservations/${reservation.id}`;
+            const paymentInfo = buildReservationPaymentInfo(reservation);
 
             return (
               <tr key={reservation.id} className="hover:bg-slate-50/50">
@@ -78,8 +80,13 @@ export function AdminReservationsTable({
                 <td className="px-4 py-3">
                   <ReservationStatusBadge status={reservation.status} />
                 </td>
+                <td className="px-4 py-3 text-xs">{paymentInfo.paymentMethodLabel}</td>
                 <td className="px-4 py-3">
-                  <PaymentStatusBadge status={reservation.payment_status} />
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${paymentInfo.paymentStateColor}`}
+                  >
+                    {paymentInfo.paymentStateLabel}
+                  </span>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-muted">
                   {formatDateTime(reservation.created_at)}

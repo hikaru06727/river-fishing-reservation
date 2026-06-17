@@ -1,6 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
-import type { Reservation, ReservationStatus } from "@/types/database";
+import type { PaymentMethod, Reservation, ReservationStatus } from "@/types/database";
 
 export type ReservationInsert = {
   user_id: string;
@@ -13,7 +13,8 @@ export type ReservationInsert = {
   guest_count: number;
   total_amount_yen: number;
   status: ReservationStatus;
-  expires_at: string;
+  payment_method: PaymentMethod;
+  expires_at: string | null;
 };
 
 export type AtomicReservationRpcResult = {
@@ -57,8 +58,9 @@ export async function createReservationAtomic(
     p_end_time: input.end_time,
     p_guest_count: input.guest_count,
     p_total_amount_yen: input.total_amount_yen,
-    p_expires_at: input.expires_at,
+    p_expires_at: input.expires_at as string | null as string,
     p_affected_slot_ids: input.affected_slot_ids,
+    p_payment_method: input.payment_method,
   });
 
   if (error) {
@@ -71,6 +73,25 @@ export async function createReservationAtomic(
   }
 
   return row;
+}
+
+/** 現金精算予約: 決済待ちレコードを service_role で作成 */
+export async function insertPendingPaymentForReservation(
+  reservationId: string,
+  amountYen: number,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { error } = await admin.from("payments").insert({
+    reservation_id: reservationId,
+    amount_yen: amountYen,
+    currency: "jpy",
+    status: "pending",
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /**
