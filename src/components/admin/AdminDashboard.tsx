@@ -9,7 +9,7 @@ import type {
 } from "@/lib/reservations/get-admin-reservations";
 import { formatDate, formatTime } from "@/lib/utils/format";
 import { toISODate } from "@/lib/utils/date";
-import type { ReservationStatus } from "@/types/database";
+import type { ReservationStatus } from "@/types/domain";
 
 interface AdminDashboardProps {
   todayCount: number;

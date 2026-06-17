@@ -99,3 +99,34 @@ export async function markCashPaymentSucceededByReservationId(
 
   throw new Error("PAYMENT_UPDATE_FAILED");
 }
+
+export type StripePaymentUpsertInput = {
+  reservation_id: string;
+  stripe_checkout_session_id: string;
+  amount_yen: number;
+  currency: string;
+  paid_at: string;
+};
+
+/** Stripe webhook: payments upsert（service_role のみ） */
+export async function upsertStripePaymentFromWebhook(
+  input: StripePaymentUpsertInput,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { error } = await admin.from("payments").upsert(
+    {
+      reservation_id: input.reservation_id,
+      stripe_checkout_session_id: input.stripe_checkout_session_id,
+      amount_yen: input.amount_yen,
+      currency: input.currency,
+      status: "succeeded",
+      paid_at: input.paid_at,
+    },
+    { onConflict: "reservation_id" },
+  );
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}

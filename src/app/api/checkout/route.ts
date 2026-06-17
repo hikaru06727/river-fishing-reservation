@@ -3,7 +3,7 @@ import { getUser } from "@/lib/auth/get-user";
 import { evaluateStripeCheckoutEligibility } from "@/lib/reservations/checkout-eligibility";
 import { inferPaymentMethod } from "@/lib/reservations/payment-method";
 import { getReservationById } from "@/lib/reservations/get-reservation";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { updateReservationStripeCheckoutSessionId } from "@/lib/repositories/reservations.repository";
 import { getStripe } from "@/lib/stripe/server";
 import { checkoutSchema } from "@/validations/reservation";
 
@@ -46,7 +46,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: eligibility.error }, { status: eligibility.status });
     }
 
-    const admin = createAdminClient();
     const stripe = getStripe();
     const spotName = reservation.fishing_spots?.name ?? "釣り場";
     const planName = reservation.plans?.name ?? "プラン";
@@ -78,11 +77,16 @@ export async function POST(request: Request) {
       cancel_url: `${appUrl()}/reservation/confirm/${reservation.id}`,
     });
 
-    await admin
-      .from("reservations")
-      .update({ stripe_checkout_session_id: session.id })
-      .eq("id", reservation.id)
-      .eq("user_id", user.id);
+    try {
+      await updateReservationStripeCheckoutSessionId(
+        reservation.id,
+        user.id,
+        session.id,
+      );
+    } catch (updateError) {
+      // 従来どおり session_id 更新失敗でも Checkout URL は返す
+      console.error("[checkout] stripe_checkout_session_id update failed:", updateError);
+    }
 
     return NextResponse.json({ checkout_url: session.url, url: session.url });
   } catch (error) {

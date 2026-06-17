@@ -2,7 +2,7 @@ import {
   getReservationStatusColor,
   getReservationStatusLabel,
 } from "@/lib/reservations/get-my-reservations";
-import type { ReservationStatus } from "@/types/database";
+import type { ReservationStatus } from "@/types/domain";
 
 interface ReservationStatusBadgeProps {
   status: ReservationStatus;

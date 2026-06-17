@@ -1,3 +1,13 @@
+import type {
+  AppUserRole,
+  ContentStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ReservationStatus,
+  SlotStatus,
+  UserRole,
+} from "@/types/domain";
+
 export type Json =
   | string
   | number
@@ -6,14 +16,15 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type UserRole = "user" | "admin" | "business_admin";
-/** @deprecated UserRole と同一。後方互換用 */
-export type AppUserRole = UserRole;
-export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "expired";
-export type PaymentMethod = "online" | "cash_at_venue";
-export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
-export type ContentStatus = "draft" | "published";
-export type SlotStatus = "open" | "closed";
+export type {
+  AppUserRole,
+  ContentStatus,
+  PaymentMethod,
+  PaymentStatus,
+  ReservationStatus,
+  SlotStatus,
+  UserRole,
+};
 
 export interface Database {
   public: {
