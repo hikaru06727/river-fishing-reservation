@@ -193,12 +193,20 @@ export async function updateReservationStatus(
   return data;
 }
 
-export async function findSpotSlugById(spotId: string): Promise<string | null> {
+export type SpotNotificationMeta = {
+  slug: string;
+  name: string;
+  businessId: string | null;
+};
+
+export async function findSpotNotificationMetaById(
+  spotId: string,
+): Promise<SpotNotificationMeta | null> {
   const admin = createAdminClient();
 
   const { data, error } = await admin
     .from("fishing_spots")
-    .select("slug")
+    .select("slug, name, business_id")
     .eq("id", spotId)
     .maybeSingle();
 
@@ -206,5 +214,35 @@ export async function findSpotSlugById(spotId: string): Promise<string | null> {
     throw new Error(error.message);
   }
 
-  return data?.slug ?? null;
+  if (!data) {
+    return null;
+  }
+
+  return {
+    slug: data.slug,
+    name: data.name,
+    businessId: data.business_id,
+  };
+}
+
+/** @deprecated findSpotNotificationMetaById を使用すること */
+export async function findSpotSlugById(spotId: string): Promise<string | null> {
+  const meta = await findSpotNotificationMetaById(spotId);
+  return meta?.slug ?? null;
+}
+
+export async function findProfileEmailByUserId(userId: string): Promise<string | null> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("email")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data?.email ?? null;
 }

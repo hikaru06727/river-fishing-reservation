@@ -11,11 +11,12 @@ import {
   createReservationAtomic,
   findReservationByIdAdmin,
   findReservationByIdForUser,
-  findSpotSlugById,
+  findSpotNotificationMetaById,
 } from "@/lib/repositories/reservations.repository";
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import { createReservationSchema, cancelReservationSchema, isAllowedStartTime } from "@/validations/reservation";
+import { sendReservationCreatedEmails } from "@/lib/email/reservation-emails";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
@@ -155,8 +156,24 @@ export async function createReservation(
       return { ok: false, error: message, status };
     }
 
-    const spotSlug = await findSpotSlugById(spotId);
-    revalidateReservationPaths(spotId, spotSlug);
+    const spotMeta = await findSpotNotificationMetaById(spotId);
+    revalidateReservationPaths(spotId, spotMeta?.slug ?? null);
+
+    void sendReservationCreatedEmails({
+      reservationId: rpcResult.reservation_id,
+      userId,
+      spotName: spotMeta?.name ?? "釣り場",
+      businessId: spotMeta?.businessId ?? null,
+      planName: plan.name,
+      reservationDate,
+      startTime,
+      endTime,
+      guestCount,
+      totalAmountYen: totalAmount,
+      status: "pending",
+    }).catch((err) => {
+      console.warn("[createReservation] reservation email notification error:", err);
+    });
 
     return {
       ok: true,
@@ -270,8 +287,8 @@ export async function cancelReservation(
     // 返金失敗時はログ記録 + 管理者通知とし、予約キャンセル自体はロールバックしない。
     const refundInitiated = false;
 
-    const spotSlug = await findSpotSlugById(reservation.spot_id);
-    revalidateReservationPaths(reservation.spot_id, spotSlug);
+    const spotMeta = await findSpotNotificationMetaById(reservation.spot_id);
+    revalidateReservationPaths(reservation.spot_id, spotMeta?.slug ?? null);
     revalidatePath(`/my/reservations/${reservationId}`);
 
     return { ok: true, data: { reservationId, refundInitiated } };
