@@ -56,6 +56,13 @@ export default async function LoginPage({
             新規登録
           </Link>
         </p>
+
+        <p className="mt-3 text-center text-sm text-muted">
+          管理者の方は{" "}
+          <Link href="/admin/login" className="text-primary hover:underline">
+            管理者ログイン
+          </Link>
+        </p>
       </div>
     </div>
   );

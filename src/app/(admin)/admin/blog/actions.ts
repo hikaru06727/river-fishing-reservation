@@ -2,16 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/auth/get-user";
-import { isAdminUser } from "@/lib/auth/role";
+import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { blogPostSchema } from "@/validations/reservation";
 
 export async function createBlogPost(formData: FormData) {
-  const user = await getUser();
-  if (!user || !isAdminUser(user)) {
+  const session = await getAuthenticatedManagement();
+  if (!session) {
     throw new Error("Forbidden");
   }
+  const { user } = session;
 
   const parsed = blogPostSchema.safeParse({
     title: formData.get("title"),

@@ -6,7 +6,9 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
-export type UserRole = "user" | "admin";
+export type UserRole = "user" | "admin" | "business_admin";
+/** @deprecated UserRole と同一。後方互換用 */
+export type AppUserRole = UserRole;
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "expired";
 export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
 export type ContentStatus = "draft" | "published";
@@ -42,6 +44,51 @@ export interface Database {
         };
         Relationships: [];
       };
+      businesses: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      business_admin_assignments: {
+        Row: {
+          user_id: string;
+          business_id: string;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          business_id: string;
+          created_at?: string;
+        };
+        Update: {
+          user_id?: string;
+          business_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       fishing_spots: {
         Row: {
           id: string;
@@ -53,6 +100,7 @@ export interface Database {
           capacity: number;
           is_active: boolean;
           image_url: string | null;
+          business_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -66,6 +114,7 @@ export interface Database {
           capacity?: number;
           is_active?: boolean;
           image_url?: string | null;
+          business_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -79,6 +128,7 @@ export interface Database {
           capacity?: number;
           is_active?: boolean;
           image_url?: string | null;
+          business_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

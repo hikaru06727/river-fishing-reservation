@@ -19,6 +19,22 @@
 | 5a | `05a_capacity_comments_and_view.sql` | 005: カラム COMMENT + ビュー |
 | 5b | `05b_create_reservation_atomic_final.sql` | 005: **create_reservation_atomic 最終版** |
 | 6 | `06_verify.sql` | 実行後確認 |
+| **006 系列** | | **事業別管理者（006_business_admin_rls.sql）** |
+| 6a | `006a_businesses_table.sql` | businesses テーブル |
+| 6b | `006b_fishing_spots_business_id.sql` | fishing_spots.business_id |
+| 6c | `006c_business_admin_assignments.sql` | 担当割当テーブル |
+| 6d | `006d_profiles_role_business_admin.sql` | role CHECK 拡張 |
+| 6f | `006f_seed_business_spot_links.sql` | 既存釣り場の事業紐づけ |
+| 6g | `006g_rls_helper_functions.sql` | RLS helper 関数 |
+| 6h | `006h_rls_policies_business_admin.sql` | RLS ポリシー |
+| 6i | `006i_verify_business_admin.sql` | 確認 SQL |
+
+## 006 実行順序
+
+**006a → 006b → 006c → 006d → 006f → 006g → 006h → 006i**（1 ファイルずつ）
+
+- **006e はスキップ**（006f が seed 兼ねる）
+- 007 RLS hardening 未適用の DB でも 006h は DROP IF EXISTS で適用可能
 
 ## 注意
 

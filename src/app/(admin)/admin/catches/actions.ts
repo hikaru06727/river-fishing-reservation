@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/auth/get-user";
-import { isAdminUser } from "@/lib/auth/role";
+import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { catchSchema } from "@/validations/reservation";
 
@@ -20,10 +19,11 @@ function parseLengthCm(size: string | undefined): number | null {
 }
 
 export async function createCatch(formData: FormData) {
-  const user = await getUser();
-  if (!user || !isAdminUser(user)) {
+  const session = await getAuthenticatedManagement();
+  if (!session) {
     throw new Error("Forbidden");
   }
+  const { user } = session;
 
   const parsed = catchSchema.safeParse({
     spotId: formData.get("spotId"),

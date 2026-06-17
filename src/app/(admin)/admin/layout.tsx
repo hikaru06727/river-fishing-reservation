@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getUser } from "@/lib/auth/get-user";
-import { isAdminUser } from "@/lib/auth/role";
+import { getAuthenticatedManagement, getUser } from "@/lib/auth/get-user";
 
 const adminLinks = [
   { href: "/admin/spots", label: "釣り場管理" },
@@ -16,14 +15,11 @@ export default async function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const user = await getUser();
+  const session = await getAuthenticatedManagement();
 
-  if (!user) {
-    redirect("/login?next=/admin");
-  }
-
-  if (!isAdminUser(user)) {
-    redirect("/");
+  if (!session) {
+    const user = await getUser();
+    redirect(user ? "/" : "/admin/login?next=/admin");
   }
 
   return (

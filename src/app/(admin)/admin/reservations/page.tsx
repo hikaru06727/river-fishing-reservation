@@ -2,10 +2,12 @@ import { AdminReservationsTable } from "@/components/admin/AdminReservationsTabl
 import { Pagination } from "@/components/admin/Pagination";
 import { ReservationFilters } from "@/components/admin/ReservationFilters";
 import { ReservationSummaryCards } from "@/components/admin/ReservationSummaryCards";
+import { getManagementScope } from "@/lib/auth/management-access";
 import {
   getAdminReservations,
   getTodayReservationSummary,
 } from "@/lib/reservations/get-admin-reservations";
+import { isAdminRole } from "@/lib/auth/role";
 import type { ReservationStatus } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -46,10 +48,20 @@ export default async function AdminReservationsPage({
   const status = parseStatus(params.status);
   const page = Math.max(1, Number(params.page ?? "1") || 1);
 
-  const [summary, result] = await Promise.all([
+  const [summary, result, scope] = await Promise.all([
     getTodayReservationSummary(),
     getAdminReservations({ date, status, page }),
+    getManagementScope(),
   ]);
+
+  const scopeDescription =
+    scope && isAdminRole(scope.role)
+      ? "全事業の予約"
+      : scope && scope.businessNames && scope.businessNames.length > 0
+        ? `担当事業: ${scope.businessNames.join("、")}`
+        : scope
+          ? "担当事業が未割当のため、操作可能な予約はありません"
+          : "予約一覧";
 
   const filterParams = {
     date,
@@ -61,7 +73,7 @@ export default async function AdminReservationsPage({
       <header>
         <h2 className="text-lg font-semibold text-foreground">予約管理</h2>
         <p className="mt-1 text-sm text-muted">
-          全予約の一覧・絞り込み（{result.totalCount} 件）
+          {scopeDescription}（{result.totalCount} 件）
         </p>
       </header>
 
