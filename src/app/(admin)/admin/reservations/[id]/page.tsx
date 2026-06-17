@@ -10,10 +10,8 @@ import {
 import { Card } from "@/components/ui/Card";
 import { canCurrentUserManageReservation } from "@/lib/auth/management-access";
 import { canCancelReservation } from "@/lib/reservations/get-my-reservations";
-import {
-  canMarkCashPaymentReceived,
-  isCashPaymentAlreadyReceived,
-} from "@/lib/reservations/mark-cash-payment-received";
+import { getAdminCashPaymentUiState } from "@/lib/reservations/mark-cash-payment-received";
+import { getLatestReservationPayment } from "@/lib/reservations/payment-status-display";
 import { getAdminReservationById } from "@/lib/reservations/get-admin-reservations";
 import { formatDate, formatDateTime, formatTime, formatYen } from "@/lib/utils/format";
 
@@ -54,16 +52,14 @@ export default async function AdminReservationDetailPage({
   });
 
   const returnTo = `/admin/reservations/${id}`;
-  const latestPayment = reservation.payments?.[0] ?? null;
+  const latestPayment = getLatestReservationPayment(reservation.payments);
   const paymentInfo = buildReservationPaymentInfo(reservation);
 
-  const markCashInput = {
+  const cashPaymentUi = getAdminCashPaymentUiState({
     payment_method: reservation.payment_method,
     reservation_status: reservation.status,
-    payment_status: latestPayment?.status ?? null,
-  };
-  const showMarkCashPaidButton = canMarkCashPaymentReceived(markCashInput);
-  const cashAlreadyPaid = isCashPaymentAlreadyReceived(markCashInput);
+    payments: reservation.payments,
+  });
 
   return (
     <div className="space-y-6">
@@ -162,7 +158,7 @@ export default async function AdminReservationDetailPage({
               paymentStateColor={paymentInfo.paymentStateColor}
             />
           </div>
-          {showMarkCashPaidButton && (
+          {cashPaymentUi.showMarkButton && (
             <div className="mt-4 border-t border-border pt-4">
               <AdminMarkCashPaymentReceivedButton
                 reservationId={reservation.id}
@@ -170,9 +166,14 @@ export default async function AdminReservationDetailPage({
               />
             </div>
           )}
-          {cashAlreadyPaid && (
+          {cashPaymentUi.showAlreadyPaid && (
             <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
-              現地での現金精算が完了しています。
+              現地精算済
+            </p>
+          )}
+          {cashPaymentUi.showMissingPaymentNote && (
+            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              支払いレコードが見つかりません。
             </p>
           )}
           {latestPayment ? (

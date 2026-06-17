@@ -13,7 +13,10 @@ import {
   type AdminReservationFilterInput,
   resolveReservationDateFilters,
 } from "@/lib/reservations/admin-reservation-filters";
-import { resolveReservationPaymentStatus } from "@/lib/reservations/payment-status-display";
+import {
+  normalizeReservationPayments,
+  resolveReservationPaymentStatus,
+} from "@/lib/reservations/payment-status-display";
 import type { PaymentMethod } from "@/lib/reservations/payment-method";
 import type { PaymentStatus, ReservationStatus } from "@/types/database";
 
@@ -74,9 +77,12 @@ export type AdminReservationDetail = AdminReservationRow & {
 function enrichReservationRow(
   row: Omit<AdminReservationRow, "payment_status">,
 ): AdminReservationRow {
+  const payments = normalizeReservationPayments(row.payments);
+
   return {
     ...row,
-    payment_status: resolveReservationPaymentStatus(row.payments),
+    payments: payments.length > 0 ? payments : null,
+    payment_status: resolveReservationPaymentStatus(payments),
   };
 }
 

@@ -19,7 +19,10 @@ export type ReservationPaymentInfo = {
 export function buildReservationPaymentInfo(input: {
   payment_method?: PaymentMethod | string | null;
   status: ReservationStatus;
-  payments?: Array<{ status: PaymentStatus }> | null;
+  payments?:
+    | Array<{ status: PaymentStatus }>
+    | { status: PaymentStatus }
+    | null;
 }): ReservationPaymentInfo {
   const paymentMethod = inferPaymentMethod(input);
   const paymentStatus = resolveReservationPaymentStatus(input.payments ?? null);
