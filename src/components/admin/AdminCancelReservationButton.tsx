@@ -7,10 +7,12 @@ import { adminCancelReservationInitialState } from "@/types/reservation-action";
 
 interface AdminCancelReservationButtonProps {
   reservationId: string;
+  returnTo?: string;
 }
 
 export function AdminCancelReservationButton({
   reservationId,
+  returnTo = "/admin/reservations",
 }: AdminCancelReservationButtonProps) {
   const [state, formAction, pending] = useActionState(
     adminCancelReservationAction,
@@ -30,6 +32,7 @@ export function AdminCancelReservationButton({
     <div>
       <form action={formAction} onSubmit={handleSubmit}>
         <input type="hidden" name="reservationId" value={reservationId} />
+        <input type="hidden" name="returnTo" value={returnTo} />
         <Button
           type="submit"
           variant="outline"
