@@ -91,4 +91,42 @@ describe("Supabase client isolation (static)", () => {
   it("api/plans route は createClient を直接使わない", () => {
     fileMustNotImport("app/api/plans/route.ts", "createClient");
   });
+
+  // Phase 3 — blog / catches
+  it("blog page は createClient を直接使わない", () => {
+    fileMustNotImport("app/(public)/blog/page.tsx", "createClient");
+    fileMustNotImportFrom("app/(public)/blog/page.tsx", "blog_posts");
+  });
+
+  it("blog slug page は createClient を直接使わない", () => {
+    fileMustNotImport("app/(public)/blog/[slug]/page.tsx", "createClient");
+  });
+
+  it("catches page は createClient を直接使わない", () => {
+    fileMustNotImport("app/(public)/catches/page.tsx", "createClient");
+  });
+
+  it("catches detail page は createClient を直接使わない", () => {
+    fileMustNotImport("app/(public)/catches/[id]/page.tsx", "createClient");
+  });
+
+  it("api/blog routes は createClient を直接使わない", () => {
+    fileMustNotImport("app/api/blog/route.ts", "createClient");
+    fileMustNotImport("app/api/blog/[slug]/route.ts", "createClient");
+  });
+
+  it("api/catches routes は createClient を直接使わない", () => {
+    fileMustNotImport("app/api/catches/route.ts", "createClient");
+    fileMustNotImport("app/api/catches/[id]/route.ts", "createClient");
+  });
+
+  it("admin blog actions は createAdminClient を直接使わない", () => {
+    fileMustNotImport("app/(admin)/admin/blog/actions.ts", "createAdminClient");
+    fileMustNotImportFrom("app/(admin)/admin/blog/actions.ts", "blog_posts");
+  });
+
+  it("admin catches actions は createAdminClient を直接使わない", () => {
+    fileMustNotImport("app/(admin)/admin/catches/actions.ts", "createAdminClient");
+    fileMustNotImportFrom("app/(admin)/admin/catches/actions.ts", "catch_reports");
+  });
 });

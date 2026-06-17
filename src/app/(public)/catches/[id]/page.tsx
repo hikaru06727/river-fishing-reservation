@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+import {
+  findPublishedCatchReportDetailById,
+  findPublishedCatchReportMetadataById,
+} from "@/lib/repositories/catch-reports.repository";
 import { formatDate } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
@@ -12,26 +15,23 @@ interface CatchDetailPageProps {
 
 export async function generateMetadata({ params }: CatchDetailPageProps): Promise<Metadata> {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: item } = await supabase
-    .from("catch_reports")
-    .select("title, fish_species")
-    .eq("id", id)
-    .eq("status", "published")
-    .maybeSingle();
-
-  return { title: item?.fish_species ?? item?.title ?? "釣果詳細" };
+  try {
+    const item = await findPublishedCatchReportMetadataById(id);
+    return { title: item?.fish_species ?? item?.title ?? "釣果詳細" };
+  } catch (error) {
+    console.error("[CatchDetailPage metadata]", error instanceof Error ? error.message : error);
+    return { title: "釣果詳細" };
+  }
 }
 
 export default async function CatchDetailPage({ params }: CatchDetailPageProps) {
   const { id } = await params;
-  const supabase = await createClient();
-  const { data: item } = await supabase
-    .from("catch_reports")
-    .select("caught_date, fish_species, length_cm, title, description, image_url")
-    .eq("id", id)
-    .eq("status", "published")
-    .maybeSingle();
+  let item: Awaited<ReturnType<typeof findPublishedCatchReportDetailById>> = null;
+  try {
+    item = await findPublishedCatchReportDetailById(id);
+  } catch (error) {
+    console.error("[CatchDetailPage]", error instanceof Error ? error.message : error);
+  }
 
   if (!item) {
     notFound();

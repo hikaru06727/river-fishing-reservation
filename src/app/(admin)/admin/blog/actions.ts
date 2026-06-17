@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { insertBlogPostAdmin } from "@/lib/repositories/blog.repository";
 import { blogPostSchema } from "@/validations/reservation";
 
 export async function createBlogPost(formData: FormData) {
@@ -27,10 +27,9 @@ export async function createBlogPost(formData: FormData) {
   }
 
   const { title, slug, excerpt, content, published } = parsed.data;
-  const supabase = createAdminClient();
   const now = new Date().toISOString();
 
-  const { error } = await supabase.from("blog_posts").insert({
+  await insertBlogPostAdmin({
     author_id: user.id,
     title,
     slug,
@@ -39,10 +38,6 @@ export async function createBlogPost(formData: FormData) {
     status: published ? "published" : "draft",
     published_at: published ? now : null,
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
 
   revalidatePath("/blog");
   revalidatePath("/admin/blog");

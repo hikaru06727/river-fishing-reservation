@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { findPublishedCatchReportFullById } from "@/lib/repositories/catch-reports.repository";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -7,18 +7,12 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { id } = await context.params;
-  const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("catch_reports")
-    .select("*")
-    .eq("id", id)
-    .eq("status", "published")
-    .single();
+  const item = await findPublishedCatchReportFullById(id);
 
-  if (error) {
+  if (!item) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ catch: data });
+  return NextResponse.json({ catch: item });
 }

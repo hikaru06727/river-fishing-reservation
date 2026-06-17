@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
+import { findPublishedBlogPostFullBySlug } from "@/lib/repositories/blog.repository";
 
 interface RouteContext {
   params: Promise<{ slug: string }>;
@@ -7,18 +7,12 @@ interface RouteContext {
 
 export async function GET(_request: Request, context: RouteContext) {
   const { slug } = await context.params;
-  const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("blog_posts")
-    .select("*")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .single();
+  const post = await findPublishedBlogPostFullBySlug(slug);
 
-  if (error) {
+  if (!post) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.json({ post: data });
+  return NextResponse.json({ post });
 }

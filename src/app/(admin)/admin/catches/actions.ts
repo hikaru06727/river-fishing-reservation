@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
-import { createAdminClient } from "@/lib/supabase/admin";
+import { insertCatchReportAdmin } from "@/lib/repositories/catch-reports.repository";
 import { catchSchema } from "@/validations/reservation";
 
 function parseLengthCm(size: string | undefined): number | null {
@@ -42,11 +42,9 @@ export async function createCatch(formData: FormData) {
   const { spotId, date, species, size, excerpt, body } = parsed.data;
   const title = size ? `${species} ${size}` : species;
   const description = excerpt ? `${excerpt}\n\n${body}` : body;
-
-  const supabase = createAdminClient();
   const now = new Date().toISOString();
 
-  const { error } = await supabase.from("catch_reports").insert({
+  await insertCatchReportAdmin({
     spot_id: spotId,
     author_id: user.id,
     title,
@@ -57,10 +55,6 @@ export async function createCatch(formData: FormData) {
     status: "published",
     published_at: now,
   });
-
-  if (error) {
-    throw new Error(error.message);
-  }
 
   revalidatePath("/catches");
   revalidatePath("/admin/catches");

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { findPublishedBlogPostsList } from "@/lib/repositories/blog.repository";
 import { formatDate } from "@/lib/utils/format";
 
 export const metadata: Metadata = { title: "ブログ" };
@@ -8,20 +8,12 @@ export const metadata: Metadata = { title: "ブログ" };
 export const dynamic = "force-dynamic";
 
 export default async function BlogPage() {
-  const supabase = await createClient();
-  const { data: posts } = await supabase
-    .from("blog_posts")
-    .select("slug, title, excerpt, published_at")
-    .eq("status", "published")
-    .order("published_at", { ascending: false });
-
-  type BlogListItem = {
-    slug: string;
-    title: string;
-    excerpt: string | null;
-    published_at: string | null;
-  };
-  const blogPosts: BlogListItem[] = posts ?? [];
+  let blogPosts: Awaited<ReturnType<typeof findPublishedBlogPostsList>> = [];
+  try {
+    blogPosts = await findPublishedBlogPostsList();
+  } catch (error) {
+    console.error("[BlogPage]", error instanceof Error ? error.message : error);
+  }
 
   return (
     <div>
