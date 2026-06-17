@@ -110,6 +110,9 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
           📅
         </p>
         <p className="mt-3 font-medium">予約可能な空き枠がありません</p>
+        <p className="mt-1 text-sm text-muted">
+          人数や日付を変えても表示されない場合は、定員に達している可能性があります
+        </p>
         <Link
           href={`/spots/${spot.slug}`}
           className="mt-4 inline-block text-sm font-medium text-primary hover:underline"

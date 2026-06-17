@@ -11,13 +11,16 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const next = params.next ?? params.redirect ?? "/my/reservations";
+  const isReserveFlow = next.includes("/reserve/");
 
   return (
     <div className="px-4 py-8">
       <div className="mx-auto max-w-sm">
         <h1 className="text-2xl font-bold">ログイン</h1>
         <p className="mt-2 text-sm text-muted">
-          予約履歴の確認にはログインが必要です
+          {isReserveFlow
+            ? "予約を完了するにはログインが必要です"
+            : "予約履歴の確認にはログインが必要です"}
         </p>
 
         {params.error && (

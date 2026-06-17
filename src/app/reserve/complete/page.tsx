@@ -52,7 +52,9 @@ async function CompleteContent({
         🎣
       </div>
       <h1 className="mt-4 text-2xl font-bold">予約が確定しました！</h1>
-      <p className="mt-2 text-sm text-muted">確認メールをお送りしております</p>
+      <p className="mt-2 text-sm text-muted">
+        予約が確定しました。内容はマイ予約からご確認ください。
+      </p>
 
       <dl className="mt-8 space-y-4 rounded-2xl border border-border p-6 text-left">
         <div className="flex justify-between gap-4">
