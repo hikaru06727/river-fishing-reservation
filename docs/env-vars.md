@@ -15,12 +15,18 @@
 
 ## メール（Resend）
 
+トランザクションメール（予約・決済・キャンセル通知）専用。**Supabase Auth の OTP は別設定。**
+
+詳細・確認手順・トラブルシュート: [email-setup.md](./email-setup.md)
+
 | 変数 | 公開 | 用途 |
 |------|------|------|
-| `EMAILS_ENABLED` | いいえ | `true` / `1` で送信有効。それ以外はスキップ |
-| `RESEND_API_KEY` | **いいえ** | Resend API キー |
-| `MAIL_FROM` | いいえ | 送信元（例: `予約 <noreply@yourdomain.com>`） |
-| `ADMIN_NOTIFICATION_EMAIL` | いいえ | admin ロール向け通知のフォールバック（DB に admin がいない場合） |
+| `EMAILS_ENABLED` | いいえ | `true` / `1` で送信有効。`false`（デフォルト）なら skip（予約処理は継続） |
+| `RESEND_API_KEY` | **いいえ** | Resend API キー（`re_...`） |
+| `MAIL_FROM` | いいえ | 送信元。例: `予約 <noreply@yourdomain.com>`。開発は `onboarding@resend.dev` 可 |
+| `ADMIN_NOTIFICATION_EMAIL` | いいえ | 担当事業に business_admin がいない場合の admin 通知フォールバック |
+
+**送信確認（ローカル）:** `ADMIN_SECRET` 設定後、`POST /api/dev/send-test-email`（`x-admin-secret` ヘッダ必須）。レスポンスの `skipReason` / `hint` / `config` で設定不足を判定。
 
 ## 開発専用
 
@@ -55,5 +61,5 @@ ADMIN_NOTIFICATION_EMAIL=ops@yourdomain.com
 
 - Supabase クライアント: `src/lib/supabase/{client,server,admin}.ts`, `src/middleware.ts`
 - Stripe: `src/lib/stripe/server.ts`, `src/app/api/checkout`, `src/app/api/webhooks/stripe`
-- メール: `src/lib/email/config.ts`, `src/lib/email/send-email.ts`
+- メール: `src/lib/email/config.ts`, `src/lib/email/send-email.ts` — 詳細 [email-setup.md](./email-setup.md)
 - App URL: `src/app/api/checkout/route.ts`, `src/app/(auth)/actions.ts`

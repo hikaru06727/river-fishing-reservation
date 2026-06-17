@@ -1,25 +1,47 @@
 import { NextResponse } from "next/server";
-import { getAdminNotificationEmail } from "@/lib/email/config";
+import {
+  getDevAdminApiGateDebug,
+  isDevAdminApiEnabled,
+  logDevAdminApiGateDenied,
+  logDevAdminSecretRejected,
+  validateDevAdminSecret,
+} from "@/lib/dev/dev-admin-api";
+import {
+  getAdminNotificationEmail,
+  getEmailConfigStatus,
+  getEmailSkipMessage,
+} from "@/lib/email/config";
 import { sendEmail } from "@/lib/email/send-email";
 
-function isDevSendTestEmailEnabled(): boolean {
-  if (process.env.NODE_ENV === "production") {
-    return false;
-  }
-  return Boolean(process.env.ADMIN_SECRET);
-}
+const ROUTE_LABEL = "send-test-email";
 
 export async function POST(request: Request) {
-  if (!isDevSendTestEmailEnabled()) {
+  const gateDebug = getDevAdminApiGateDebug();
+
+  if (!isDevAdminApiEnabled()) {
+    logDevAdminApiGateDenied(ROUTE_LABEL, gateDebug);
     return NextResponse.json(
-      { error: "This endpoint is disabled in production or when ADMIN_SECRET is unset" },
+      {
+        error: "This endpoint is disabled on hosted environments or when ADMIN_SECRET is unset",
+        debug: gateDebug,
+      },
       { status: 403 },
     );
   }
 
-  const secret = request.headers.get("x-admin-secret");
-  if (!secret || secret !== process.env.ADMIN_SECRET) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const secretValidation = validateDevAdminSecret(request);
+  if (!secretValidation.ok) {
+    logDevAdminSecretRejected(ROUTE_LABEL, secretValidation);
+    return NextResponse.json(
+      {
+        error: "Forbidden",
+        debug: {
+          hasHeader: secretValidation.hasHeader,
+          secretMatches: secretValidation.secretMatches,
+        },
+      },
+      { status: 403 },
+    );
   }
 
   let body: { to?: string } = {};
@@ -48,9 +70,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.error }, { status: 500 });
   }
 
+  const config = getEmailConfigStatus();
+
   return NextResponse.json({
     ok: true,
     skipped: result.skipped ?? false,
+    skipReason: result.skipReason ?? config.skipReason,
+    hint:
+      result.skipped && (result.skipReason ?? config.skipReason)
+        ? getEmailSkipMessage(result.skipReason ?? config.skipReason!)
+        : undefined,
+    config,
     id: result.id,
     to,
   });

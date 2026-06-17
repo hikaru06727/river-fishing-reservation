@@ -1,8 +1,10 @@
 import { getResendClient } from "@/lib/email/client";
 import {
+  getEmailSkipMessage,
   getEmailSkipReason,
   getMailFrom,
   shouldLogEmailSkip,
+  type EmailSkipReason,
 } from "@/lib/email/config";
 
 export type SendEmailInput = {
@@ -15,6 +17,7 @@ export type SendEmailInput = {
 export type SendEmailSuccess = {
   ok: true;
   skipped?: boolean;
+  skipReason?: EmailSkipReason;
   id?: string;
 };
 
@@ -25,39 +28,50 @@ export type SendEmailFailure = {
 
 export type SendEmailResult = SendEmailSuccess | SendEmailFailure;
 
-function logEmailSkip(reason: NonNullable<ReturnType<typeof getEmailSkipReason>>): void {
-  if (!shouldLogEmailSkip(reason)) {
+function formatRecipients(to: string | string[]): string {
+  const list = Array.isArray(to) ? to : [to];
+  if (list.length === 1) {
+    return list[0]!;
+  }
+  return `${list[0]} (+${list.length - 1} more)`;
+}
+
+function logEmailSkip(
+  reason: EmailSkipReason,
+  input: Pick<SendEmailInput, "to" | "subject">,
+): void {
+  if (!shouldLogEmailSkip()) {
     return;
   }
 
-  const messages: Record<typeof reason, string> = {
-    missing_api_key:
-      "[sendEmail] RESEND_API_KEY is not set. Email was skipped.",
-    missing_from: "[sendEmail] MAIL_FROM is not set. Email was skipped.",
-    disabled: "[sendEmail] EMAILS_ENABLED is false. Email was skipped.",
-  };
-
-  console.warn(messages[reason]);
+  console.warn(
+    `[sendEmail] Skipped (${reason}) to=${formatRecipients(input.to)} subject="${input.subject}". ${getEmailSkipMessage(reason)} See docs/email-setup.md`,
+  );
 }
 
 /**
- * Resend 経由でメール送信。
+ * トランザクションメール送信の共通入口（現在は Resend 実装）。
  * EMAILS_ENABLED=false または設定不足時は skip（ok: true, skipped: true）。
  * 送信失敗時も throw せず { ok: false, error } を返す。
+ *
+ * Resend SDK への依存は lib/email/client.ts に閉じ込め、
+ * 将来 SES / SMTP 等へ差し替える場合はこの関数の内部実装のみ変更する。
  */
 export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult> {
   const skipReason = getEmailSkipReason();
   if (skipReason) {
-    logEmailSkip(skipReason);
-    return { ok: true, skipped: true };
+    logEmailSkip(skipReason, input);
+    return { ok: true, skipped: true, skipReason };
   }
 
   const client = getResendClient();
   const from = getMailFrom();
 
   if (!client || !from) {
-    console.warn("[sendEmail] Resend client or MAIL_FROM unavailable. Email was skipped.");
-    return { ok: true, skipped: true };
+    console.warn(
+      `[sendEmail] Skipped (misconfigured) to=${formatRecipients(input.to)} subject="${input.subject}". Resend client or MAIL_FROM unavailable. See docs/email-setup.md`,
+    );
+    return { ok: true, skipped: true, skipReason: "missing_api_key" };
   }
 
   if (!input.text && !input.html) {
@@ -83,14 +97,20 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         });
 
     if (error) {
-      console.error("[sendEmail] Resend API error:", error.message);
+      console.error(
+        `[sendEmail] Provider API error to=${formatRecipients(input.to)} subject="${input.subject}":`,
+        error.message,
+      );
       return { ok: false, error: error.message };
     }
 
     return { ok: true, id: data?.id };
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown email send error";
-    console.error("[sendEmail]", message);
+    console.error(
+      `[sendEmail] Unexpected error to=${formatRecipients(input.to)} subject="${input.subject}":`,
+      message,
+    );
     return { ok: false, error: message };
   }
 }

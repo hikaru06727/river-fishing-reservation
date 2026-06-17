@@ -72,7 +72,7 @@ describe("sendEmail", () => {
       text: "hello",
     });
 
-    expect(result).toEqual({ ok: true, skipped: true });
+    expect(result).toEqual({ ok: true, skipped: true, skipReason: "disabled" });
     expect(sendMock).not.toHaveBeenCalled();
   });
 
@@ -87,7 +87,7 @@ describe("sendEmail", () => {
       text: "hello",
     });
 
-    expect(result).toEqual({ ok: true, skipped: true });
+    expect(result).toEqual({ ok: true, skipped: true, skipReason: "missing_api_key" });
     expect(sendMock).not.toHaveBeenCalled();
   });
 
