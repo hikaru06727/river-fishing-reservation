@@ -23,3 +23,11 @@ export type AdminCancelReservationState = {
 export const adminCancelReservationInitialState: AdminCancelReservationState = {
   error: null,
 };
+
+export type AdminMarkCashPaymentReceivedState = {
+  error: string | null;
+};
+
+export const adminMarkCashPaymentReceivedInitialState: AdminMarkCashPaymentReceivedState = {
+  error: null,
+};

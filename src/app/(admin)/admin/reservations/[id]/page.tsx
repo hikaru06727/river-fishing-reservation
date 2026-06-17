@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AdminCancelReservationButton } from "@/components/admin/AdminCancelReservationButton";
+import { AdminMarkCashPaymentReceivedButton } from "@/components/admin/AdminMarkCashPaymentReceivedButton";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
 import {
   buildReservationPaymentInfo,
@@ -9,6 +10,10 @@ import {
 import { Card } from "@/components/ui/Card";
 import { canCurrentUserManageReservation } from "@/lib/auth/management-access";
 import { canCancelReservation } from "@/lib/reservations/get-my-reservations";
+import {
+  canMarkCashPaymentReceived,
+  isCashPaymentAlreadyReceived,
+} from "@/lib/reservations/mark-cash-payment-received";
 import { getAdminReservationById } from "@/lib/reservations/get-admin-reservations";
 import { formatDate, formatDateTime, formatTime, formatYen } from "@/lib/utils/format";
 
@@ -51,8 +56,14 @@ export default async function AdminReservationDetailPage({
   const returnTo = `/admin/reservations/${id}`;
   const latestPayment = reservation.payments?.[0] ?? null;
   const paymentInfo = buildReservationPaymentInfo(reservation);
-  const isCashPending =
-    paymentInfo.paymentMethod === "cash_at_venue" && latestPayment?.status !== "succeeded";
+
+  const markCashInput = {
+    payment_method: reservation.payment_method,
+    reservation_status: reservation.status,
+    payment_status: latestPayment?.status ?? null,
+  };
+  const showMarkCashPaidButton = canMarkCashPaymentReceived(markCashInput);
+  const cashAlreadyPaid = isCashPaymentAlreadyReceived(markCashInput);
 
   return (
     <div className="space-y-6">
@@ -151,9 +162,17 @@ export default async function AdminReservationDetailPage({
               paymentStateColor={paymentInfo.paymentStateColor}
             />
           </div>
-          {isCashPending && (
-            <p className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
-              現金精算予約です。現地での受け取り後に「現地で支払い済みにする」操作を行えるようにする予定です（未実装）。
+          {showMarkCashPaidButton && (
+            <div className="mt-4 border-t border-border pt-4">
+              <AdminMarkCashPaymentReceivedButton
+                reservationId={reservation.id}
+                returnTo={returnTo}
+              />
+            </div>
+          )}
+          {cashAlreadyPaid && (
+            <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
+              現地での現金精算が完了しています。
             </p>
           )}
           {latestPayment ? (
