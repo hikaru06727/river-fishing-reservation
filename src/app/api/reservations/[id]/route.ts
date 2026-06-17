@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getUser } from "@/lib/auth/get-user";
-import { createClient } from "@/lib/supabase/server";
+import { findReservationByIdForUser } from "@/lib/repositories/reservations.repository";
 
 interface RouteContext {
   params: Promise<{ id: string }>;
@@ -13,18 +13,17 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   const { id } = await context.params;
-  const supabase = await createClient();
 
-  const { data, error } = await supabase
-    .from("reservations")
-    .select("*")
-    .eq("id", id)
-    .eq("user_id", user.id)
-    .single();
+  try {
+    const reservation = await findReservationByIdForUser(id, user.id);
 
-  if (error) {
+    if (!reservation) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ reservation });
+  } catch {
+    // 従来 .single() の error 時と同様 404
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-
-  return NextResponse.json({ reservation: data });
 }
