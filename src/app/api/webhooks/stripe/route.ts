@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
 import { NextResponse } from "next/server";
+import { sendPaymentConfirmedEmails } from "@/lib/email/payment-confirmation-emails";
+import { findReservationPaymentEmailMetaById } from "@/lib/repositories/reservations.repository";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getStripe } from "@/lib/stripe/server";
 import type { ReservationStatus } from "@/types/database";
@@ -138,6 +140,29 @@ export async function POST(request: Request) {
     if (paymentError) {
       console.error("[stripe webhook] payment upsert failed:", paymentError.message);
       return NextResponse.json({ error: "Failed to record payment" }, { status: 500 });
+    }
+
+    const emailMeta = await findReservationPaymentEmailMetaById(reservationId, userId);
+    if (emailMeta) {
+      void sendPaymentConfirmedEmails({
+        reservationId: emailMeta.reservationId,
+        customerUserId: emailMeta.userId,
+        spotName: emailMeta.spotName,
+        businessId: emailMeta.businessId,
+        planName: emailMeta.planName,
+        reservationDate: emailMeta.reservationDate,
+        startTime: emailMeta.startTime,
+        endTime: emailMeta.endTime,
+        guestCount: emailMeta.guestCount,
+        totalAmountYen: session.amount_total ?? emailMeta.totalAmountYen,
+      }).catch((err) => {
+        console.warn("[stripe webhook] payment confirmation email error:", err);
+      });
+    } else {
+      console.warn(
+        "[stripe webhook] payment confirmation email skipped: reservation meta not found",
+        { reservationId, userId },
+      );
     }
 
     return NextResponse.json({ received: true, confirmed: true, reservationId });

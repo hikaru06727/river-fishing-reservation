@@ -246,3 +246,65 @@ export async function findProfileEmailByUserId(userId: string): Promise<string |
 
   return data?.email ?? null;
 }
+
+export type ReservationPaymentEmailMeta = {
+  reservationId: string;
+  userId: string;
+  spotName: string;
+  businessId: string | null;
+  planName: string;
+  reservationDate: string;
+  startTime: string;
+  endTime: string;
+  guestCount: number;
+  totalAmountYen: number;
+};
+
+export async function findReservationPaymentEmailMetaById(
+  reservationId: string,
+  userId: string,
+): Promise<ReservationPaymentEmailMeta | null> {
+  const admin = createAdminClient();
+
+  const { data: reservation, error } = await admin
+    .from("reservations")
+    .select(
+      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, total_amount_yen",
+    )
+    .eq("id", reservationId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!reservation) {
+    return null;
+  }
+
+  const spotMeta = await findSpotNotificationMetaById(reservation.spot_id);
+
+  const { data: plan, error: planError } = await admin
+    .from("plans")
+    .select("name")
+    .eq("id", reservation.plan_id)
+    .maybeSingle();
+
+  if (planError) {
+    throw new Error(planError.message);
+  }
+
+  return {
+    reservationId: reservation.id,
+    userId: reservation.user_id,
+    spotName: spotMeta?.name ?? "釣り場",
+    businessId: spotMeta?.businessId ?? null,
+    planName: plan?.name ?? "プラン",
+    reservationDate: reservation.reservation_date,
+    startTime: reservation.start_time,
+    endTime: reservation.end_time,
+    guestCount: reservation.guest_count,
+    totalAmountYen: reservation.total_amount_yen,
+  };
+}
