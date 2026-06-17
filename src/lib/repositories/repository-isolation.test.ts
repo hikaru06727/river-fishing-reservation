@@ -129,4 +129,10 @@ describe("Supabase client isolation (static)", () => {
     fileMustNotImport("app/(admin)/admin/catches/actions.ts", "createAdminClient");
     fileMustNotImportFrom("app/(admin)/admin/catches/actions.ts", "catch_reports");
   });
+
+  // Phase 4 — reservations API
+  it("api/reservations/[id] route は createClient を直接使わない", () => {
+    fileMustNotImport("app/api/reservations/[id]/route.ts", "createClient");
+    fileMustNotImportFrom("app/api/reservations/[id]/route.ts", "reservations");
+  });
 });

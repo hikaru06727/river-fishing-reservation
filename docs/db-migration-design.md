@@ -481,7 +481,7 @@ export interface AuthProvider {
 - ~~blog/catches ページ・API（一覧・詳細）~~ ✅
 - Auth Provider 抽象化（設計のみ → セクション 15）
 - middleware.ts の Supabase client 生成（要設計）
-- `api/reservations/[id]`
+- ~~`api/reservations/[id]`~~ ✅（Phase 4）
 
 ---
 
@@ -572,3 +572,36 @@ export interface AuthProvider {
 ### 今回実装しない理由
 
 ログイン不能は本番致命傷のため、Repository 集約（Phase 1〜3）完了後、ステージング E2E とロールバック手順が整ってから Phase A から着手する。
+
+---
+
+## 16. 進捗（Repository 集約 Phase 4 — 2025-06）
+
+### 完了
+
+| 項目 | 移行先 |
+|------|--------|
+| `GET /api/reservations/[id]` | 既存 `findReservationByIdForUser` を再利用 |
+
+### 実装内容
+
+- Route 内の `createClient().from("reservations")` を削除
+- 認証は従来どおり `getUser()`（Auth 未変更）
+- 404 / 401 / レスポンス `{ reservation }` 形式を維持
+- `.single()` → `maybeSingle()` + null チェック（未存在時の挙動は同等）
+
+### Repository 外に残る Supabase 依存（アプリ層）
+
+| カテゴリ | ファイル |
+|----------|----------|
+| Auth | `middleware.ts`, `get-user.ts`（auth のみ）, `(auth)/actions.ts`, `auth/callback`, `admin/login/actions.ts` |
+| Admin dev API | `api/admin/set-role`, `set-password` |
+| deprecated | `affected-slots.ts` |
+| インフラ | `lib/supabase/*` |
+
+### 残タスク（Phase 5 以降）
+
+- Auth Provider Phase A（`get-user.ts` のみ）
+- `admin/login` の profile 取得 → `profiles.repository`（Auth フロー一体のため要 E2E）
+- middleware Repository / Provider 化
+- deprecated `incrementAffectedSlots` / `decrementAffectedSlots` 削除
