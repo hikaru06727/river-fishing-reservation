@@ -228,6 +228,7 @@ export interface Database {
           payment_method: PaymentMethod;
           stripe_checkout_session_id: string | null;
           expires_at: string | null;
+          expired_email_sent_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -246,6 +247,7 @@ export interface Database {
           payment_method?: PaymentMethod;
           stripe_checkout_session_id?: string | null;
           expires_at?: string | null;
+          expired_email_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -264,6 +266,7 @@ export interface Database {
           payment_method?: PaymentMethod;
           stripe_checkout_session_id?: string | null;
           expires_at?: string | null;
+          expired_email_sent_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -434,6 +437,13 @@ export interface Database {
           success: boolean;
           error_code: string | null;
           error_message: string | null;
+        }[];
+      };
+      expire_pending_reservations: {
+        Args: Record<string, never>;
+        Returns: {
+          expired_count: number;
+          reservation_ids: string[];
         }[];
       };
     };

@@ -712,3 +712,113 @@ export async function findReservationStatusForStripeWebhook(
 
   return (data?.status as ReservationStatus | undefined) ?? null;
 }
+
+export type ExpirePendingReservationsRpcResult = {
+  expired_count: number;
+  reservation_ids: string[];
+};
+
+/** DB の expire_pending_reservations RPC を実行（online pending のみ失効） */
+export async function expirePendingReservationsRpc(): Promise<ExpirePendingReservationsRpcResult> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc("expire_pending_reservations");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = (data as ExpirePendingReservationsRpcResult[] | null)?.[0];
+  return {
+    expired_count: row?.expired_count ?? 0,
+    reservation_ids: row?.reservation_ids ?? [],
+  };
+}
+
+export type ExpiredReservationEmailRow = {
+  id: string;
+  user_id: string;
+  spot_id: string;
+  plan_id: string;
+  reservation_date: string;
+  start_time: string;
+  end_time: string;
+  guest_count: number;
+  payment_method: PaymentMethod;
+  spotName: string;
+  planName: string;
+};
+
+/**
+ * 期限切れメール未送信の expired online 予約を取得。
+ * pg_cron が先に expired にした予約も対象（expired_email_sent_at IS NULL）。
+ */
+export async function findExpiredReservationsPendingEmail(): Promise<ExpiredReservationEmailRow[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("reservations")
+    .select(
+      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, payment_method",
+    )
+    .eq("status", "expired")
+    .eq("payment_method", "online")
+    .is("expired_email_sent_at", null)
+    .order("updated_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = data ?? [];
+  const results: ExpiredReservationEmailRow[] = [];
+
+  for (const row of rows) {
+    const spotMeta = await findSpotNotificationMetaById(row.spot_id);
+
+    const { data: plan, error: planError } = await admin
+      .from("plans")
+      .select("name")
+      .eq("id", row.plan_id)
+      .maybeSingle();
+
+    if (planError) {
+      throw new Error(planError.message);
+    }
+
+    results.push({
+      id: row.id,
+      user_id: row.user_id,
+      spot_id: row.spot_id,
+      plan_id: row.plan_id,
+      reservation_date: row.reservation_date,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      guest_count: row.guest_count,
+      payment_method: row.payment_method as PaymentMethod,
+      spotName: spotMeta?.name ?? "釣り場",
+      planName: plan?.name ?? "プラン",
+    });
+  }
+
+  return results;
+}
+
+/** 期限切れメール送信済みを記録（未送信行のみ更新して二重送信を防ぐ） */
+export async function markExpiredEmailSent(reservationId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data, error } = await admin
+    .from("reservations")
+    .update({ expired_email_sent_at: now })
+    .eq("id", reservationId)
+    .is("expired_email_sent_at", null)
+    .select("id");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data?.length ?? 0) > 0;
+}
