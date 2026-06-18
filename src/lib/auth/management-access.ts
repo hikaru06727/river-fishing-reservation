@@ -4,6 +4,7 @@ import {
   findReservationSpotIdByReservationId,
   findSpotBusinessIdBySpotId,
 } from "@/lib/repositories/businesses.repository";
+import { findPlanSpotIdByPlanId } from "@/lib/repositories/plans.repository";
 import { getProfile, getUser } from "@/lib/auth/get-user";
 import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
 import type { Profile, UserRole } from "@/types/database";
@@ -51,6 +52,76 @@ export function canManageReservationForProfile(
   assignedBusinessIds: readonly string[],
 ): boolean {
   return canManageSpotForProfile(profile, spotBusinessId, assignedBusinessIds);
+}
+
+/** 純粋関数: plan の fishing_spot_id 経由でプラン操作可否 */
+export function canManagePlanForProfile(
+  profile: Pick<Profile, "role" | "id"> | null | undefined,
+  planSpotId: string | null | undefined,
+  spotBusinessId: string | null | undefined,
+  assignedBusinessIds: readonly string[],
+): boolean {
+  if (!profile) {
+    return false;
+  }
+  if (isAdminRole(profile.role)) {
+    return true;
+  }
+  if (!isBusinessAdminRole(profile.role)) {
+    return false;
+  }
+  if (!planSpotId) {
+    return false;
+  }
+  return canManageSpotForProfile(profile, spotBusinessId, assignedBusinessIds);
+}
+
+export async function canCurrentUserManagePlan(
+  planId: string | null | undefined,
+): Promise<boolean> {
+  if (!planId) {
+    return false;
+  }
+
+  const profile = await getManagementProfile();
+  if (!profile) {
+    return false;
+  }
+  if (isAdminRole(profile.role)) {
+    return true;
+  }
+  if (!isBusinessAdminRole(profile.role)) {
+    return false;
+  }
+
+  let spotId: string | null;
+  try {
+    spotId = await findPlanSpotIdByPlanId(planId);
+  } catch (error) {
+    console.error(
+      "[canCurrentUserManagePlan]",
+      error instanceof Error ? error.message : error,
+    );
+    return false;
+  }
+
+  if (!spotId) {
+    return false;
+  }
+
+  let spotBusinessId: string | null;
+  try {
+    spotBusinessId = await findSpotBusinessIdBySpotId(spotId);
+  } catch (error) {
+    console.error(
+      "[canCurrentUserManagePlan]",
+      error instanceof Error ? error.message : error,
+    );
+    return false;
+  }
+
+  const assignedIds = await getAssignedBusinessIds(profile.id);
+  return canManagePlanForProfile(profile, spotId, spotBusinessId, assignedIds);
 }
 
 async function getAssignedBusinessIds(userId: string): Promise<string[]> {

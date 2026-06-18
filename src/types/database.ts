@@ -154,7 +154,13 @@ export interface Database {
           duration_minutes: number;
           price_yen: number;
           is_active: boolean;
+          fishing_spot_id: string | null;
+          description: string | null;
+          max_guests: number;
+          is_visible: boolean;
+          is_accepting_reservations: boolean;
           created_at: string;
+          updated_at: string;
         };
         Insert: {
           id?: string;
@@ -163,7 +169,13 @@ export interface Database {
           duration_minutes: number;
           price_yen: number;
           is_active?: boolean;
+          fishing_spot_id?: string | null;
+          description?: string | null;
+          max_guests?: number;
+          is_visible?: boolean;
+          is_accepting_reservations?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
         Update: {
           id?: string;
@@ -172,9 +184,23 @@ export interface Database {
           duration_minutes?: number;
           price_yen?: number;
           is_active?: boolean;
+          fishing_spot_id?: string | null;
+          description?: string | null;
+          max_guests?: number;
+          is_visible?: boolean;
+          is_accepting_reservations?: boolean;
           created_at?: string;
+          updated_at?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "plans_fishing_spot_id_fkey";
+            columns: ["fishing_spot_id"];
+            isOneToOne: false;
+            referencedRelation: "fishing_spots";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       availability_slots: {
         Row: {

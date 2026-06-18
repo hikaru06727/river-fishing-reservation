@@ -130,6 +130,16 @@ describe("Supabase client isolation (static)", () => {
     fileMustNotImportFrom("app/(admin)/admin/catches/actions.ts", "catch_reports");
   });
 
+  it("get-admin-plans.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/get-admin-plans.ts", "createClient");
+    fileMustNotImport("lib/plans/get-admin-plans.ts", "@/lib/supabase/server");
+  });
+
+  it("admin plans actions は createClient を直接使わない", () => {
+    fileMustNotImport("app/(admin)/admin/plans/actions.ts", "createClient");
+    fileMustNotImportFrom("app/(admin)/admin/plans/actions.ts", "plans");
+  });
+
   // Phase 4 — reservations API
   it("api/reservations/[id] route は createClient を直接使わない", () => {
     fileMustNotImport("app/api/reservations/[id]/route.ts", "createClient");

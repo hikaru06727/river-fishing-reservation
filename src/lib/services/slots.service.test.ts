@@ -21,6 +21,25 @@ const PLAN_1H_ID = "22222222-2222-4222-8222-222222222222";
 const PLAN_3H_ID = "33333333-3333-4333-8333-333333333333";
 const SLOT_DATE = "2026-06-20";
 
+function makeLegacyPlan(
+  overrides: Pick<
+    import("@/types/database").Plan,
+    "id" | "name" | "slug" | "duration_minutes" | "price_yen"
+  >,
+): import("@/types/database").Plan {
+  return {
+    ...overrides,
+    is_active: true,
+    fishing_spot_id: null,
+    description: null,
+    max_guests: 10,
+    is_visible: true,
+    is_accepting_reservations: true,
+    created_at: "",
+    updated_at: "",
+  };
+}
+
 function makeSlot(startTime: string, idSuffix: string) {
   return {
     id: `aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaa${idSuffix}`,
@@ -55,15 +74,15 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("1h プランでは許可時刻のみ表示する", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue({
-      id: PLAN_1H_ID,
-      name: "1時間プラン",
-      slug: "1h",
-      duration_minutes: 60,
-      price_yen: 3000,
-      is_active: true,
-      created_at: "",
-    });
+    vi.mocked(findActivePlanById).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_1H_ID,
+        name: "1時間プラン",
+        slug: "1h",
+        duration_minutes: 60,
+        price_yen: 3000,
+      }),
+    );
 
     const result = await getAvailableSlotsWithPlan({
       spotId: SPOT_ID,
@@ -82,15 +101,15 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("3h プランでは 09:00 と 13:00 のみ表示する", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue({
-      id: PLAN_3H_ID,
-      name: "3時間プラン",
-      slug: "3h",
-      duration_minutes: 180,
-      price_yen: 8000,
-      is_active: true,
-      created_at: "",
-    });
+    vi.mocked(findActivePlanById).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_3H_ID,
+        name: "3時間プラン",
+        slug: "3h",
+        duration_minutes: 180,
+        price_yen: 8000,
+      }),
+    );
 
     const result = await getAvailableSlotsWithPlan({
       spotId: SPOT_ID,
@@ -102,15 +121,15 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("08:00 や 16:00 は表示しない", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue({
-      id: PLAN_1H_ID,
-      name: "1時間プラン",
-      slug: "1h",
-      duration_minutes: 60,
-      price_yen: 3000,
-      is_active: true,
-      created_at: "",
-    });
+    vi.mocked(findActivePlanById).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_1H_ID,
+        name: "1時間プラン",
+        slug: "1h",
+        duration_minutes: 60,
+        price_yen: 3000,
+      }),
+    );
 
     const result = await getAvailableSlotsWithPlan({
       spotId: SPOT_ID,
