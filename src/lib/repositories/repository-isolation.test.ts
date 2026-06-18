@@ -135,6 +135,11 @@ describe("Supabase client isolation (static)", () => {
     fileMustNotImport("lib/plans/get-admin-plans.ts", "@/lib/supabase/server");
   });
 
+  it("admin-plan-scope.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/admin-plan-scope.ts", "createClient");
+    fileMustNotImport("lib/plans/admin-plan-scope.ts", "@/lib/supabase/server");
+  });
+
   it("admin plans actions は createClient を直接使わない", () => {
     fileMustNotImport("app/(admin)/admin/plans/actions.ts", "createClient");
     fileMustNotImportFrom("app/(admin)/admin/plans/actions.ts", "plans");

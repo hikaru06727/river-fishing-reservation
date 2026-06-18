@@ -2,8 +2,10 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
-import type { AdminPlanActionState } from "@/app/(admin)/admin/plans/actions";
-import { adminPlanActionInitialState } from "@/app/(admin)/admin/plans/actions";
+import {
+  adminPlanActionInitialState,
+  type AdminPlanActionState,
+} from "@/app/(admin)/admin/plans/action-state";
 import { Button } from "@/components/ui/Button";
 import type { ManageableSpotRow } from "@/lib/repositories/businesses.repository";
 import type { Plan } from "@/types/database";

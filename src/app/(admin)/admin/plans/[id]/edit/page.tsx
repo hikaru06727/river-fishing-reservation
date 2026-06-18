@@ -6,9 +6,7 @@ import { updateAdminPlanAction } from "../../actions";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { isAdminRole } from "@/lib/auth/role";
 import { getAdminPlanForEdit } from "@/lib/services/plans.service";
-import {
-  getManageableSpotsForPlans,
-} from "@/lib/plans/get-admin-plans";
+import { getSelectableSpotsForPlans } from "@/lib/plans/get-admin-plans";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -42,7 +40,7 @@ export default async function AdminPlanEditPage({
 
   const [result, spots] = await Promise.all([
     getAdminPlanForEdit(session.profile, id),
-    getManageableSpotsForPlans(),
+    getSelectableSpotsForPlans(),
   ]);
 
   if (!result.ok) {

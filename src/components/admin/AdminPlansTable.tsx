@@ -2,11 +2,11 @@
 
 import { useActionState } from "react";
 import Link from "next/link";
+import { adminPlanActionInitialState } from "@/app/(admin)/admin/plans/action-state";
 import {
   togglePlanAcceptingReservationsAction,
   togglePlanVisibilityAction,
 } from "@/app/(admin)/admin/plans/actions";
-import { adminPlanActionInitialState } from "@/app/(admin)/admin/plans/actions";
 import { Button } from "@/components/ui/Button";
 import type { AdminPlanRow } from "@/lib/plans/get-admin-plans";
 import { formatDuration } from "@/lib/utils/plan";

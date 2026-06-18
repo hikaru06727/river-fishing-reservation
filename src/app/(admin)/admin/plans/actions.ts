@@ -10,12 +10,7 @@ import {
   updateAdminPlan,
 } from "@/lib/services/plans.service";
 import { parseAdminPlanForm } from "@/validations/plan";
-
-export type AdminPlanActionState = {
-  error?: string;
-};
-
-export const adminPlanActionInitialState: AdminPlanActionState = {};
+import type { AdminPlanActionState } from "./action-state";
 
 function sanitizeReturnTo(value: FormDataEntryValue | null): string {
   if (typeof value !== "string" || !value.startsWith("/admin/plans")) {

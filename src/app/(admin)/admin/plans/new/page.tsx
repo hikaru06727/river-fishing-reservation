@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PlanForm } from "@/components/admin/PlanForm";
 import { createAdminPlanAction } from "../actions";
-import { getManageableSpotsForPlans } from "@/lib/plans/get-admin-plans";
+import { getSelectableSpotsForPlans } from "@/lib/plans/get-admin-plans";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -10,7 +10,7 @@ export const fetchCache = "force-no-store";
 export const metadata: Metadata = { title: "プラン作成" };
 
 export default async function AdminPlansNewPage() {
-  const spots = await getManageableSpotsForPlans();
+  const spots = await getSelectableSpotsForPlans();
 
   return (
     <div>

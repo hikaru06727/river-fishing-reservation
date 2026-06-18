@@ -7,7 +7,7 @@ import {
   buildAdminPlanSearchParams,
   getAdminPlans,
   getManageableBusinessesForPlans,
-  getManageableSpotsForPlans,
+  getSelectableSpotsForPlans,
   parseAdminPlanFilters,
 } from "@/lib/plans/get-admin-plans";
 
@@ -32,7 +32,7 @@ export default async function AdminPlansPage({ searchParams }: AdminPlansPagePro
   const [plans, scope, spots, businesses] = await Promise.all([
     getAdminPlans(filters),
     getManagementScope(),
-    getManageableSpotsForPlans(),
+    getSelectableSpotsForPlans(),
     getManageableBusinessesForPlans(),
   ]);
 
