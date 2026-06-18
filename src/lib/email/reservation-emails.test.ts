@@ -60,7 +60,8 @@ describe("reservation email content", () => {
 
     expect(email.subject).toContain("【予約確定】");
     expect(email.text).toContain("当日現金精算");
-    expect(email.text).toContain("当日、現地受付にて現金");
+    expect(email.text).toContain("支払い方法: 当日現金精算");
+    expect(email.text).toContain("当日、受付にて現金でお支払いください。");
     expect(email.text).not.toContain("カード決済が完了すると");
   });
 

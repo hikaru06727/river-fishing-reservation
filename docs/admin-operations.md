@@ -40,7 +40,7 @@
 1. ユーザーが「当日現地で現金」で予約 → 即 `confirmed`
 2. `payments` レコードは `pending`（現地未収）
 3. 当日現地で受け取り後、管理画面で「現地で支払い済みにする」
-4. `payments.status=succeeded`, `paid_at` 設定
+4. `payments.status=succeeded`, `paid_at` 設定（**メールは送信しない**）
 
 ## 管理者アカウントの初回作成
 

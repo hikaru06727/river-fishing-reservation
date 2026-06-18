@@ -152,9 +152,10 @@
 
 | タイミング | 送信先 |
 |------------|--------|
-| online 仮予約 | ユーザー + admin/business_admin |
-| online 決済完了 | ユーザー + admin/business_admin |
-| cash 予約確定 | ユーザー + admin/business_admin |
+| online 仮予約 | ユーザー + admin/business_admin（予約受付メール） |
+| online 決済完了 | ユーザー + admin/business_admin（Stripe 決済完了メール） |
+| cash 予約確定 | ユーザー + admin/business_admin（予約受付メールのみ。決済完了メールは送らない） |
+| cash 現地精算済み（管理画面操作） | **送信なし** |
 | キャンセル | ユーザー + admin/business_admin |
 
 **API キーなし / EMAILS_ENABLED=false の場合**: 送信スキップ（`ok: true, skipped: true`）。予約・決済処理は継続。

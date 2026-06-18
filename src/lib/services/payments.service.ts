@@ -20,6 +20,7 @@ export type MarkCashPaymentReceivedResult = {
 export async function markCashPaymentReceived(
   reservationId: string,
 ): Promise<ServiceResult<MarkCashPaymentReceivedResult>> {
+  // 現金精算の payments 更新のみ。完了メールは送らない（予約作成時の受付メールで案内済み）。
   const meta = await findReservationPaymentMetaByIdAdmin(reservationId);
 
   if (!meta) {

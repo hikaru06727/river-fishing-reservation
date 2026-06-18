@@ -114,7 +114,8 @@ async function logSendResult(
 }
 
 /**
- * 決済完了・予約確定後に予約者・管理者へ通知メールを送る。
+ * オンライン決済（Stripe webhook）完了後に予約者・管理者へ通知メールを送る。
+ * cash_at_venue では呼ばない（現金精算完了メールは送らない）。
  * 失敗しても throw せず、Webhook / 決済処理には影響しない。
  */
 export async function sendPaymentConfirmedEmails(
