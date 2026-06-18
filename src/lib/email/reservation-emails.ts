@@ -74,7 +74,7 @@ export function formatPaymentMethodLabel(
 function buildCustomerClosingLines(context: ReservationCreatedEmailContext): string[] {
   if (context.paymentMethod === "cash_at_venue") {
     return [
-      "お支払いは当日、現地受付にて現金でお願いいたします。",
+      "当日、受付にて現金でお支払いください。",
       "ご不明点があれば釣り場までお問い合わせください。",
     ];
   }

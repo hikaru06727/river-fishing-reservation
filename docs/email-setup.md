@@ -202,7 +202,10 @@ export interface EmailProvider {
 | イベント | 関数 | 送信先 |
 |----------|------|--------|
 | 予約作成（online / cash） | `sendReservationCreatedEmails` | 予約者 + business_admin（なければ fallback） |
-| Stripe 決済完了 | `sendPaymentConfirmedEmails` | 予約者 + business_admin |
+| Stripe 決済完了（**online のみ**） | `sendPaymentConfirmedEmails` | 予約者 + business_admin |
 | キャンセル | `sendReservationCancelledEmails` | 予約者 + business_admin |
+| 現金「現地で支払い済みにする」（管理画面） | **送信なし** | — |
+
+**cash_at_venue:** 予約作成時の受付メールに「支払い方法: 当日現金精算」「当日、受付にて現金でお支払いください。」を含める。現金精算完了メールは送らない。
 
 いずれも失敗時 **throw しない**（予約・決済・Webhook は継続）。

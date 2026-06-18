@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { canManageReservationForProfile } from "@/lib/auth/management-access";
 import { markCashPaymentReceived } from "@/lib/services/payments.service";
 
@@ -144,5 +146,10 @@ describe("markCashPaymentReceived permission boundary", () => {
     const bizAdmin = { id: "ba-1", role: "business_admin" as const };
     expect(canManageReservationForProfile(bizAdmin, "biz-a", ["biz-a"])).toBe(true);
     expect(canManageReservationForProfile(bizAdmin, "biz-b", ["biz-a"])).toBe(false);
+  });
+
+  it("現金精算済み更新時にメール送信コードを呼ばない（email import なし）", () => {
+    const src = readFileSync(resolve(__dirname, "payments.service.ts"), "utf-8");
+    expect(src).not.toMatch(/@\/lib\/email\//);
   });
 });
