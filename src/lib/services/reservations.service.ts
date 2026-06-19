@@ -24,7 +24,8 @@ import {
   getExpiresAtForPaymentMethod,
   getInitialReservationStatusForPaymentMethod,
 } from "@/lib/reservations/payment-method";
-import { createReservationSchema, cancelReservationSchema, isAllowedStartTime } from "@/validations/reservation";
+import { createReservationSchema, cancelReservationSchema } from "@/validations/reservation";
+import { isAllowedStartTimeByDuration } from "@/lib/slots/start-time-rules";
 import { sendReservationCancelledEmails } from "@/lib/email/reservation-cancellation-emails";
 import { sendReservationCreatedEmails } from "@/lib/email/reservation-emails";
 
@@ -116,7 +117,7 @@ export async function createReservation(
     return { ok: false, error: "利用日と空き枠が一致しません", status: 422 };
   }
 
-  if (!isAllowedStartTime(plan.slug, startSlot.start_time)) {
+  if (!isAllowedStartTimeByDuration(plan.duration_minutes, startSlot.start_time)) {
     return { ok: false, error: "選択できない時間帯です", status: 422 };
   }
 

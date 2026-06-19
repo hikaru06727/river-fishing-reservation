@@ -83,6 +83,11 @@ describe("Supabase client isolation (static)", () => {
     fileMustNotImport("lib/plans/plan-reservation-rules.ts", "@/lib/supabase/server");
   });
 
+  it("start-time-rules.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/slots/start-time-rules.ts", "createClient");
+    fileMustNotImport("lib/slots/start-time-rules.ts", "@/lib/supabase/server");
+  });
+
   it("admin-notification-recipients.ts は createAdminClient を直接使わない", () => {
     fileMustNotImport("lib/email/admin-notification-recipients.ts", "createAdminClient");
   });

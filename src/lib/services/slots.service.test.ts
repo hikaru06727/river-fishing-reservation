@@ -143,4 +143,24 @@ describe("getAvailableSlotsWithPlan", () => {
     expect(displayed).not.toContain("06:00");
     expect(displayed).not.toContain("17:00");
   });
+
+  it("120分プランは duration_minutes 基準で空き枠を判定する（任意 slug）", async () => {
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makeLegacyPlan({
+        id: "44444444-4444-4444-8444-444444444444",
+        name: "2時間プラン",
+        slug: "custom-two-hour-plan",
+        duration_minutes: 120,
+        price_yen: 6000,
+      }),
+    );
+
+    const result = await getAvailableSlotsWithPlan({
+      spotId: SPOT_ID,
+      planId: "44444444-4444-4444-8444-444444444444",
+      date: SLOT_DATE,
+    });
+
+    expect(result.slots.map((s) => s.start_time).sort()).toEqual(["09:00", "10:00", "13:00", "14:00"]);
+  });
 });

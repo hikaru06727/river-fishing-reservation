@@ -79,6 +79,7 @@ const validInput = {
 
 describe("createReservation plan/spot validation (phase 8a)", () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     vi.mocked(findActivePlanForReservation).mockResolvedValue(
       makePlan({ id: planA, fishing_spot_id: spotA }),
     );
@@ -175,5 +176,21 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
     expect(result.ok).toBe(true);
     expect(createReservationAtomic).toHaveBeenCalledOnce();
     expect(insertPendingPaymentForReservation).toHaveBeenCalledOnce();
+  });
+
+  it("任意 slug でも duration_minutes が正しければ予約できる", async () => {
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({
+        id: planA,
+        slug: "spot-custom-2h",
+        duration_minutes: 120,
+      }),
+    );
+    vi.mocked(getAffectedSlotStartTimes).mockReturnValue(["09:00:00", "10:00:00"]);
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(true);
+    expect(createReservationAtomic).toHaveBeenCalledOnce();
   });
 });
