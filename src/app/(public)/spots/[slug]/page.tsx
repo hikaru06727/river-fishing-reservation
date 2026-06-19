@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { PlanAvailabilitySlots } from "@/components/spots/PlanAvailabilitySlots";
 import { PlanCard } from "@/components/spots/PlanCard";
 import { SpotDetailHeader } from "@/components/spots/SpotDetailHeader";
-import { getActivePlans } from "@/lib/plans/get-plans";
+import { getBookablePlansBySpotId } from "@/lib/plans/get-plans";
 import { getSpotBySlug } from "@/lib/spots/get-spot-by-slug";
 
 export const dynamic = "force-dynamic";
@@ -35,7 +35,7 @@ export default async function SpotDetailPage({ params }: SpotDetailPageProps) {
     notFound();
   }
 
-  const plans = await getActivePlans();
+  const plans = await getBookablePlansBySpotId(spot.id);
 
   return (
     <div className="space-y-8">

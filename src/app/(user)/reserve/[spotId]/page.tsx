@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ReserveForm } from "@/components/reservation/ReserveForm";
 import { getUser } from "@/lib/auth/get-user";
-import { getPlanBySlug } from "@/lib/plans/get-plan-by-slug";
+import { getPlanBySlugForSpot } from "@/lib/plans/get-plan-by-slug";
 import { getSpotById } from "@/lib/spots/get-spot-by-id";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -41,12 +41,13 @@ export default async function ReservePage({
     notFound();
   }
 
-  const plan = await getPlanBySlug(planSlug);
+  const plan = await getPlanBySlugForSpot(planSlug, spotId);
   if (!plan) {
     notFound();
   }
 
-  return (    <div className="mx-auto max-w-lg space-y-6">
+  return (
+    <div className="mx-auto max-w-lg space-y-6">
       <header>
         <h1 className="text-2xl font-bold text-foreground">予約</h1>
         <p className="mt-1 text-sm text-muted">{spot.name}</p>

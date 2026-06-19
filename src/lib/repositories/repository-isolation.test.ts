@@ -70,10 +70,17 @@ describe("Supabase client isolation (static)", () => {
 
   it("get-plans.ts は createClient を直接使わない", () => {
     fileMustNotImport("lib/plans/get-plans.ts", "createClient");
+    fileMustNotImport("lib/plans/get-plans.ts", "@/lib/supabase/server");
   });
 
   it("get-plan-by-slug.ts は createClient を直接使わない", () => {
     fileMustNotImport("lib/plans/get-plan-by-slug.ts", "createClient");
+    fileMustNotImport("lib/plans/get-plan-by-slug.ts", "@/lib/supabase/server");
+  });
+
+  it("plan-reservation-rules.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/plan-reservation-rules.ts", "createClient");
+    fileMustNotImport("lib/plans/plan-reservation-rules.ts", "@/lib/supabase/server");
   });
 
   it("admin-notification-recipients.ts は createAdminClient を直接使わない", () => {

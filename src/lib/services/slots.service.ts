@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { addMinutes, toISODate } from "@/lib/utils/date";
-import { findActivePlanById } from "@/lib/repositories/plans.repository";
+import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
 import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
 import {
   getAffectedSlotStartTimes,
@@ -60,7 +60,7 @@ export async function getAvailableSlotsWithPlan(
   noStore();
 
   const guestCount = params.guestCount ?? 1;
-  const plan = await findActivePlanById(params.planId);
+  const plan = await findActivePlanForReservation(params.planId, params.spotId);
 
   if (!plan) {
     throw new Error("プランが見つかりません");

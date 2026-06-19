@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { resolveBookablePlansForSpot, validatePlanForReservation } from "@/lib/plans/plan-reservation-rules";
 import type { Plan } from "@/types/database";
 
 export type AdminPlanRow = Plan & {
@@ -66,6 +67,89 @@ export async function findAllActivePlans(): Promise<Plan[]> {
   }
 
   return data ?? [];
+}
+
+const BOOKABLE_PLAN_SELECT = "*";
+
+async function findSpotSpecificBookablePlansBySpotId(spotId: string): Promise<Plan[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("plans")
+    .select(BOOKABLE_PLAN_SELECT)
+    .eq("fishing_spot_id", spotId)
+    .eq("is_active", true)
+    .eq("is_visible", true)
+    .eq("is_accepting_reservations", true)
+    .order("duration_minutes", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
+async function findLegacyBookablePlans(): Promise<Plan[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("plans")
+    .select(BOOKABLE_PLAN_SELECT)
+    .is("fishing_spot_id", null)
+    .eq("is_active", true)
+    .eq("is_visible", true)
+    .eq("is_accepting_reservations", true)
+    .order("duration_minutes", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data ?? [];
+}
+
+/** 予約 UI 用: spot 別プラン優先、なければ legacy 共通プラン */
+export async function findBookablePlansBySpotId(spotId: string): Promise<Plan[]> {
+  const [spotPlans, legacyPlans] = await Promise.all([
+    findSpotSpecificBookablePlansBySpotId(spotId),
+    findLegacyBookablePlans(),
+  ]);
+
+  return resolveBookablePlansForSpot(spotPlans, legacyPlans);
+}
+
+/** spot 別 bookable プランが存在するか（legacy 許可判定用） */
+export async function hasSpotSpecificBookablePlans(spotId: string): Promise<boolean> {
+  const spotPlans = await findSpotSpecificBookablePlansBySpotId(spotId);
+  return spotPlans.length > 0;
+}
+
+/** 予約作成・スロット API 用: planId + spotId の整合性を含めて取得 */
+export async function findActivePlanForReservation(
+  planId: string,
+  spotId: string,
+): Promise<Plan | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase.from("plans").select(BOOKABLE_PLAN_SELECT).eq("id", planId).maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const hasSpotPlans = await hasSpotSpecificBookablePlans(spotId);
+  const validation = validatePlanForReservation(data, spotId, hasSpotPlans);
+  return validation.ok ? validation.plan : null;
+}
+
+/** 予約ページ用: slug + spotId で bookable プランを取得 */
+export async function findActivePlanBySlugForSpot(
+  slug: string,
+  spotId: string,
+): Promise<Plan | null> {
+  const bookablePlans = await findBookablePlansBySpotId(spotId);
+  return bookablePlans.find((plan) => plan.slug === slug) ?? null;
 }
 
 export async function findPlanById(planId: string): Promise<Plan | null> {

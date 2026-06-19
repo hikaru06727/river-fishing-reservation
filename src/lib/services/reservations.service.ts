@@ -5,7 +5,11 @@ import {
   getAffectedSlotStartTimes,
   validateAffectedSlotsCapacity,
 } from "@/lib/slots/affected-slots";
-import { findActivePlanById, findPlanById } from "@/lib/repositories/plans.repository";
+import { validateGuestCountForPlan } from "@/lib/plans/plan-reservation-rules";
+import {
+  findActivePlanForReservation,
+  findPlanById,
+} from "@/lib/repositories/plans.repository";
 import {
   cancelReservationAtomic,
   createReservationAtomic,
@@ -93,9 +97,14 @@ export async function createReservation(
 
   const { spotId, planId, slotId, reservationDate, guestCount, paymentMethod } = parsed.data;
 
-  const plan = await findActivePlanById(planId);
+  const plan = await findActivePlanForReservation(planId, spotId);
   if (!plan) {
     return { ok: false, error: "選択されたプランが見つかりません", status: 422 };
+  }
+
+  const guestValidation = validateGuestCountForPlan(guestCount, plan);
+  if (!guestValidation.ok) {
+    return { ok: false, error: guestValidation.error, status: 422 };
   }
 
   const startSlot = await findSlotById(slotId, spotId);

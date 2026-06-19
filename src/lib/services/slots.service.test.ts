@@ -5,14 +5,14 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/lib/repositories/plans.repository", () => ({
-  findActivePlanById: vi.fn(),
+  findActivePlanForReservation: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories/slots.repository", () => ({
   findOpenSlotsBySpotAndDateRange: vi.fn(),
 }));
 
-import { findActivePlanById } from "@/lib/repositories/plans.repository";
+import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
 import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
 import { getAvailableSlotsWithPlan } from "./slots.service";
 
@@ -74,7 +74,7 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("1h プランでは許可時刻のみ表示する", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue(
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
       makeLegacyPlan({
         id: PLAN_1H_ID,
         name: "1時間プラン",
@@ -101,7 +101,7 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("3h プランでは 09:00 と 13:00 のみ表示する", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue(
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
       makeLegacyPlan({
         id: PLAN_3H_ID,
         name: "3時間プラン",
@@ -121,7 +121,7 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("08:00 や 16:00 は表示しない", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue(
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
       makeLegacyPlan({
         id: PLAN_1H_ID,
         name: "1時間プラン",
