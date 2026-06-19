@@ -16,6 +16,7 @@ vi.mock("@/lib/repositories/reservations.repository", () => ({
   createReservationAtomic: vi.fn(),
   findSpotNotificationMetaById: vi.fn(),
   insertPendingPaymentForReservation: vi.fn(),
+  updateReservationPlanSnapshot: vi.fn(),
 }));
 
 vi.mock("@/lib/slots/affected-slots", () => ({
@@ -33,6 +34,7 @@ import {
   createReservationAtomic,
   findSpotNotificationMetaById,
   insertPendingPaymentForReservation,
+  updateReservationPlanSnapshot,
 } from "@/lib/repositories/reservations.repository";
 import { findSlotById } from "@/lib/repositories/slots.repository";
 import {
@@ -122,6 +124,7 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
       businessId: null,
     });
     vi.mocked(insertPendingPaymentForReservation).mockResolvedValue(undefined);
+    vi.mocked(updateReservationPlanSnapshot).mockResolvedValue(undefined);
   });
 
   it("spot A の予約で spot B の planId を使えない", async () => {
@@ -192,5 +195,38 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
 
     expect(result.ok).toBe(true);
     expect(createReservationAtomic).toHaveBeenCalledOnce();
+  });
+
+  it("createReservation 成功後に plan snapshot を保存する", async () => {
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({
+        id: planA,
+        name: "スナップショットプラン",
+        price_yen: 4500,
+        duration_minutes: 180,
+      }),
+    );
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(true);
+    expect(updateReservationPlanSnapshot).toHaveBeenCalledWith("res-1", {
+      reserved_plan_name: "スナップショットプラン",
+      reserved_unit_price_yen: 4500,
+      reserved_duration_minutes: 180,
+    });
+  });
+
+  it("snapshot UPDATE 失敗時も予約作成は成功として返す", async () => {
+    vi.mocked(updateReservationPlanSnapshot).mockRejectedValue(
+      new Error("snapshot update failed"),
+    );
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(true);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 });

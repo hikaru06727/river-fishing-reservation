@@ -255,6 +255,9 @@ export interface Database {
           stripe_checkout_session_id: string | null;
           expires_at: string | null;
           expired_email_sent_at: string | null;
+          reserved_plan_name: string | null;
+          reserved_unit_price_yen: number | null;
+          reserved_duration_minutes: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -274,6 +277,9 @@ export interface Database {
           stripe_checkout_session_id?: string | null;
           expires_at?: string | null;
           expired_email_sent_at?: string | null;
+          reserved_plan_name?: string | null;
+          reserved_unit_price_yen?: number | null;
+          reserved_duration_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -293,6 +299,9 @@ export interface Database {
           stripe_checkout_session_id?: string | null;
           expires_at?: string | null;
           expired_email_sent_at?: string | null;
+          reserved_plan_name?: string | null;
+          reserved_unit_price_yen?: number | null;
+          reserved_duration_minutes?: number | null;
           created_at?: string;
           updated_at?: string;
         };

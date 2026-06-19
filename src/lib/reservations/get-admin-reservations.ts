@@ -31,6 +31,9 @@ export type AdminReservationRow = {
   guest_count: number;
   status: ReservationStatus;
   total_amount_yen: number;
+  reserved_plan_name?: string | null;
+  reserved_unit_price_yen?: number | null;
+  reserved_duration_minutes?: number | null;
   created_at: string;
   updated_at: string;
   expires_at: string | null;

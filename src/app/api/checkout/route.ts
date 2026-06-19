@@ -3,6 +3,7 @@ import { getUser } from "@/lib/auth/get-user";
 import { evaluateStripeCheckoutEligibility } from "@/lib/reservations/checkout-eligibility";
 import { inferPaymentMethod } from "@/lib/reservations/payment-method";
 import { getReservationById } from "@/lib/reservations/get-reservation";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { updateReservationStripeCheckoutSessionId } from "@/lib/repositories/reservations.repository";
 import { getStripe } from "@/lib/stripe/server";
 import { checkoutSchema } from "@/validations/reservation";
@@ -48,7 +49,7 @@ export async function POST(request: Request) {
 
     const stripe = getStripe();
     const spotName = reservation.fishing_spots?.name ?? "釣り場";
-    const planName = reservation.plans?.name ?? "プラン";
+    const planName = getReservationPlanDisplay(reservation, { nameFallback: "プラン" }).name;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import type { PaymentMethod, PaymentStatus, Reservation, ReservationStatus } from "@/types/database";
 
 export type ReservationInsert = {
@@ -73,6 +74,29 @@ export async function createReservationAtomic(
   }
 
   return row;
+}
+
+export type ReservationPlanSnapshot = {
+  reserved_plan_name: string;
+  reserved_unit_price_yen: number;
+  reserved_duration_minutes: number;
+};
+
+/** 予約作成後に plan snapshot を保存（Phase 8c: post-RPC UPDATE） */
+export async function updateReservationPlanSnapshot(
+  reservationId: string,
+  snapshot: ReservationPlanSnapshot,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("reservations")
+    .update(snapshot)
+    .eq("id", reservationId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /** 現金精算予約: 決済待ちレコードを service_role で作成 */
@@ -268,7 +292,9 @@ export async function findReservationCompleteDisplayByIdAdmin(
 
   const { data, error } = await admin
     .from("reservations")
-    .select("total_amount_yen, reservation_date, start_time, plans(name)")
+    .select(
+      "total_amount_yen, reservation_date, start_time, reserved_plan_name, plans(name)",
+    )
     .eq("id", reservationId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -287,7 +313,10 @@ export async function findReservationCompleteDisplayByIdAdmin(
     total_amount_yen: data.total_amount_yen,
     reservation_date: data.reservation_date,
     start_time: data.start_time,
-    planName: plans?.name ?? null,
+    planName: getReservationPlanDisplay(
+      { reserved_plan_name: data.reserved_plan_name, plans },
+      { nameFallback: "プラン" },
+    ).name,
   };
 }
 
@@ -313,7 +342,7 @@ export async function findReservationPaymentEmailMetaById(
   const { data: reservation, error } = await admin
     .from("reservations")
     .select(
-      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, total_amount_yen",
+      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, total_amount_yen, reserved_plan_name",
     )
     .eq("id", reservationId)
     .eq("user_id", userId)
@@ -344,7 +373,10 @@ export async function findReservationPaymentEmailMetaById(
     userId: reservation.user_id,
     spotName: spotMeta?.name ?? "釣り場",
     businessId: spotMeta?.businessId ?? null,
-    planName: plan?.name ?? "プラン",
+    planName: getReservationPlanDisplay(
+      { reserved_plan_name: reservation.reserved_plan_name, plans: plan },
+      { nameFallback: "プラン" },
+    ).name,
     reservationDate: reservation.reservation_date,
     startTime: reservation.start_time,
     endTime: reservation.end_time,
@@ -380,6 +412,9 @@ export const ADMIN_RESERVATION_LIST_SELECT = `
   guest_count,
   status,
   total_amount_yen,
+  reserved_plan_name,
+  reserved_unit_price_yen,
+  reserved_duration_minutes,
   created_at,
   updated_at,
   expires_at,
@@ -759,7 +794,7 @@ export async function findExpiredReservationsPendingEmail(): Promise<ExpiredRese
   const { data, error } = await admin
     .from("reservations")
     .select(
-      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, payment_method",
+      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, payment_method, reserved_plan_name",
     )
     .eq("status", "expired")
     .eq("payment_method", "online")
@@ -776,15 +811,25 @@ export async function findExpiredReservationsPendingEmail(): Promise<ExpiredRese
   for (const row of rows) {
     const spotMeta = await findSpotNotificationMetaById(row.spot_id);
 
-    const { data: plan, error: planError } = await admin
-      .from("plans")
-      .select("name")
-      .eq("id", row.plan_id)
-      .maybeSingle();
+    let plansJoin: { name: string } | null = null;
+    if (!row.reserved_plan_name) {
+      const { data: plan, error: planError } = await admin
+        .from("plans")
+        .select("name")
+        .eq("id", row.plan_id)
+        .maybeSingle();
 
-    if (planError) {
-      throw new Error(planError.message);
+      if (planError) {
+        throw new Error(planError.message);
+      }
+
+      plansJoin = plan;
     }
+
+    const planName = getReservationPlanDisplay(
+      { reserved_plan_name: row.reserved_plan_name, plans: plansJoin },
+      { nameFallback: "プラン" },
+    ).name;
 
     results.push({
       id: row.id,
@@ -797,7 +842,7 @@ export async function findExpiredReservationsPendingEmail(): Promise<ExpiredRese
       guest_count: row.guest_count,
       payment_method: row.payment_method as PaymentMethod,
       spotName: spotMeta?.name ?? "釣り場",
-      planName: plan?.name ?? "プラン",
+      planName,
     });
   }
 

@@ -17,7 +17,9 @@ import {
   findReservationByIdForUser,
   findSpotNotificationMetaById,
   insertPendingPaymentForReservation,
+  updateReservationPlanSnapshot,
 } from "@/lib/repositories/reservations.repository";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import {
@@ -193,12 +195,28 @@ export async function createReservation(
       }
     }
 
+    const planSnapshot = {
+      reserved_plan_name: plan.name,
+      reserved_unit_price_yen: plan.price_yen,
+      reserved_duration_minutes: plan.duration_minutes,
+    };
+
+    try {
+      await updateReservationPlanSnapshot(rpcResult.reservation_id, planSnapshot);
+    } catch (snapshotErr) {
+      console.warn(
+        "[createReservation] plan snapshot update failed:",
+        rpcResult.reservation_id,
+        snapshotErr,
+      );
+    }
+
     void sendReservationCreatedEmails({
       reservationId: rpcResult.reservation_id,
       userId,
       spotName: spotMeta?.name ?? "釣り場",
       businessId: spotMeta?.businessId ?? null,
-      planName: plan.name,
+      planName: planSnapshot.reserved_plan_name,
       reservationDate,
       startTime,
       endTime,
@@ -328,12 +346,17 @@ export async function cancelReservation(
     revalidateReservationPaths(reservation.spot_id, spotMeta?.slug ?? null);
     revalidatePath(`/my/reservations/${reservationId}`);
 
+    const planDisplay = getReservationPlanDisplay(
+      { ...reservation, plans: { name: plan.name } },
+      { nameFallback: "プラン" },
+    );
+
     void sendReservationCancelledEmails({
       reservationId,
       customerUserId: reservation.user_id,
       spotName: spotMeta?.name ?? "釣り場",
       businessId: spotMeta?.businessId ?? null,
-      planName: plan.name,
+      planName: planDisplay.name,
       reservationDate: reservation.reservation_date,
       startTime: reservation.start_time,
       endTime: reservation.end_time,
