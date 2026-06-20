@@ -5,14 +5,14 @@ vi.mock("next/cache", () => ({
 }));
 
 vi.mock("@/lib/repositories/plans.repository", () => ({
-  findActivePlanById: vi.fn(),
+  findActivePlanForReservation: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories/slots.repository", () => ({
   findOpenSlotsBySpotAndDateRange: vi.fn(),
 }));
 
-import { findActivePlanById } from "@/lib/repositories/plans.repository";
+import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
 import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
 import { getAvailableSlotsWithPlan } from "./slots.service";
 
@@ -20,6 +20,25 @@ const SPOT_ID = "11111111-1111-4111-8111-111111111111";
 const PLAN_1H_ID = "22222222-2222-4222-8222-222222222222";
 const PLAN_3H_ID = "33333333-3333-4333-8333-333333333333";
 const SLOT_DATE = "2026-06-20";
+
+function makeLegacyPlan(
+  overrides: Pick<
+    import("@/types/database").Plan,
+    "id" | "name" | "slug" | "duration_minutes" | "price_yen"
+  >,
+): import("@/types/database").Plan {
+  return {
+    ...overrides,
+    is_active: true,
+    fishing_spot_id: null,
+    description: null,
+    max_guests: 10,
+    is_visible: true,
+    is_accepting_reservations: true,
+    created_at: "",
+    updated_at: "",
+  };
+}
 
 function makeSlot(startTime: string, idSuffix: string) {
   return {
@@ -55,15 +74,15 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("1h プランでは許可時刻のみ表示する", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue({
-      id: PLAN_1H_ID,
-      name: "1時間プラン",
-      slug: "1h",
-      duration_minutes: 60,
-      price_yen: 3000,
-      is_active: true,
-      created_at: "",
-    });
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_1H_ID,
+        name: "1時間プラン",
+        slug: "1h",
+        duration_minutes: 60,
+        price_yen: 3000,
+      }),
+    );
 
     const result = await getAvailableSlotsWithPlan({
       spotId: SPOT_ID,
@@ -82,15 +101,15 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("3h プランでは 09:00 と 13:00 のみ表示する", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue({
-      id: PLAN_3H_ID,
-      name: "3時間プラン",
-      slug: "3h",
-      duration_minutes: 180,
-      price_yen: 8000,
-      is_active: true,
-      created_at: "",
-    });
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_3H_ID,
+        name: "3時間プラン",
+        slug: "3h",
+        duration_minutes: 180,
+        price_yen: 8000,
+      }),
+    );
 
     const result = await getAvailableSlotsWithPlan({
       spotId: SPOT_ID,
@@ -102,15 +121,15 @@ describe("getAvailableSlotsWithPlan", () => {
   });
 
   it("08:00 や 16:00 は表示しない", async () => {
-    vi.mocked(findActivePlanById).mockResolvedValue({
-      id: PLAN_1H_ID,
-      name: "1時間プラン",
-      slug: "1h",
-      duration_minutes: 60,
-      price_yen: 3000,
-      is_active: true,
-      created_at: "",
-    });
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_1H_ID,
+        name: "1時間プラン",
+        slug: "1h",
+        duration_minutes: 60,
+        price_yen: 3000,
+      }),
+    );
 
     const result = await getAvailableSlotsWithPlan({
       spotId: SPOT_ID,
@@ -123,5 +142,25 @@ describe("getAvailableSlotsWithPlan", () => {
     expect(displayed).not.toContain("16:00");
     expect(displayed).not.toContain("06:00");
     expect(displayed).not.toContain("17:00");
+  });
+
+  it("120分プランは duration_minutes 基準で空き枠を判定する（任意 slug）", async () => {
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makeLegacyPlan({
+        id: "44444444-4444-4444-8444-444444444444",
+        name: "2時間プラン",
+        slug: "custom-two-hour-plan",
+        duration_minutes: 120,
+        price_yen: 6000,
+      }),
+    );
+
+    const result = await getAvailableSlotsWithPlan({
+      spotId: SPOT_ID,
+      planId: "44444444-4444-4444-8444-444444444444",
+      date: SLOT_DATE,
+    });
+
+    expect(result.slots.map((s) => s.start_time).sort()).toEqual(["09:00", "10:00", "13:00", "14:00"]);
   });
 });

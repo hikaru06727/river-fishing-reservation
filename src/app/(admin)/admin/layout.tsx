@@ -6,6 +6,7 @@ import { getAuthenticatedManagement, getUser } from "@/lib/auth/get-user";
 const adminLinks = [
   { href: "/admin", label: "トップ" },
   { href: "/admin/reservations", label: "予約管理" },
+  { href: "/admin/plans", label: "プラン管理" },
   { href: "/admin/spots", label: "釣り場管理" },
   { href: "/admin/slots", label: "空き枠管理" },
   { href: "/admin/catches", label: "釣果管理" },

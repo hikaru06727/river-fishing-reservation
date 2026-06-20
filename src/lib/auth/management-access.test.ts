@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   canManageBusinessForProfile,
+  canManagePlanForProfile,
   canManageReservationForProfile,
   canManageSpotForProfile,
 } from "./management-access";
@@ -70,5 +71,38 @@ describe("canManageReservationForProfile", () => {
     expect(
       canManageReservationForProfile(profile("business_admin"), null, [bizA]),
     ).toBe(false);
+  });
+});
+
+describe("canManagePlanForProfile", () => {
+  const bizA = "biz-a";
+  const spotA = "spot-a";
+  const assigned = [bizA];
+
+  it("admin は共通プラン（spot なし）も操作可能", () => {
+    expect(canManagePlanForProfile(profile("admin"), null, null, [])).toBe(true);
+  });
+
+  it("admin は全 spot のプランを操作可能", () => {
+    expect(canManagePlanForProfile(profile("admin"), spotA, bizA, [])).toBe(true);
+  });
+
+  it("business_admin は共通プランを操作不可", () => {
+    expect(canManagePlanForProfile(profile("business_admin"), null, null, assigned)).toBe(
+      false,
+    );
+  });
+
+  it("business_admin は担当事業の spot プランのみ操作可能", () => {
+    expect(
+      canManagePlanForProfile(profile("business_admin"), spotA, bizA, assigned),
+    ).toBe(true);
+    expect(
+      canManagePlanForProfile(profile("business_admin"), spotA, "other-biz", assigned),
+    ).toBe(false);
+  });
+
+  it("一般 user はプラン操作不可", () => {
+    expect(canManagePlanForProfile(profile("user"), spotA, bizA, [])).toBe(false);
   });
 });

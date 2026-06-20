@@ -5,7 +5,11 @@ import {
   getAffectedSlotStartTimes,
   validateAffectedSlotsCapacity,
 } from "@/lib/slots/affected-slots";
-import { findActivePlanById, findPlanById } from "@/lib/repositories/plans.repository";
+import { validateGuestCountForPlan } from "@/lib/plans/plan-reservation-rules";
+import {
+  findActivePlanForReservation,
+  findPlanById,
+} from "@/lib/repositories/plans.repository";
 import {
   cancelReservationAtomic,
   createReservationAtomic,
@@ -13,14 +17,18 @@ import {
   findReservationByIdForUser,
   findSpotNotificationMetaById,
   insertPendingPaymentForReservation,
+  updateReservationPlanSnapshot,
 } from "@/lib/repositories/reservations.repository";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
+import { resolveReservationDurationMinutes } from "@/lib/reservations/reservation-duration";
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import {
   getExpiresAtForPaymentMethod,
   getInitialReservationStatusForPaymentMethod,
 } from "@/lib/reservations/payment-method";
-import { createReservationSchema, cancelReservationSchema, isAllowedStartTime } from "@/validations/reservation";
+import { createReservationSchema, cancelReservationSchema } from "@/validations/reservation";
+import { isAllowedStartTimeByDuration } from "@/lib/slots/start-time-rules";
 import { sendReservationCancelledEmails } from "@/lib/email/reservation-cancellation-emails";
 import { sendReservationCreatedEmails } from "@/lib/email/reservation-emails";
 
@@ -93,9 +101,14 @@ export async function createReservation(
 
   const { spotId, planId, slotId, reservationDate, guestCount, paymentMethod } = parsed.data;
 
-  const plan = await findActivePlanById(planId);
+  const plan = await findActivePlanForReservation(planId, spotId);
   if (!plan) {
     return { ok: false, error: "選択されたプランが見つかりません", status: 422 };
+  }
+
+  const guestValidation = validateGuestCountForPlan(guestCount, plan);
+  if (!guestValidation.ok) {
+    return { ok: false, error: guestValidation.error, status: 422 };
   }
 
   const startSlot = await findSlotById(slotId, spotId);
@@ -107,7 +120,7 @@ export async function createReservation(
     return { ok: false, error: "利用日と空き枠が一致しません", status: 422 };
   }
 
-  if (!isAllowedStartTime(plan.slug, startSlot.start_time)) {
+  if (!isAllowedStartTimeByDuration(plan.duration_minutes, startSlot.start_time)) {
     return { ok: false, error: "選択できない時間帯です", status: 422 };
   }
 
@@ -183,12 +196,28 @@ export async function createReservation(
       }
     }
 
+    const planSnapshot = {
+      reserved_plan_name: plan.name,
+      reserved_unit_price_yen: plan.price_yen,
+      reserved_duration_minutes: plan.duration_minutes,
+    };
+
+    try {
+      await updateReservationPlanSnapshot(rpcResult.reservation_id, planSnapshot);
+    } catch (snapshotErr) {
+      console.warn(
+        "[createReservation] plan snapshot update failed:",
+        rpcResult.reservation_id,
+        snapshotErr,
+      );
+    }
+
     void sendReservationCreatedEmails({
       reservationId: rpcResult.reservation_id,
       userId,
       spotName: spotMeta?.name ?? "釣り場",
       businessId: spotMeta?.businessId ?? null,
-      planName: plan.name,
+      planName: planSnapshot.reserved_plan_name,
       reservationDate,
       startTime,
       endTime,
@@ -265,9 +294,17 @@ export async function cancelReservation(
     };
   }
 
-  const plan = await findPlanById(reservation.plan_id);
-  if (!plan) {
-    return { ok: false, error: "プラン情報の取得に失敗しました。", status: 500 };
+  const durationMinutes = resolveReservationDurationMinutes({
+    reserved_duration_minutes: reservation.reserved_duration_minutes,
+    start_time: reservation.start_time,
+    end_time: reservation.end_time,
+  });
+  if (durationMinutes == null) {
+    return {
+      ok: false,
+      error: "予約時間の取得に失敗しました。",
+      status: 500,
+    };
   }
 
   const startSlot = await findSlotByIdAdmin(reservation.slot_id);
@@ -277,7 +314,7 @@ export async function cancelReservation(
 
   const affectedStartTimes = getAffectedSlotStartTimes(
     startSlot.start_time,
-    plan.duration_minutes,
+    durationMinutes,
   );
 
   const { slots: affectedSlots, error: fetchError } = await fetchAffectedSlots(
@@ -318,12 +355,21 @@ export async function cancelReservation(
     revalidateReservationPaths(reservation.spot_id, spotMeta?.slug ?? null);
     revalidatePath(`/my/reservations/${reservationId}`);
 
+    const plan = await findPlanById(reservation.plan_id);
+    const planDisplay = getReservationPlanDisplay(
+      {
+        ...reservation,
+        plans: plan ? { name: plan.name } : null,
+      },
+      { nameFallback: "プラン" },
+    );
+
     void sendReservationCancelledEmails({
       reservationId,
       customerUserId: reservation.user_id,
       spotName: spotMeta?.name ?? "釣り場",
       businessId: spotMeta?.businessId ?? null,
-      planName: plan.name,
+      planName: planDisplay.name,
       reservationDate: reservation.reservation_date,
       startTime: reservation.start_time,
       endTime: reservation.end_time,

@@ -11,6 +11,7 @@ import {
   getReservationStatusLabel,
   type MyReservation,
 } from "@/lib/reservations/get-my-reservations";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
 
 interface ReservationCardProps {
@@ -19,7 +20,7 @@ interface ReservationCardProps {
 
 export function ReservationCard({ reservation }: ReservationCardProps) {
   const spotName = reservation.fishing_spots?.name ?? "—";
-  const planName = reservation.plans?.name ?? "—";
+  const planDisplay = getReservationPlanDisplay(reservation);
   const cancelPolicy = canCancelReservation({
     status: reservation.status,
     reservationDate: reservation.reservation_date,
@@ -32,7 +33,7 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold text-foreground">{spotName}</h2>
-          <p className="mt-0.5 text-sm text-muted">{planName}</p>
+          <p className="mt-0.5 text-sm text-muted">{planDisplay.name}</p>
         </div>
         <span
           className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${getReservationStatusColor(reservation.status)}`}

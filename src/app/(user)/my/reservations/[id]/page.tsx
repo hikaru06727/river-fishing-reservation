@@ -14,6 +14,7 @@ import {
 } from "@/lib/reservations/get-my-reservations";
 import { getReservationById } from "@/lib/reservations/get-reservation";
 import { shouldProceedToStripeCheckout } from "@/lib/reservations/payment-method";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
 import { formatDuration } from "@/lib/utils/plan";
 
@@ -44,7 +45,7 @@ export default async function ReservationDetailPage({
   }
 
   const spotName = reservation.fishing_spots?.name ?? "—";
-  const plan = reservation.plans;
+  const planDisplay = getReservationPlanDisplay(reservation);
   const cancelPolicy = canCancelReservation({
     status: reservation.status,
     reservationDate: reservation.reservation_date,
@@ -72,16 +73,16 @@ export default async function ReservationDetailPage({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="font-semibold text-foreground">{spotName}</h2>
-            <p className="mt-0.5 text-sm text-muted">{plan?.name ?? "—"}</p>
+            <p className="mt-0.5 text-sm text-muted">{planDisplay.name}</p>
           </div>
           <ReservationStatusBadge status={reservation.status} />
         </div>
 
         <dl className="mt-4 space-y-3 text-sm">
-          {plan && (
+          {planDisplay.durationMinutes != null && (
             <div className="flex justify-between gap-4">
               <dt className="text-muted">利用時間</dt>
-              <dd>{formatDuration(plan.duration_minutes)}</dd>
+              <dd>{formatDuration(planDisplay.durationMinutes)}</dd>
             </div>
           )}
           <div className="flex justify-between gap-4">

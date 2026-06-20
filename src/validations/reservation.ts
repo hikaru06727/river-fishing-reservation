@@ -1,23 +1,17 @@
 import { z } from "zod";
+import {
+  durationMinutesFromLegacyPlanSlug,
+  isAllowedStartTime,
+  isAllowedStartTimeByDuration,
+  normalizeTimeInput,
+} from "@/lib/slots/start-time-rules";
 
-const ALLOWED_TIMES_1H = ["9:00", "10:00", "11:00", "13:00", "14:00", "15:00"];
-const ALLOWED_TIMES_3H = ["9:00", "13:00"];
-
-/** バリデーション用に "09:00" → "9:00" 形式へ正規化 */
-export function normalizeTimeInput(time: string): string {
-  const match = time.trim().match(/^(\d{1,2}):(\d{2})/);
-  if (!match) {
-    return time;
-  }
-  return `${parseInt(match[1]!, 10)}:${match[2]}`;
-}
-
-/** プラン slug（1h / 3h）に対する開始時刻の可否 */
-export function isAllowedStartTime(planSlug: string, startTime: string): boolean {
-  const normalized = normalizeTimeInput(startTime);
-  const allowed = planSlug === "3h" ? ALLOWED_TIMES_3H : ALLOWED_TIMES_1H;
-  return allowed.includes(normalized);
-}
+export {
+  durationMinutesFromLegacyPlanSlug,
+  isAllowedStartTime,
+  isAllowedStartTimeByDuration,
+  normalizeTimeInput,
+};
 
 function isTodayOrFuture(dateStr: string): boolean {
   const today = new Date();
@@ -67,7 +61,8 @@ export const reservationSchema = z
     time: z.string(),
   })
   .refine(
-    ({ planId, time }) => isAllowedStartTime(planId, time),
+    ({ planId, time }) =>
+      isAllowedStartTimeByDuration(durationMinutesFromLegacyPlanSlug(planId), time),
     { message: "選択できない時間帯です", path: ["time"] },
   );
 

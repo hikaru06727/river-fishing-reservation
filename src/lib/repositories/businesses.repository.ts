@@ -82,6 +82,28 @@ export type ManageableSpotRow = {
   is_active: boolean;
 };
 
+export type ManageableBusinessRow = {
+  id: string;
+  name: string;
+  is_active: boolean;
+};
+
+/** 管理画面フィルタ用の事業一覧（admin は全件、business_admin は割当分） */
+export async function findManageableBusinesses(): Promise<ManageableBusinessRow[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("id, name, is_active")
+    .order("name");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as ManageableBusinessRow[];
+}
+
 /** 管理画面フィルタ用の釣り場一覧 */
 export async function findManageableSpots(): Promise<ManageableSpotRow[]> {
   const supabase = await createClient();

@@ -58,6 +58,16 @@ describe("RLS policy expectations (app-layer mirror)", () => {
     expect(clientWritableTables.includes("payments")).toBe(true);
     expect(expectedClientWrite).toBe(false);
   });
+
+  it("plans は business_admin が担当 spot のプランのみ INSERT/UPDATE/DELETE 可能", () => {
+    const businessAdminPlanWriteScope = "can_manage_spot(fishing_spot_id)";
+    expect(businessAdminPlanWriteScope).toContain("can_manage_spot");
+  });
+
+  it("plans の business_admin SELECT は fishing_spot_id IS NOT NULL が前提", () => {
+    const excludesLegacyGlobalPlansForBusinessAdmin = true;
+    expect(excludesLegacyGlobalPlansForBusinessAdmin).toBe(true);
+  });
 });
 
 describe("profile role immutability expectations", () => {

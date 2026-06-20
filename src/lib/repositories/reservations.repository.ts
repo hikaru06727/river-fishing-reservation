@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import type { PaymentMethod, PaymentStatus, Reservation, ReservationStatus } from "@/types/database";
 
 export type ReservationInsert = {
@@ -73,6 +74,29 @@ export async function createReservationAtomic(
   }
 
   return row;
+}
+
+export type ReservationPlanSnapshot = {
+  reserved_plan_name: string;
+  reserved_unit_price_yen: number;
+  reserved_duration_minutes: number;
+};
+
+/** 予約作成後に plan snapshot を保存（Phase 8c: post-RPC UPDATE） */
+export async function updateReservationPlanSnapshot(
+  reservationId: string,
+  snapshot: ReservationPlanSnapshot,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("reservations")
+    .update(snapshot)
+    .eq("id", reservationId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
 }
 
 /** 現金精算予約: 決済待ちレコードを service_role で作成 */
@@ -268,7 +292,9 @@ export async function findReservationCompleteDisplayByIdAdmin(
 
   const { data, error } = await admin
     .from("reservations")
-    .select("total_amount_yen, reservation_date, start_time, plans(name)")
+    .select(
+      "total_amount_yen, reservation_date, start_time, reserved_plan_name, plans(name)",
+    )
     .eq("id", reservationId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -287,7 +313,10 @@ export async function findReservationCompleteDisplayByIdAdmin(
     total_amount_yen: data.total_amount_yen,
     reservation_date: data.reservation_date,
     start_time: data.start_time,
-    planName: plans?.name ?? null,
+    planName: getReservationPlanDisplay(
+      { reserved_plan_name: data.reserved_plan_name, plans },
+      { nameFallback: "プラン" },
+    ).name,
   };
 }
 
@@ -313,7 +342,7 @@ export async function findReservationPaymentEmailMetaById(
   const { data: reservation, error } = await admin
     .from("reservations")
     .select(
-      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, total_amount_yen",
+      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, total_amount_yen, reserved_plan_name",
     )
     .eq("id", reservationId)
     .eq("user_id", userId)
@@ -344,7 +373,10 @@ export async function findReservationPaymentEmailMetaById(
     userId: reservation.user_id,
     spotName: spotMeta?.name ?? "釣り場",
     businessId: spotMeta?.businessId ?? null,
-    planName: plan?.name ?? "プラン",
+    planName: getReservationPlanDisplay(
+      { reserved_plan_name: reservation.reserved_plan_name, plans: plan },
+      { nameFallback: "プラン" },
+    ).name,
     reservationDate: reservation.reservation_date,
     startTime: reservation.start_time,
     endTime: reservation.end_time,
@@ -380,6 +412,9 @@ export const ADMIN_RESERVATION_LIST_SELECT = `
   guest_count,
   status,
   total_amount_yen,
+  reserved_plan_name,
+  reserved_unit_price_yen,
+  reserved_duration_minutes,
   created_at,
   updated_at,
   expires_at,
@@ -711,4 +746,124 @@ export async function findReservationStatusForStripeWebhook(
   }
 
   return (data?.status as ReservationStatus | undefined) ?? null;
+}
+
+export type ExpirePendingReservationsRpcResult = {
+  expired_count: number;
+  reservation_ids: string[];
+};
+
+/** DB の expire_pending_reservations RPC を実行（online pending のみ失効） */
+export async function expirePendingReservationsRpc(): Promise<ExpirePendingReservationsRpcResult> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc("expire_pending_reservations");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const row = (data as ExpirePendingReservationsRpcResult[] | null)?.[0];
+  return {
+    expired_count: row?.expired_count ?? 0,
+    reservation_ids: row?.reservation_ids ?? [],
+  };
+}
+
+export type ExpiredReservationEmailRow = {
+  id: string;
+  user_id: string;
+  spot_id: string;
+  plan_id: string;
+  reservation_date: string;
+  start_time: string;
+  end_time: string;
+  guest_count: number;
+  payment_method: PaymentMethod;
+  spotName: string;
+  planName: string;
+};
+
+/**
+ * 期限切れメール未送信の expired online 予約を取得。
+ * pg_cron が先に expired にした予約も対象（expired_email_sent_at IS NULL）。
+ */
+export async function findExpiredReservationsPendingEmail(): Promise<ExpiredReservationEmailRow[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("reservations")
+    .select(
+      "id, user_id, spot_id, plan_id, reservation_date, start_time, end_time, guest_count, payment_method, reserved_plan_name",
+    )
+    .eq("status", "expired")
+    .eq("payment_method", "online")
+    .is("expired_email_sent_at", null)
+    .order("updated_at", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  const rows = data ?? [];
+  const results: ExpiredReservationEmailRow[] = [];
+
+  for (const row of rows) {
+    const spotMeta = await findSpotNotificationMetaById(row.spot_id);
+
+    let plansJoin: { name: string } | null = null;
+    if (!row.reserved_plan_name) {
+      const { data: plan, error: planError } = await admin
+        .from("plans")
+        .select("name")
+        .eq("id", row.plan_id)
+        .maybeSingle();
+
+      if (planError) {
+        throw new Error(planError.message);
+      }
+
+      plansJoin = plan;
+    }
+
+    const planName = getReservationPlanDisplay(
+      { reserved_plan_name: row.reserved_plan_name, plans: plansJoin },
+      { nameFallback: "プラン" },
+    ).name;
+
+    results.push({
+      id: row.id,
+      user_id: row.user_id,
+      spot_id: row.spot_id,
+      plan_id: row.plan_id,
+      reservation_date: row.reservation_date,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      guest_count: row.guest_count,
+      payment_method: row.payment_method as PaymentMethod,
+      spotName: spotMeta?.name ?? "釣り場",
+      planName,
+    });
+  }
+
+  return results;
+}
+
+/** 期限切れメール送信済みを記録（未送信行のみ更新して二重送信を防ぐ） */
+export async function markExpiredEmailSent(reservationId: string): Promise<boolean> {
+  const admin = createAdminClient();
+  const now = new Date().toISOString();
+
+  const { data, error } = await admin
+    .from("reservations")
+    .update({ expired_email_sent_at: now })
+    .eq("id", reservationId)
+    .is("expired_email_sent_at", null)
+    .select("id");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data?.length ?? 0) > 0;
 }

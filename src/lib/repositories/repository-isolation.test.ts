@@ -70,10 +70,27 @@ describe("Supabase client isolation (static)", () => {
 
   it("get-plans.ts は createClient を直接使わない", () => {
     fileMustNotImport("lib/plans/get-plans.ts", "createClient");
+    fileMustNotImport("lib/plans/get-plans.ts", "@/lib/supabase/server");
   });
 
   it("get-plan-by-slug.ts は createClient を直接使わない", () => {
     fileMustNotImport("lib/plans/get-plan-by-slug.ts", "createClient");
+    fileMustNotImport("lib/plans/get-plan-by-slug.ts", "@/lib/supabase/server");
+  });
+
+  it("plan-reservation-rules.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/plan-reservation-rules.ts", "createClient");
+    fileMustNotImport("lib/plans/plan-reservation-rules.ts", "@/lib/supabase/server");
+  });
+
+  it("start-time-rules.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/slots/start-time-rules.ts", "createClient");
+    fileMustNotImport("lib/slots/start-time-rules.ts", "@/lib/supabase/server");
+  });
+
+  it("plan-display.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/reservations/plan-display.ts", "createClient");
+    fileMustNotImport("lib/reservations/plan-display.ts", "@/lib/supabase/server");
   });
 
   it("admin-notification-recipients.ts は createAdminClient を直接使わない", () => {
@@ -128,6 +145,21 @@ describe("Supabase client isolation (static)", () => {
   it("admin catches actions は createAdminClient を直接使わない", () => {
     fileMustNotImport("app/(admin)/admin/catches/actions.ts", "createAdminClient");
     fileMustNotImportFrom("app/(admin)/admin/catches/actions.ts", "catch_reports");
+  });
+
+  it("get-admin-plans.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/get-admin-plans.ts", "createClient");
+    fileMustNotImport("lib/plans/get-admin-plans.ts", "@/lib/supabase/server");
+  });
+
+  it("admin-plan-scope.ts は createClient を直接使わない", () => {
+    fileMustNotImport("lib/plans/admin-plan-scope.ts", "createClient");
+    fileMustNotImport("lib/plans/admin-plan-scope.ts", "@/lib/supabase/server");
+  });
+
+  it("admin plans actions は createClient を直接使わない", () => {
+    fileMustNotImport("app/(admin)/admin/plans/actions.ts", "createClient");
+    fileMustNotImportFrom("app/(admin)/admin/plans/actions.ts", "plans");
   });
 
   // Phase 4 — reservations API

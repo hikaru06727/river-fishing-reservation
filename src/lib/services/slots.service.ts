@@ -1,6 +1,6 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { addMinutes, toISODate } from "@/lib/utils/date";
-import { findActivePlanById } from "@/lib/repositories/plans.repository";
+import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
 import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
 import {
   getAffectedSlotStartTimes,
@@ -9,7 +9,7 @@ import {
 } from "@/lib/slots/affected-slots";
 import { computeRemainingCount } from "@/lib/slots/remaining-count";
 import type { GetAvailableSlotsWithPlanResponse, SlotDTO } from "@/types/api";
-import { isAllowedStartTime } from "@/validations/reservation";
+import { isAllowedStartTimeByDuration } from "@/lib/slots/start-time-rules";
 
 export type GetAvailableSlotsWithPlanParams = {
   spotId: string;
@@ -60,7 +60,7 @@ export async function getAvailableSlotsWithPlan(
   noStore();
 
   const guestCount = params.guestCount ?? 1;
-  const plan = await findActivePlanById(params.planId);
+  const plan = await findActivePlanForReservation(params.planId, params.spotId);
 
   if (!plan) {
     throw new Error("プランが見つかりません");
@@ -87,7 +87,7 @@ export async function getAvailableSlotsWithPlan(
   const bookableSlots: SlotDTO[] = [];
 
   for (const candidate of allSlots) {
-    if (!isAllowedStartTime(plan.slug, candidate.start_time)) {
+    if (!isAllowedStartTimeByDuration(plan.duration_minutes, candidate.start_time)) {
       continue;
     }
 

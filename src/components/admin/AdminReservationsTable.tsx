@@ -4,6 +4,7 @@ import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadg
 import { buildReservationPaymentInfo } from "@/components/reservation/ReservationPaymentSummary";
 import { canCancelReservation } from "@/lib/reservations/get-my-reservations";
 import type { AdminReservationRow } from "@/lib/reservations/get-admin-reservations";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { formatDate, formatDateTime, formatTime } from "@/lib/utils/format";
 
 interface AdminReservationsTableProps {
@@ -52,6 +53,7 @@ export function AdminReservationsTable({
 
             const detailHref = `/admin/reservations/${reservation.id}`;
             const paymentInfo = buildReservationPaymentInfo(reservation);
+            const planDisplay = getReservationPlanDisplay(reservation);
 
             return (
               <tr key={reservation.id} className="hover:bg-slate-50/50">
@@ -69,7 +71,7 @@ export function AdminReservationsTable({
                 <td className="px-4 py-3">
                   {reservation.fishing_spots?.name ?? "—"}
                 </td>
-                <td className="px-4 py-3">{reservation.plans?.name ?? "—"}</td>
+                <td className="px-4 py-3">{planDisplay.name}</td>
                 <td className="px-4 py-3">
                   <div>{reservation.profiles?.full_name || "—"}</div>
                   <div className="text-xs text-muted">

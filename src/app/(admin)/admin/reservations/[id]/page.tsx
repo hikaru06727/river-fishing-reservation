@@ -13,6 +13,7 @@ import { canCancelReservation } from "@/lib/reservations/get-my-reservations";
 import { getAdminCashPaymentUiState } from "@/lib/reservations/mark-cash-payment-received";
 import { getLatestReservationPayment } from "@/lib/reservations/payment-status-display";
 import { getAdminReservationById } from "@/lib/reservations/get-admin-reservations";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { formatDate, formatDateTime, formatTime, formatYen } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
@@ -61,6 +62,8 @@ export default async function AdminReservationDetailPage({
     payments: reservation.payments,
   });
 
+  const planDisplay = getReservationPlanDisplay(reservation);
+
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -104,7 +107,7 @@ export default async function AdminReservationDetailPage({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">プラン</dt>
-              <dd>{reservation.plans?.name ?? "—"}</dd>
+              <dd>{planDisplay.name}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">人数</dt>

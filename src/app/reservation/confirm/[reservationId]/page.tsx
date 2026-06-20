@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
 import { getUser } from "@/lib/auth/get-user";
 import { getReservationById } from "@/lib/reservations/get-reservation";
+import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
 import { formatDuration } from "@/lib/utils/plan";
 
@@ -34,7 +35,7 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
   }
 
   const spotName = reservation.fishing_spots?.name ?? "—";
-  const plan = reservation.plans;
+  const planDisplay = getReservationPlanDisplay(reservation);
   const paymentInfo = buildReservationPaymentInfo(reservation);
   const isOnlinePending =
     paymentInfo.paymentMethod === "online" && reservation.status === "pending";
@@ -112,12 +113,12 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
           </div>
           <div className="flex justify-between gap-4">
             <dt className="shrink-0 text-muted">プラン</dt>
-            <dd className="text-right font-semibold">{plan?.name ?? "—"}</dd>
+            <dd className="text-right font-semibold">{planDisplay.name}</dd>
           </div>
-          {plan && (
+          {planDisplay.durationMinutes != null && (
             <div className="flex justify-between gap-4">
               <dt className="shrink-0 text-muted">利用時間</dt>
-              <dd className="text-right">{formatDuration(plan.duration_minutes)}</dd>
+              <dd className="text-right">{formatDuration(planDisplay.durationMinutes)}</dd>
             </div>
           )}
           <div className="flex justify-between gap-4">
