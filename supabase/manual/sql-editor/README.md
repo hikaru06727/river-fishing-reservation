@@ -16,6 +16,7 @@
 | 4c | `04c_expire_pending_reservations.sql` | 004: 失効 RPC |
 | 4d | `04d_grants_comments_expire.sql` | 004: GRANT / COMMENT |
 | 4e | `04e_pg_cron_schedule.sql` | 004: pg_cron ジョブ（任意・拡張有効時のみ） |
+| 014 | `014_dual_path_affected_slot_ids.sql` | 014: helper dual-path（15分 / 60分） |
 | 5a | `05a_capacity_comments_and_view.sql` | 005: カラム COMMENT + ビュー |
 | 5b | `05b_create_reservation_atomic_final.sql` | 005: **create_reservation_atomic 最終版** |
 | 6 | `06_verify.sql` | 実行後確認 |
