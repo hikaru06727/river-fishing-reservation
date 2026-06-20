@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getAffectedSlotStartTimes } from "@/lib/slots/affected-slots";
 import {
   durationMinutesFromReservationTimes,
   resolveReservationDurationMinutes,
@@ -43,8 +44,7 @@ describe("durationMinutesFromReservationTimes", () => {
 });
 
 describe("getAffectedSlotStartTimes integration (snapshot duration)", () => {
-  it("plan.duration を 999 に変えても snapshot 120 分なら 2 枠", async () => {
-    const { getAffectedSlotStartTimes } = await import("@/lib/slots/affected-slots");
+  it("plan.duration を 999 に変えても snapshot 120 分なら 2 枠", () => {
     const snapshotDuration = 120;
     const livePlanDuration = 999;
 
