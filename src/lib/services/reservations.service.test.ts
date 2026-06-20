@@ -52,6 +52,14 @@ const planB = "22222222-2222-4222-8222-222222222222";
 const slotId = "33333333-3333-4333-8333-333333333333";
 const userId = "44444444-4444-4444-8444-444444444444";
 
+function futureReservationDate(daysAhead = 14): string {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  return date.toISOString().slice(0, 10);
+}
+
+const reservationDate = futureReservationDate();
+
 function makePlan(overrides: Partial<Plan> & Pick<Plan, "id">): Plan {
   return {
     name: "テストプラン",
@@ -74,7 +82,7 @@ const validInput = {
   spotId: spotA,
   planId: planA,
   slotId,
-  reservationDate: "2026-06-20",
+  reservationDate,
   guestCount: 2,
   paymentMethod: "cash_at_venue" as const,
 };
@@ -88,7 +96,7 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
     vi.mocked(findSlotById).mockResolvedValue({
       id: slotId,
       spot_id: spotA,
-      slot_date: "2026-06-20",
+      slot_date: reservationDate,
       start_time: "09:00:00",
       end_time: "09:59:00",
       max_capacity: 5,
@@ -101,7 +109,7 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
         {
           id: slotId,
           spot_id: spotA,
-          slot_date: "2026-06-20",
+          slot_date: reservationDate,
           start_time: "09:00:00",
           end_time: "09:59:00",
           max_capacity: 5,
