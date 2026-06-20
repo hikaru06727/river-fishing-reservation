@@ -20,6 +20,7 @@ import {
   updateReservationPlanSnapshot,
 } from "@/lib/repositories/reservations.repository";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
+import { resolveReservationDurationMinutes } from "@/lib/reservations/reservation-duration";
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import {
@@ -293,9 +294,17 @@ export async function cancelReservation(
     };
   }
 
-  const plan = await findPlanById(reservation.plan_id);
-  if (!plan) {
-    return { ok: false, error: "プラン情報の取得に失敗しました。", status: 500 };
+  const durationMinutes = resolveReservationDurationMinutes({
+    reserved_duration_minutes: reservation.reserved_duration_minutes,
+    start_time: reservation.start_time,
+    end_time: reservation.end_time,
+  });
+  if (durationMinutes == null) {
+    return {
+      ok: false,
+      error: "予約時間の取得に失敗しました。",
+      status: 500,
+    };
   }
 
   const startSlot = await findSlotByIdAdmin(reservation.slot_id);
@@ -305,7 +314,7 @@ export async function cancelReservation(
 
   const affectedStartTimes = getAffectedSlotStartTimes(
     startSlot.start_time,
-    plan.duration_minutes,
+    durationMinutes,
   );
 
   const { slots: affectedSlots, error: fetchError } = await fetchAffectedSlots(
@@ -346,8 +355,12 @@ export async function cancelReservation(
     revalidateReservationPaths(reservation.spot_id, spotMeta?.slug ?? null);
     revalidatePath(`/my/reservations/${reservationId}`);
 
+    const plan = await findPlanById(reservation.plan_id);
     const planDisplay = getReservationPlanDisplay(
-      { ...reservation, plans: { name: plan.name } },
+      {
+        ...reservation,
+        plans: plan ? { name: plan.name } : null,
+      },
       { nameFallback: "プラン" },
     );
 

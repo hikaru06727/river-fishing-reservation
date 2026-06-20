@@ -1,0 +1,58 @@
+import { describe, expect, it } from "vitest";
+import {
+  durationMinutesFromReservationTimes,
+  resolveReservationDurationMinutes,
+} from "./reservation-duration";
+
+describe("resolveReservationDurationMinutes", () => {
+  it("reserved_duration_minutes を最優先する", () => {
+    expect(
+      resolveReservationDurationMinutes({
+        reserved_duration_minutes: 120,
+        start_time: "09:00:00",
+        end_time: "10:00:00",
+      }),
+    ).toBe(120);
+  });
+
+  it("reserved が NULL の場合は start/end から算出する", () => {
+    expect(
+      resolveReservationDurationMinutes({
+        reserved_duration_minutes: null,
+        start_time: "09:00:00",
+        end_time: "11:00:00",
+      }),
+    ).toBe(120);
+  });
+
+  it("どちらも不明な場合は null", () => {
+    expect(
+      resolveReservationDurationMinutes({
+        reserved_duration_minutes: null,
+        start_time: "09:00:00",
+        end_time: "09:00:00",
+      }),
+    ).toBeNull();
+  });
+});
+
+describe("durationMinutesFromReservationTimes", () => {
+  it("2時間の差分を返す", () => {
+    expect(durationMinutesFromReservationTimes("09:00:00", "11:00:00")).toBe(120);
+  });
+});
+
+describe("getAffectedSlotStartTimes integration (snapshot duration)", () => {
+  it("plan.duration を 999 に変えても snapshot 120 分なら 2 枠", async () => {
+    const { getAffectedSlotStartTimes } = await import("@/lib/slots/affected-slots");
+    const snapshotDuration = 120;
+    const livePlanDuration = 999;
+
+    expect(getAffectedSlotStartTimes("09:00:00", snapshotDuration)).toEqual([
+      "09:00",
+      "10:00",
+    ]);
+    expect(getAffectedSlotStartTimes("09:00:00", livePlanDuration).length).toBe(17);
+    expect(getAffectedSlotStartTimes("09:00:00", snapshotDuration).length).toBe(2);
+  });
+});
