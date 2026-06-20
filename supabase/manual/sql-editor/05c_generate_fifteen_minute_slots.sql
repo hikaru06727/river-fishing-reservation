@@ -1,0 +1,18 @@
+-- Phase 9b: 15分 availability_slots 手動生成例
+-- 予約 RPC からは呼ばない。production effective_date は運用側で決定して実行する。
+--
+-- 例: 特定 spot の 2026-07-01 から 14 日分
+-- SELECT generate_fifteen_minute_availability_slots(
+--   'SPOT_UUID_HERE'::UUID,
+--   '2026-07-01'::DATE,
+--   '2026-07-14'::DATE
+-- );
+
+-- 例: slug 指定（service_role / postgres で実行）
+-- SELECT generate_fifteen_minute_availability_slots(
+--   fs.id,
+--   CURRENT_DATE + 7,
+--   CURRENT_DATE + 13
+-- )
+-- FROM fishing_spots fs
+-- WHERE fs.slug = 'seiryu-keikoku';
