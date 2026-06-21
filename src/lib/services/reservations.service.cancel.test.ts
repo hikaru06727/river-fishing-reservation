@@ -51,6 +51,7 @@ vi.mock("@/lib/email/reservation-cancellation-emails", () => ({
 
 import { cancelReservation } from "./reservations.service";
 import { getAffectedSlotStartTimes } from "@/lib/slots/affected-slots";
+import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 
 const userId = "44444444-4444-4444-8444-444444444444";
 const reservationId = "55555555-5555-4555-8555-555555555555";
@@ -160,8 +161,8 @@ describe("cancelReservation reserved_duration_minutes (phase 8d)", () => {
     expect(rpcArgs.affected_slot_ids).toEqual(["slot-0", "slot-1"]);
     expect(rpcArgs.guest_count).toBe(2);
 
-    const wrongStartTimes = getAffectedSlotStartTimes("09:00:00", 999);
-    expect(wrongStartTimes.length).toBeGreaterThan(2);
+    const wrongStartTimes = getAffectedSlotStartTimes("09:00:00", 960, LEGACY_SLOT_STEP_MINUTES);
+    expect(wrongStartTimes.length).toBe(16);
   });
 
   it("プランが削除されていても snapshot duration があればキャンセルできる", async () => {

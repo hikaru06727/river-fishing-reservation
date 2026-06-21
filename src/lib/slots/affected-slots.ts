@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { findSlotsBySpotDateAndStartTimes } from "@/lib/repositories/slots.repository";
+import { isSupportedSlotStepMinutes } from "@/lib/slots/slot-step";
 import { getSlotRemainingCapacity } from "@/lib/slots/remaining-count";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import type { Database } from "@/types/database";
@@ -25,17 +26,33 @@ export type SlotUpdateLog = {
   error: string | null;
 };
 
-/** プラン時間に応じた hourly スロットの開始時刻一覧（例: 09:00 + 180min → 09:00, 10:00, 11:00） */
+/**
+ * プラン時間と slot step から、影響する availability_slots の start_time 一覧を返す。
+ * 例: 09:15 + 120min + 15min step → 09:15, 09:30, …, 11:00
+ */
 export function getAffectedSlotStartTimes(
   startTime: string,
   durationMinutes: number,
+  slotStepMinutes: number,
 ): string[] {
-  const slotCount = durationMinutes / 60;
+  if (durationMinutes <= 0) {
+    return [];
+  }
+
+  if (!isSupportedSlotStepMinutes(slotStepMinutes)) {
+    return [];
+  }
+
+  if (durationMinutes % slotStepMinutes !== 0) {
+    return [];
+  }
+
+  const slotCount = durationMinutes / slotStepMinutes;
   const base = startTime.slice(0, 5);
   const times: string[] = [];
 
   for (let i = 0; i < slotCount; i++) {
-    times.push(addMinutes(base, i * 60));
+    times.push(addMinutes(base, i * slotStepMinutes));
   }
 
   return times;

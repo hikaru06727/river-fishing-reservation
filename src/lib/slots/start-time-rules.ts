@@ -1,4 +1,5 @@
 import { getAffectedSlotStartTimes } from "@/lib/slots/affected-slots";
+import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 
 /** 予約可能な hourly 枠（昼休み 12:00 台を除く。legacy 1h/3h と同等） */
 export const BOOKABLE_HOUR_SLOTS = [9, 10, 11, 13, 14, 15] as const;
@@ -46,7 +47,11 @@ export function isAllowedStartTimeByDuration(
     return false;
   }
 
-  const affectedTimes = getAffectedSlotStartTimes(startTime, durationMinutes);
+  const affectedTimes = getAffectedSlotStartTimes(
+    startTime,
+    durationMinutes,
+    LEGACY_SLOT_STEP_MINUTES,
+  );
   if (affectedTimes.length === 0) {
     return false;
   }

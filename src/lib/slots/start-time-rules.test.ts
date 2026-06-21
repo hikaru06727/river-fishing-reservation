@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getAffectedSlotStartTimes } from "@/lib/slots/affected-slots";
+import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 import {
   BOOKABLE_HOUR_SLOTS,
   isAllowedStartTime,
@@ -53,7 +54,7 @@ describe("isAllowedStartTimeByDuration", () => {
   it("getAffectedSlotStartTimes と整合する", () => {
     const duration = 180;
     const start = "13:00";
-    const affected = getAffectedSlotStartTimes(start, duration);
+    const affected = getAffectedSlotStartTimes(start, duration, LEGACY_SLOT_STEP_MINUTES);
     expect(affected).toEqual(["13:00", "14:00", "15:00"]);
     expect(isAllowedStartTimeByDuration(duration, start)).toBe(true);
   });

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { getAffectedSlotStartTimes } from "@/lib/slots/affected-slots";
+import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 import {
   durationMinutesFromReservationTimes,
   resolveReservationDurationMinutes,
@@ -46,13 +47,17 @@ describe("durationMinutesFromReservationTimes", () => {
 describe("getAffectedSlotStartTimes integration (snapshot duration)", () => {
   it("plan.duration を 999 に変えても snapshot 120 分なら 2 枠", () => {
     const snapshotDuration = 120;
-    const livePlanDuration = 999;
+    const livePlanDuration = 960;
 
-    expect(getAffectedSlotStartTimes("09:00:00", snapshotDuration)).toEqual([
+    expect(getAffectedSlotStartTimes("09:00:00", snapshotDuration, LEGACY_SLOT_STEP_MINUTES)).toEqual([
       "09:00",
       "10:00",
     ]);
-    expect(getAffectedSlotStartTimes("09:00:00", livePlanDuration).length).toBe(17);
-    expect(getAffectedSlotStartTimes("09:00:00", snapshotDuration).length).toBe(2);
+    expect(
+      getAffectedSlotStartTimes("09:00:00", livePlanDuration, LEGACY_SLOT_STEP_MINUTES).length,
+    ).toBe(16);
+    expect(
+      getAffectedSlotStartTimes("09:00:00", snapshotDuration, LEGACY_SLOT_STEP_MINUTES).length,
+    ).toBe(2);
   });
 });

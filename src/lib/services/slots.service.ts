@@ -7,6 +7,7 @@ import {
   validateAffectedSlotsCapacity,
   type AffectedSlot,
 } from "@/lib/slots/affected-slots";
+import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 import { computeRemainingCount } from "@/lib/slots/remaining-count";
 import type { GetAvailableSlotsWithPlanResponse, SlotDTO } from "@/types/api";
 import { isAllowedStartTimeByDuration } from "@/lib/slots/start-time-rules";
@@ -94,6 +95,7 @@ export async function getAvailableSlotsWithPlan(
     const affectedStartTimes = getAffectedSlotStartTimes(
       candidate.start_time,
       plan.duration_minutes,
+      LEGACY_SLOT_STEP_MINUTES,
     );
 
     const affectedSlots: AffectedSlot[] = [];

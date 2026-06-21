@@ -21,6 +21,7 @@ import {
 } from "@/lib/repositories/reservations.repository";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { resolveReservationDurationMinutes } from "@/lib/reservations/reservation-duration";
+import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import {
@@ -127,6 +128,7 @@ export async function createReservation(
   const affectedStartTimes = getAffectedSlotStartTimes(
     startSlot.start_time,
     plan.duration_minutes,
+    LEGACY_SLOT_STEP_MINUTES,
   );
 
   const { slots: affectedSlots, error: fetchError } = await fetchAffectedSlots(
@@ -315,6 +317,7 @@ export async function cancelReservation(
   const affectedStartTimes = getAffectedSlotStartTimes(
     startSlot.start_time,
     durationMinutes,
+    LEGACY_SLOT_STEP_MINUTES,
   );
 
   const { slots: affectedSlots, error: fetchError } = await fetchAffectedSlots(
