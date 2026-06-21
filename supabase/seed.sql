@@ -97,6 +97,18 @@ WHERE fs.slug IN ('seiryu-keikoku', 'okutama')
 ON CONFLICT (spot_id, slot_date, start_time) DO NOTHING;
 
 -- ------------------------------------------------------------
+-- Phase 9b: 15分 availability_slots（+7..+13 日目のみ）
+-- legacy hourly (+0..+6) とは日付分離。生成関数は seed / 運用補助用（予約 RPC 非依存）。
+-- ------------------------------------------------------------
+SELECT generate_fifteen_minute_availability_slots(
+  fs.id,
+  (CURRENT_DATE + 7)::DATE,
+  (CURRENT_DATE + 13)::DATE
+)
+FROM fishing_spots fs
+WHERE fs.slug IN ('seiryu-keikoku', 'okutama');
+
+-- ------------------------------------------------------------
 -- Phase 8c 実データ検証用（ローカル dev のみ）
 -- 固定 UUID で再実行時も ON CONFLICT DO NOTHING
 -- ------------------------------------------------------------

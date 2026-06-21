@@ -21,6 +21,10 @@ import {
 } from "@/lib/repositories/reservations.repository";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { resolveReservationDurationMinutes } from "@/lib/reservations/reservation-duration";
+import {
+  LEGACY_SLOT_STEP_MINUTES,
+  slotStepMinutesFromSlotRow,
+} from "@/lib/slots/slot-step";
 import { findSlotById, findSlotByIdAdmin } from "@/lib/repositories/slots.repository";
 import { addMinutes, toDbTime } from "@/lib/utils/date";
 import {
@@ -28,7 +32,7 @@ import {
   getInitialReservationStatusForPaymentMethod,
 } from "@/lib/reservations/payment-method";
 import { createReservationSchema, cancelReservationSchema } from "@/validations/reservation";
-import { isAllowedStartTimeByDuration } from "@/lib/slots/start-time-rules";
+import { isAllowedLegacyHourlyStartTimeByDuration } from "@/lib/slots/start-time-rules";
 import { sendReservationCancelledEmails } from "@/lib/email/reservation-cancellation-emails";
 import { sendReservationCreatedEmails } from "@/lib/email/reservation-emails";
 
@@ -120,14 +124,38 @@ export async function createReservation(
     return { ok: false, error: "利用日と空き枠が一致しません", status: 422 };
   }
 
-  if (!isAllowedStartTimeByDuration(plan.duration_minutes, startSlot.start_time)) {
-    return { ok: false, error: "選択できない時間帯です", status: 422 };
+  const slotStepMinutes = slotStepMinutesFromSlotRow(
+    startSlot.start_time,
+    startSlot.end_time,
+  );
+  if (slotStepMinutes === null) {
+    return { ok: false, error: "選択された空き枠の形式が不正です", status: 422 };
+  }
+
+  if (plan.duration_minutes % slotStepMinutes !== 0) {
+    return { ok: false, error: "選択されたプランはこの空き枠では利用できません", status: 422 };
+  }
+
+  if (slotStepMinutes === LEGACY_SLOT_STEP_MINUTES) {
+    if (
+      !isAllowedLegacyHourlyStartTimeByDuration(
+        plan.duration_minutes,
+        startSlot.start_time,
+      )
+    ) {
+      return { ok: false, error: "選択できない時間帯です", status: 422 };
+    }
   }
 
   const affectedStartTimes = getAffectedSlotStartTimes(
     startSlot.start_time,
     plan.duration_minutes,
+    slotStepMinutes,
   );
+
+  if (affectedStartTimes.length === 0) {
+    return { ok: false, error: "選択できない時間帯です", status: 422 };
+  }
 
   const { slots: affectedSlots, error: fetchError } = await fetchAffectedSlots(
     spotId,
@@ -312,10 +340,27 @@ export async function cancelReservation(
     return { ok: false, error: "空き枠情報の取得に失敗しました。", status: 500 };
   }
 
+  const slotStepMinutes = slotStepMinutesFromSlotRow(
+    startSlot.start_time,
+    startSlot.end_time,
+  );
+  if (slotStepMinutes === null) {
+    return { ok: false, error: "空き枠情報の取得に失敗しました。", status: 500 };
+  }
+
+  if (durationMinutes % slotStepMinutes !== 0) {
+    return { ok: false, error: "予約時間の取得に失敗しました。", status: 500 };
+  }
+
   const affectedStartTimes = getAffectedSlotStartTimes(
     startSlot.start_time,
     durationMinutes,
+    slotStepMinutes,
   );
+
+  if (affectedStartTimes.length === 0) {
+    return { ok: false, error: "予約時間の取得に失敗しました。", status: 500 };
+  }
 
   const { slots: affectedSlots, error: fetchError } = await fetchAffectedSlots(
     reservation.spot_id,
@@ -325,6 +370,14 @@ export async function cancelReservation(
 
   if (fetchError) {
     return { ok: false, error: "空き枠情報の取得に失敗しました", status: 500 };
+  }
+
+  if (affectedSlots.length !== affectedStartTimes.length) {
+    return {
+      ok: false,
+      error: "キャンセルに必要な空き枠が見つかりません。",
+      status: 422,
+    };
   }
 
   try {

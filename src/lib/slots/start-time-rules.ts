@@ -1,7 +1,15 @@
 import { getAffectedSlotStartTimes } from "@/lib/slots/affected-slots";
+import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 
-/** 予約可能な hourly 枠（昼休み 12:00 台を除く。legacy 1h/3h と同等） */
-export const BOOKABLE_HOUR_SLOTS = [9, 10, 11, 13, 14, 15] as const;
+/**
+ * legacy hourly seed 互換: 予約可能な時刻（時）の allowlist。
+ * Phase 9 暫定 seed の 06:00 等を候補から除外するためのみ使用。
+ * 営業時間ルールではない — Phase 10 で DB 化するまでの暫定互換。
+ */
+export const LEGACY_BOOKABLE_HOUR_SLOTS = [9, 10, 11, 13, 14, 15] as const;
+
+/** @deprecated LEGACY_BOOKABLE_HOUR_SLOTS を使用 */
+export const BOOKABLE_HOUR_SLOTS = LEGACY_BOOKABLE_HOUR_SLOTS;
 
 /** バリデーション用に "09:00" → "9:00" 形式へ正規化 */
 export function normalizeTimeInput(time: string): string {
@@ -26,15 +34,16 @@ function parseHourFromTime(time: string): number | null {
   return hour;
 }
 
-function isBookableHour(hour: number): boolean {
-  return (BOOKABLE_HOUR_SLOTS as readonly number[]).includes(hour);
+function isLegacyBookableHour(hour: number): boolean {
+  return (LEGACY_BOOKABLE_HOUR_SLOTS as readonly number[]).includes(hour);
 }
 
 /**
- * duration_minutes に基づき開始時刻が予約可能か判定する。
- * getAffectedSlotStartTimes と整合し、影響する全 hourly 枠が BOOKABLE_HOUR_SLOTS 内である必要がある。
+ * legacy hourly（step=60）専用: duration と開始時刻が予約可能か判定。
+ * 影響する全 hourly 枠が LEGACY_BOOKABLE_HOUR_SLOTS 内である必要がある。
+ * 15分 grid では使用しない — 候補可否は availability_slots の存在で判断する。
  */
-export function isAllowedStartTimeByDuration(
+export function isAllowedLegacyHourlyStartTimeByDuration(
   durationMinutes: number,
   startTime: string,
 ): boolean {
@@ -46,15 +55,27 @@ export function isAllowedStartTimeByDuration(
     return false;
   }
 
-  const affectedTimes = getAffectedSlotStartTimes(startTime, durationMinutes);
+  const affectedTimes = getAffectedSlotStartTimes(
+    startTime,
+    durationMinutes,
+    LEGACY_SLOT_STEP_MINUTES,
+  );
   if (affectedTimes.length === 0) {
     return false;
   }
 
   return affectedTimes.every((time) => {
     const hour = parseHourFromTime(time);
-    return hour !== null && isBookableHour(hour);
+    return hour !== null && isLegacyBookableHour(hour);
   });
+}
+
+/** @deprecated isAllowedLegacyHourlyStartTimeByDuration を使用（legacy hourly 専用） */
+export function isAllowedStartTimeByDuration(
+  durationMinutes: number,
+  startTime: string,
+): boolean {
+  return isAllowedLegacyHourlyStartTimeByDuration(durationMinutes, startTime);
 }
 
 /** legacy reservationSchema 用: slug → duration_minutes */
@@ -62,9 +83,9 @@ export function durationMinutesFromLegacyPlanSlug(slug: string): number {
   return slug === "3h" ? 180 : 60;
 }
 
-/** @deprecated plan.duration_minutes と isAllowedStartTimeByDuration を使用 */
+/** @deprecated plan.duration_minutes と isAllowedLegacyHourlyStartTimeByDuration を使用 */
 export function isAllowedStartTime(planSlug: string, startTime: string): boolean {
-  return isAllowedStartTimeByDuration(
+  return isAllowedLegacyHourlyStartTimeByDuration(
     durationMinutesFromLegacyPlanSlug(planSlug),
     startTime,
   );

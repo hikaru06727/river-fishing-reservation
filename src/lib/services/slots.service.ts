@@ -7,9 +7,13 @@ import {
   validateAffectedSlotsCapacity,
   type AffectedSlot,
 } from "@/lib/slots/affected-slots";
+import {
+  LEGACY_SLOT_STEP_MINUTES,
+  slotStepMinutesFromSlotRow,
+} from "@/lib/slots/slot-step";
 import { computeRemainingCount } from "@/lib/slots/remaining-count";
 import type { GetAvailableSlotsWithPlanResponse, SlotDTO } from "@/types/api";
-import { isAllowedStartTimeByDuration } from "@/lib/slots/start-time-rules";
+import { isAllowedLegacyHourlyStartTimeByDuration } from "@/lib/slots/start-time-rules";
 
 export type GetAvailableSlotsWithPlanParams = {
   spotId: string;
@@ -17,6 +21,9 @@ export type GetAvailableSlotsWithPlanParams = {
   guestCount?: number;
   date?: string;
 };
+
+/** legacy hourly (+0..+6) と 15分 grid (+7..+13) の両方をカバー */
+const AVAILABILITY_LOOKAHEAD_DAYS = 13;
 
 function normalizeTime(time: string): string {
   return time.slice(0, 5);
@@ -51,6 +58,11 @@ function toAffectedSlot(row: {
 /**
  * プラン時間を考慮した予約可能スロット一覧（API の唯一のソース）。
  *
+ * 候補可否は availability_slots の行を基準に判定する。
+ * - step は各行の (end_time - start_time) から導出
+ * - 15分 grid: affected slots がすべて存在し capacity が足りれば候補（営業時間は slot データに委ねる）
+ * - legacy hourly: 上記に加え LEGACY_BOOKABLE_HOUR_SLOTS 互換フィルタを適用
+ *
  * レスポンスは `{ plan, guest_count, slots[] }` のフラット構造。
  * `remaining_count` は {@link computeRemainingCount} でのみ算出する。
  */
@@ -68,7 +80,7 @@ export async function getAvailableSlotsWithPlan(
 
   const today = new Date();
   const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + 6);
+  endDate.setDate(endDate.getDate() + AVAILABILITY_LOOKAHEAD_DAYS);
 
   const startDate = params.date ?? toISODate(today);
   const rangeEnd = params.date ?? toISODate(endDate);
@@ -87,14 +99,38 @@ export async function getAvailableSlotsWithPlan(
   const bookableSlots: SlotDTO[] = [];
 
   for (const candidate of allSlots) {
-    if (!isAllowedStartTimeByDuration(plan.duration_minutes, candidate.start_time)) {
+    const slotStepMinutes = slotStepMinutesFromSlotRow(
+      candidate.start_time,
+      candidate.end_time,
+    );
+    if (slotStepMinutes === null) {
       continue;
+    }
+
+    if (plan.duration_minutes % slotStepMinutes !== 0) {
+      continue;
+    }
+
+    if (slotStepMinutes === LEGACY_SLOT_STEP_MINUTES) {
+      if (
+        !isAllowedLegacyHourlyStartTimeByDuration(
+          plan.duration_minutes,
+          candidate.start_time,
+        )
+      ) {
+        continue;
+      }
     }
 
     const affectedStartTimes = getAffectedSlotStartTimes(
       candidate.start_time,
       plan.duration_minutes,
+      slotStepMinutes,
     );
+
+    if (affectedStartTimes.length === 0) {
+      continue;
+    }
 
     const affectedSlots: AffectedSlot[] = [];
 

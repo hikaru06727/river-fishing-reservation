@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { addMinutes } from "@/lib/utils/date";
+import { LEGACY_SLOT_STEP_MINUTES, SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -19,11 +21,17 @@ vi.mock("@/lib/repositories/reservations.repository", () => ({
   updateReservationPlanSnapshot: vi.fn(),
 }));
 
-vi.mock("@/lib/slots/affected-slots", () => ({
-  fetchAffectedSlots: vi.fn(),
-  getAffectedSlotStartTimes: vi.fn(),
-  validateAffectedSlotsCapacity: vi.fn(),
+const { fetchAffectedSlotsMock } = vi.hoisted(() => ({
+  fetchAffectedSlotsMock: vi.fn(),
 }));
+
+vi.mock("@/lib/slots/affected-slots", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/slots/affected-slots")>();
+  return {
+    ...actual,
+    fetchAffectedSlots: fetchAffectedSlotsMock,
+  };
+});
 
 vi.mock("@/lib/email/reservation-emails", () => ({
   sendReservationCreatedEmails: vi.fn().mockResolvedValue(undefined),
@@ -37,11 +45,6 @@ import {
   updateReservationPlanSnapshot,
 } from "@/lib/repositories/reservations.repository";
 import { findSlotById } from "@/lib/repositories/slots.repository";
-import {
-  fetchAffectedSlots,
-  getAffectedSlotStartTimes,
-  validateAffectedSlotsCapacity,
-} from "@/lib/slots/affected-slots";
 import { createReservation } from "./reservations.service";
 import type { Plan } from "@/types/database";
 
@@ -78,6 +81,39 @@ function makePlan(overrides: Partial<Plan> & Pick<Plan, "id">): Plan {
   };
 }
 
+function makeSlotRow(
+  startTime: string,
+  id: string,
+  slotStepMinutes: typeof LEGACY_SLOT_STEP_MINUTES | typeof SLOT_STEP_MINUTES,
+  overrides?: Partial<{ booked_count: number; max_capacity: number; status: string }>,
+) {
+  const startNorm = startTime.slice(0, 5);
+  const endNorm = addMinutes(startNorm, slotStepMinutes);
+  return {
+    id,
+    spot_id: spotA,
+    slot_date: reservationDate,
+    start_time: `${startNorm}:00`,
+    end_time: `${endNorm}:00`,
+    max_capacity: overrides?.max_capacity ?? 5,
+    booked_count: overrides?.booked_count ?? 0,
+    status: (overrides?.status ?? "open") as "open",
+  };
+}
+
+function mockFetchAffectedSlotsFromStartTimes(
+  startTimes: string[],
+  slotStepMinutes: typeof LEGACY_SLOT_STEP_MINUTES | typeof SLOT_STEP_MINUTES,
+  idPrefix: string,
+) {
+  fetchAffectedSlotsMock.mockResolvedValue({
+    slots: startTimes.map((time, index) =>
+      makeSlotRow(time, `${idPrefix}-${index}`, slotStepMinutes),
+    ),
+    error: null,
+  });
+}
+
 const validInput = {
   spotId: spotA,
   planId: planA,
@@ -93,33 +129,8 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
     vi.mocked(findActivePlanForReservation).mockResolvedValue(
       makePlan({ id: planA, fishing_spot_id: spotA }),
     );
-    vi.mocked(findSlotById).mockResolvedValue({
-      id: slotId,
-      spot_id: spotA,
-      slot_date: reservationDate,
-      start_time: "09:00:00",
-      end_time: "09:59:00",
-      max_capacity: 5,
-      booked_count: 0,
-      status: "open",
-    });
-    vi.mocked(getAffectedSlotStartTimes).mockReturnValue(["09:00:00"]);
-    vi.mocked(fetchAffectedSlots).mockResolvedValue({
-      slots: [
-        {
-          id: slotId,
-          spot_id: spotA,
-          slot_date: reservationDate,
-          start_time: "09:00:00",
-          end_time: "09:59:00",
-          max_capacity: 5,
-          booked_count: 0,
-          status: "open",
-        },
-      ],
-      error: null,
-    });
-    vi.mocked(validateAffectedSlotsCapacity).mockReturnValue({ valid: true });
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:00", slotId, LEGACY_SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(["09:00"], LEGACY_SLOT_STEP_MINUTES, "slot");
     vi.mocked(createReservationAtomic).mockResolvedValue({
       reservation_id: "res-1",
       success: true,
@@ -197,7 +208,7 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
         duration_minutes: 120,
       }),
     );
-    vi.mocked(getAffectedSlotStartTimes).mockReturnValue(["09:00:00", "10:00:00"]);
+    mockFetchAffectedSlotsFromStartTimes(["09:00", "10:00"], LEGACY_SLOT_STEP_MINUTES, "slot");
 
     const result = await createReservation(userId, validInput);
 
@@ -213,6 +224,11 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
         price_yen: 4500,
         duration_minutes: 180,
       }),
+    );
+    mockFetchAffectedSlotsFromStartTimes(
+      ["09:00", "10:00", "11:00"],
+      LEGACY_SLOT_STEP_MINUTES,
+      "slot",
     );
 
     const result = await createReservation(userId, validInput);
@@ -236,5 +252,178 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
     expect(result.ok).toBe(true);
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+describe("createReservation dual-path (phase 9d-4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({ id: planA, duration_minutes: 120, slug: "2h" }),
+    );
+    vi.mocked(createReservationAtomic).mockResolvedValue({
+      reservation_id: "res-dual",
+      success: true,
+      error_code: null,
+      error_message: null,
+    });
+    vi.mocked(findSpotNotificationMetaById).mockResolvedValue({
+      name: "テスト釣り場",
+      slug: "test-spot",
+      businessId: null,
+    });
+    vi.mocked(updateReservationPlanSnapshot).mockResolvedValue(undefined);
+  });
+
+  it("legacy hourly 09:00 / 2h → affected slot ids が 2 件", async () => {
+    vi.mocked(findSlotById).mockResolvedValue(
+      makeSlotRow("09:00", slotId, LEGACY_SLOT_STEP_MINUTES),
+    );
+    mockFetchAffectedSlotsFromStartTimes(["09:00", "10:00"], LEGACY_SLOT_STEP_MINUTES, "legacy");
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(true);
+    expect(createReservationAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affected_slot_ids: ["legacy-0", "legacy-1"],
+      }),
+    );
+  });
+
+  it("15分 grid 09:15 / 2h → affected slot ids が 8 件", async () => {
+    const startTimes = [
+      "09:15",
+      "09:30",
+      "09:45",
+      "10:00",
+      "10:15",
+      "10:30",
+      "10:45",
+      "11:00",
+    ];
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:15", slotId, SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(startTimes, SLOT_STEP_MINUTES, "fifteen");
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(true);
+    expect(createReservationAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affected_slot_ids: startTimes.map((_, index) => `fifteen-${index}`),
+      }),
+    );
+  });
+
+  it("15分 grid 09:45 / 1h → affected slot ids が 4 件", async () => {
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({ id: planA, duration_minutes: 60, slug: "1h" }),
+    );
+    const startTimes = ["09:45", "10:00", "10:15", "10:30"];
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:45", slotId, SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(startTimes, SLOT_STEP_MINUTES, "fifteen");
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(true);
+    expect(createReservationAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affected_slot_ids: startTimes.map((_, index) => `fifteen-${index}`),
+      }),
+    );
+  });
+
+  it("duration が step の倍数でない場合は予約不可", async () => {
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({ id: planA, duration_minutes: 100, slug: "100m" }),
+    );
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:15", slotId, SLOT_STEP_MINUTES));
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+    }
+    expect(createReservationAtomic).not.toHaveBeenCalled();
+  });
+
+  it("affected slot が欠けている場合は予約不可", async () => {
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:15", slotId, SLOT_STEP_MINUTES));
+    fetchAffectedSlotsMock.mockResolvedValue({
+      slots: [makeSlotRow("09:15", "only-one", SLOT_STEP_MINUTES)],
+      error: null,
+    });
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+    }
+    expect(createReservationAtomic).not.toHaveBeenCalled();
+  });
+
+  it("affected slot の一部が capacity 不足なら予約不可", async () => {
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:00", slotId, LEGACY_SLOT_STEP_MINUTES));
+    fetchAffectedSlotsMock.mockResolvedValue({
+      slots: [
+        makeSlotRow("09:00", "slot-0", LEGACY_SLOT_STEP_MINUTES),
+        makeSlotRow("10:00", "slot-1", LEGACY_SLOT_STEP_MINUTES, {
+          booked_count: 5,
+          max_capacity: 5,
+        }),
+      ],
+      error: null,
+    });
+
+    const result = await createReservation(userId, {
+      ...validInput,
+      guestCount: 2,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+    }
+    expect(createReservationAtomic).not.toHaveBeenCalled();
+  });
+
+  it("online pending の作成フローが壊れていない", async () => {
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({ id: planA, duration_minutes: 60, slug: "1h" }),
+    );
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:00", slotId, LEGACY_SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(["09:00"], LEGACY_SLOT_STEP_MINUTES, "legacy");
+
+    const result = await createReservation(userId, {
+      ...validInput,
+      paymentMethod: "online",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(createReservationAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "pending",
+        payment_method: "online",
+        expires_at: expect.any(String),
+      }),
+    );
+    expect(insertPendingPaymentForReservation).not.toHaveBeenCalled();
+  });
+
+  it("step が判定できない slot 行は予約不可", async () => {
+    vi.mocked(findSlotById).mockResolvedValue({
+      ...makeSlotRow("09:00", slotId, LEGACY_SLOT_STEP_MINUTES),
+      end_time: "09:00:00",
+    });
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+    }
+    expect(createReservationAtomic).not.toHaveBeenCalled();
   });
 });
