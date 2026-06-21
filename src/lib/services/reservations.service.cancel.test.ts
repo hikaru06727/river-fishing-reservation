@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { addMinutes } from "@/lib/utils/date";
+import { LEGACY_SLOT_STEP_MINUTES, SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
@@ -51,7 +53,6 @@ vi.mock("@/lib/email/reservation-cancellation-emails", () => ({
 
 import { cancelReservation } from "./reservations.service";
 import { getAffectedSlotStartTimes } from "@/lib/slots/affected-slots";
-import { LEGACY_SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 
 const userId = "44444444-4444-4444-8444-444444444444";
 const reservationId = "55555555-5555-4555-8555-555555555555";
@@ -66,6 +67,24 @@ function futureReservationDate(daysAhead = 14): string {
 }
 
 const reservationDate = futureReservationDate();
+
+function makeStartSlot(
+  startTime: string,
+  slotStepMinutes: typeof LEGACY_SLOT_STEP_MINUTES | typeof SLOT_STEP_MINUTES,
+) {
+  const startNorm = startTime.slice(0, 5);
+  const endNorm = addMinutes(startNorm, slotStepMinutes);
+  return {
+    id: slotId,
+    spot_id: spotId,
+    slot_date: reservationDate,
+    start_time: `${startNorm}:00`,
+    end_time: `${endNorm}:00`,
+    max_capacity: 5,
+    booked_count: 2,
+    status: "open" as const,
+  };
+}
 
 const baseReservation = {
   id: reservationId,
@@ -88,21 +107,35 @@ const baseReservation = {
   expired_email_sent_at: null,
 };
 
+function mockFetchAffectedSlotsFromStartTimes(
+  startTimes: string[],
+  slotStepMinutes: typeof LEGACY_SLOT_STEP_MINUTES | typeof SLOT_STEP_MINUTES,
+) {
+  fetchAffectedSlotsMock.mockResolvedValue({
+    slots: startTimes.map((startTime, index) => {
+      const startNorm = startTime.slice(0, 5);
+      const endNorm = addMinutes(startNorm, slotStepMinutes);
+      return {
+        id: `slot-${index}`,
+        spot_id: spotId,
+        slot_date: reservationDate,
+        start_time: `${startNorm}:00`,
+        end_time: `${endNorm}:00`,
+        max_capacity: 5,
+        booked_count: 2,
+        status: "open",
+      };
+    }),
+    error: null,
+  });
+}
+
 describe("cancelReservation reserved_duration_minutes (phase 8d)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
     findReservationByIdForUserMock.mockResolvedValue(baseReservation);
-    findSlotByIdAdminMock.mockResolvedValue({
-      id: slotId,
-      spot_id: spotId,
-      slot_date: reservationDate,
-      start_time: "09:00:00",
-      end_time: "09:59:00",
-      max_capacity: 5,
-      booked_count: 2,
-      status: "open",
-    });
+    findSlotByIdAdminMock.mockResolvedValue(makeStartSlot("09:00", LEGACY_SLOT_STEP_MINUTES));
     findPlanByIdMock.mockResolvedValue({
       id: planId,
       name: "変更後プラン",
@@ -129,21 +162,7 @@ describe("cancelReservation reserved_duration_minutes (phase 8d)", () => {
       error_code: null,
       error_message: null,
     });
-    fetchAffectedSlotsMock.mockImplementation(
-      async (_spotId: string, _date: string, startTimes: string[]) => ({
-      slots: startTimes.map((startTime: string, index: number) => ({
-        id: `slot-${index}`,
-        spot_id: spotId,
-        slot_date: reservationDate,
-        start_time: `${startTime}:00`,
-        end_time: "09:59:00",
-        max_capacity: 5,
-        booked_count: 2,
-        status: "open",
-      })),
-      error: null,
-      }),
-    );
+    mockFetchAffectedSlotsFromStartTimes(["09:00", "10:00"], LEGACY_SLOT_STEP_MINUTES);
   });
 
   it("live plan.duration を変更しても reserved_duration_minutes の範囲だけ RPC に渡す", async () => {
@@ -202,5 +221,154 @@ describe("cancelReservation reserved_duration_minutes (phase 8d)", () => {
       expect(result.status).toBe(500);
     }
     expect(cancelReservationAtomicMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("cancelReservation dual-path (phase 9d-4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    findReservationByIdForUserMock.mockResolvedValue(baseReservation);
+    findSlotByIdAdminMock.mockResolvedValue(makeStartSlot("09:00", LEGACY_SLOT_STEP_MINUTES));
+    findPlanByIdMock.mockResolvedValue(null);
+    findSpotNotificationMetaByIdMock.mockResolvedValue({
+      name: "テスト釣り場",
+      slug: "test-spot",
+      businessId: null,
+    });
+    cancelReservationAtomicMock.mockResolvedValue({
+      success: true,
+      reservation_id: reservationId,
+      error_code: null,
+      error_message: null,
+    });
+    mockFetchAffectedSlotsFromStartTimes(["09:00", "10:00"], LEGACY_SLOT_STEP_MINUTES);
+  });
+
+  it("legacy hourly 09:00 / 2h → affected slot ids が 2 件", async () => {
+    const result = await cancelReservation(userId, { reservationId });
+
+    expect(result.ok).toBe(true);
+    expect(cancelReservationAtomicMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affected_slot_ids: ["slot-0", "slot-1"],
+      }),
+    );
+  });
+
+  it("15分予約 09:15 / 2h → affected slot ids が 8 件", async () => {
+    const startTimes = [
+      "09:15",
+      "09:30",
+      "09:45",
+      "10:00",
+      "10:15",
+      "10:30",
+      "10:45",
+      "11:00",
+    ];
+    findReservationByIdForUserMock.mockResolvedValue({
+      ...baseReservation,
+      start_time: "09:15:00",
+      end_time: "11:15:00",
+    });
+    findSlotByIdAdminMock.mockResolvedValue(makeStartSlot("09:15", SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(startTimes, SLOT_STEP_MINUTES);
+
+    const result = await cancelReservation(userId, { reservationId });
+
+    expect(result.ok).toBe(true);
+    expect(fetchAffectedSlotsMock).toHaveBeenCalledWith(spotId, reservationDate, startTimes);
+    expect(cancelReservationAtomicMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affected_slot_ids: startTimes.map((_, index) => `slot-${index}`),
+      }),
+    );
+  });
+
+  it("snapshot duration が優先される（live plan 999 分でも 2 枠）", async () => {
+    findPlanByIdMock.mockResolvedValue({
+      id: planId,
+      name: "変更後プラン",
+      slug: "changed",
+      duration_minutes: 999,
+      price_yen: 9999,
+      fishing_spot_id: spotId,
+      is_active: true,
+      is_visible: true,
+      is_accepting_reservations: true,
+      max_guests: 4,
+      description: null,
+      created_at: "2026-01-01T00:00:00Z",
+      updated_at: "2026-01-01T00:00:00Z",
+    });
+
+    const result = await cancelReservation(userId, { reservationId });
+
+    expect(result.ok).toBe(true);
+    expect(cancelReservationAtomicMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affected_slot_ids: ["slot-0", "slot-1"],
+      }),
+    );
+  });
+
+  it("affected slot が欠けている場合は部分キャンセルしない", async () => {
+    fetchAffectedSlotsMock.mockResolvedValue({
+      slots: [
+        {
+          id: "slot-0",
+          spot_id: spotId,
+          slot_date: reservationDate,
+          start_time: "09:00:00",
+          end_time: "10:00:00",
+          max_capacity: 5,
+          booked_count: 2,
+          status: "open",
+        },
+      ],
+      error: null,
+    });
+
+    const result = await cancelReservation(userId, { reservationId });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+    }
+    expect(cancelReservationAtomicMock).not.toHaveBeenCalled();
+  });
+
+  it("duration % step !== 0 の場合はキャンセル不可", async () => {
+    findReservationByIdForUserMock.mockResolvedValue({
+      ...baseReservation,
+      reserved_duration_minutes: 100,
+    });
+    findSlotByIdAdminMock.mockResolvedValue(makeStartSlot("09:15", SLOT_STEP_MINUTES));
+
+    const result = await cancelReservation(userId, { reservationId });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(500);
+    }
+    expect(cancelReservationAtomicMock).not.toHaveBeenCalled();
+  });
+
+  it("legacy hourly 予約を 15分 step で戻さない", async () => {
+    findSlotByIdAdminMock.mockResolvedValue(makeStartSlot("09:00", LEGACY_SLOT_STEP_MINUTES));
+
+    await cancelReservation(userId, { reservationId });
+
+    expect(fetchAffectedSlotsMock).toHaveBeenCalledWith(
+      spotId,
+      reservationDate,
+      ["09:00", "10:00"],
+    );
+    expect(fetchAffectedSlotsMock).not.toHaveBeenCalledWith(
+      spotId,
+      reservationDate,
+      expect.arrayContaining(["09:15"]),
+    );
   });
 });
