@@ -355,6 +355,30 @@ describe("cancelReservation dual-path (phase 9d-4)", () => {
     expect(cancelReservationAtomicMock).not.toHaveBeenCalled();
   });
 
+  it("admin キャンセルは findReservationByIdAdmin を使い dual-path を維持する", async () => {
+    findReservationByIdForUserMock.mockResolvedValue(null);
+    findReservationByIdAdminMock.mockResolvedValue({
+      ...baseReservation,
+      status: "pending",
+      payment_method: "online",
+    });
+
+    const result = await cancelReservation(
+      userId,
+      { reservationId },
+      { isAdmin: true, cancelledBy: "admin" },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(findReservationByIdAdminMock).toHaveBeenCalledWith(reservationId);
+    expect(findReservationByIdForUserMock).not.toHaveBeenCalled();
+    expect(cancelReservationAtomicMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        affected_slot_ids: ["slot-0", "slot-1"],
+      }),
+    );
+  });
+
   it("legacy hourly 予約を 15分 step で戻さない", async () => {
     findSlotByIdAdminMock.mockResolvedValue(makeStartSlot("09:00", LEGACY_SLOT_STEP_MINUTES));
 

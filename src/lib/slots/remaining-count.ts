@@ -11,8 +11,8 @@
  * ### ルール
  * - 計算は `computeRemainingCount` のみで行う（UI・API・service 共通）
  * - UI は API レスポンスの `remaining_count` をそのまま表示する（再計算禁止）
- * - 単一 hourly スロットの `max_capacity - booked_count` を remaining_count として
- *   返してはならない
+ * - 単一スロットの `max_capacity - booked_count` を remaining_count として
+ *   返してはならない（15分/60分 grid 共通）
  *
  * @see computeRemainingCount
  * @see getSlotRemainingCapacity
