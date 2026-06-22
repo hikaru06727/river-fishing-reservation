@@ -9,7 +9,14 @@ export type AppUserRole = UserRole;
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "expired";
 export type PaymentMethod = "online" | "cash_at_venue";
-export type PaymentStatus = "pending" | "succeeded" | "failed" | "refunded";
+export type PaymentStatus =
+  | "pending"
+  | "succeeded"
+  | "failed"
+  | "refunded"
+  | "partially_refunded"
+  | "expired"
+  | "disputed";
 export type ContentStatus = "draft" | "published";
 export type SlotStatus = "open" | "closed";
 

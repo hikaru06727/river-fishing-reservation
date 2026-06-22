@@ -41,6 +41,9 @@ export function getPaymentStatusLabel(status: PaymentStatus | null | undefined):
     succeeded: "決済完了",
     failed: "決済失敗",
     refunded: "返金済",
+    partially_refunded: "部分返金",
+    expired: "期限切れ",
+    disputed: "異議申立中",
   };
 
   return labels[status];
@@ -56,6 +59,9 @@ export function getPaymentStatusColor(status: PaymentStatus | null | undefined):
     succeeded: "bg-green-100 text-green-800",
     failed: "bg-red-100 text-red-800",
     refunded: "bg-purple-100 text-purple-800",
+    partially_refunded: "bg-violet-100 text-violet-800",
+    expired: "bg-slate-100 text-slate-600",
+    disputed: "bg-orange-100 text-orange-800",
   };
 
   return colors[status];
