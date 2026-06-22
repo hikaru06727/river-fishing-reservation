@@ -31,6 +31,10 @@ vi.mock("@/lib/repositories/reservations.repository", () => ({
   updateReservationPlanSnapshot: vi.fn(),
 }));
 
+vi.mock("@/lib/repositories/tax-rates.repository", () => ({
+  getCurrentTaxRate: vi.fn().mockResolvedValue({ rate_percent: 10 }),
+}));
+
 const { fetchAffectedSlotsMock } = vi.hoisted(() => ({
   fetchAffectedSlotsMock: vi.fn(),
 }));
@@ -280,6 +284,7 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
       reserved_plan_name: "スナップショットプラン",
       reserved_unit_price_yen: 4500,
       reserved_duration_minutes: 180,
+      tax_rate_percent: 10,
     });
   });
 
@@ -469,6 +474,7 @@ describe("createReservation dual-path (phase 9d-4)", () => {
       reserved_plan_name: "テストプラン",
       reserved_unit_price_yen: 3000,
       reserved_duration_minutes: 120,
+      tax_rate_percent: 10,
     });
   });
 

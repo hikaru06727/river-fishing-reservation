@@ -80,6 +80,7 @@ export type ReservationPlanSnapshot = {
   reserved_plan_name: string;
   reserved_unit_price_yen: number;
   reserved_duration_minutes: number;
+  tax_rate_percent?: number | null;
 };
 
 /** 予約作成後に plan snapshot を保存（Phase 8c: post-RPC UPDATE） */

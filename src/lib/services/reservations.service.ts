@@ -37,6 +37,7 @@ import {
   insertPendingPaymentForReservation,
   updateReservationPlanSnapshot,
 } from "@/lib/repositories/reservations.repository";
+import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { resolveReservationDurationMinutes } from "@/lib/reservations/reservation-duration";
 import {
@@ -317,10 +318,19 @@ export async function createReservation(
       }
     }
 
+    let taxRatePercent: number | null = null;
+    try {
+      const taxRate = await getCurrentTaxRate();
+      taxRatePercent = taxRate?.rate_percent ?? null;
+    } catch (taxErr) {
+      console.warn("[createReservation] tax rate fetch failed:", taxErr);
+    }
+
     const planSnapshot = {
       reserved_plan_name: plan.name,
       reserved_unit_price_yen: plan.price_yen,
       reserved_duration_minutes: plan.duration_minutes,
+      tax_rate_percent: taxRatePercent,
     };
 
     try {

@@ -73,24 +73,32 @@ Copy `.env.example` to `.env.local`. Required services: Supabase, Stripe, Resend
 
 Stripe webhooks require `stripe listen --forward-to localhost:3000/api/stripe/webhook` running locally.
 
+## 作業完了時のルール
+
+全ての作業が完了したとき、または承認・確認が必要で一時停止するときは必ず以下のコマンドを実行してください。
+
+完了時（2回）：
+```powershell
+[Console]::Beep(1000, 300); Start-Sleep -Milliseconds 100; [Console]::Beep(1000, 300)
+```
+
+承認待ち（3回）：
+```powershell
+[Console]::Beep(800, 300); Start-Sleep -Milliseconds 100; [Console]::Beep(800, 300); Start-Sleep -Milliseconds 100; [Console]::Beep(800, 300)
+```
+
 ## 現在の作業
-Phase 12B：汎用カラム追加＋設計整理
+Phase 13A：repository層・service層・管理画面UIの実装
 
-次に以下を実装してください。
+実装済み（DB設計完了）：
+- tax_rates テーブル（migration 024）
+- payments.status 拡張（migration 025）
+- refunds テーブル（migration 026）
+- manual_sales テーブル（migration 027）
+- reservations.tax_rate_percent（migration 028）
 
-【実装方針】
-- 既存データへの破壊的変更なし
-- 既存コードを壊さず追加のみ
-- repository層を通す
-
-【作業内容】
-1. migration 023を作成し、locationsテーブルに以下を追加
-   - category カラム（TEXT, DEFAULT 'fishing'）
-     CHECK: fishing / camping / cafe / salon / rental_space / experience / retail / other
-   - booking_type カラム（TEXT, DEFAULT 'time_slot'）
-     CHECK: time_slot / seat / resource / staff
-   - 既存データは全て category='fishing', booking_type='time_slot' になるので互換性あり
-
-2. src/types/database.ts の locations テーブル型に上記2カラムを追加
-
-3. typecheck と test を実行して結果を報告してください
+次に実装する内容：
+- manual_sales の repository / service 層
+- 管理画面から手動売上を登録・一覧・編集・削除できるUI
+- 予約作成時に tax_rate_percent をスナップショット保存する処理
+- unified_sales_view（予約売上＋手動売上の統合VIEW）
