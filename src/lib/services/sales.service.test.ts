@@ -110,4 +110,18 @@ describe("getSalesDashboard", () => {
       dateTo: result?.report.dateTo,
     });
   });
+
+  it("startDate / endDate エイリアスを受け付ける", async () => {
+    getUserMock.mockResolvedValue({ id: "admin-user" });
+    getProfileMock.mockResolvedValue({ id: "admin-user", role: "admin" });
+    findSalesReservationRowsMock.mockResolvedValue([]);
+
+    const result = await getSalesDashboard({
+      startDate: "2026-06-01",
+      endDate: "2026-06-30",
+    });
+
+    expect(result?.report.dateFrom).toBe("2026-06-01");
+    expect(result?.report.dateTo).toBe("2026-06-30");
+  });
 });

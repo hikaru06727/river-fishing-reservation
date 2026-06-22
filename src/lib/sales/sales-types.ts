@@ -42,10 +42,20 @@ export type BusinessSalesRow = {
   confirmedRevenueYen: number;
   projectedRevenueYen: number;
   reservationCount: number;
+  cancelledCount: number;
 };
 
 export type PlanSalesRow = {
   planName: string;
+  confirmedRevenueYen: number;
+  projectedRevenueYen: number;
+  reservationCount: number;
+  cancelledCount: number;
+};
+
+export type PaymentMethodSalesDetailRow = {
+  paymentMethod: PaymentMethod;
+  label: string;
   confirmedRevenueYen: number;
   projectedRevenueYen: number;
   reservationCount: number;
@@ -59,6 +69,7 @@ export type SalesReport = {
   reservationCount: number;
   cancelledCount: number;
   paymentMethodBreakdown: PaymentMethodSalesBreakdown;
+  paymentMethodDetailBreakdown: PaymentMethodSalesDetailRow[];
   dailyBreakdown: DailySalesRow[];
   businessBreakdown: BusinessSalesRow[];
   planBreakdown: PlanSalesRow[];

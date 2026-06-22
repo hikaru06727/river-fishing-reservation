@@ -1,4 +1,5 @@
 import { formatDate, formatYen } from "@/lib/utils/format";
+import { SalesCsvExportLink } from "@/components/admin/sales/SalesCsvExportLink";
 import type {
   BusinessSalesRow,
   DailySalesRow,
@@ -18,16 +19,32 @@ function EmptyRow({ colSpan, message }: { colSpan: number; message: string }) {
 function SalesTable({
   title,
   headers,
+  csvType,
+  csvLabel,
+  dateFrom,
+  dateTo,
   children,
 }: {
   title: string;
   headers: string[];
+  csvType?: "daily" | "business" | "plan";
+  csvLabel?: string;
+  dateFrom: string;
+  dateTo: string;
   children: React.ReactNode;
 }) {
   return (
     <section className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="border-b border-border px-4 py-3">
+      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
         <h3 className="text-sm font-semibold text-foreground">{title}</h3>
+        {csvType && csvLabel ? (
+          <SalesCsvExportLink
+            type={csvType}
+            label={csvLabel}
+            dateFrom={dateFrom}
+            dateTo={dateTo}
+          />
+        ) : null}
       </div>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
@@ -47,11 +64,21 @@ function SalesTable({
   );
 }
 
-export function SalesDailyTable({ rows }: { rows: DailySalesRow[] }) {
+type TableProps<T> = {
+  rows: T[];
+  dateFrom: string;
+  dateTo: string;
+};
+
+export function SalesDailyTable({ rows, dateFrom, dateTo }: TableProps<DailySalesRow>) {
   return (
     <SalesTable
       title="日別売上"
       headers={["日付", "確定売上", "売上見込み", "予約件数", "キャンセル件数"]}
+      csvType="daily"
+      csvLabel="日別CSV"
+      dateFrom={dateFrom}
+      dateTo={dateTo}
     >
       {rows.length === 0 ? (
         <EmptyRow colSpan={5} message="期間内のデータはありません" />
@@ -70,14 +97,22 @@ export function SalesDailyTable({ rows }: { rows: DailySalesRow[] }) {
   );
 }
 
-export function SalesBusinessTable({ rows }: { rows: BusinessSalesRow[] }) {
+export function SalesBusinessTable({
+  rows,
+  dateFrom,
+  dateTo,
+}: TableProps<BusinessSalesRow>) {
   return (
     <SalesTable
       title="事業者別売上"
-      headers={["事業者", "確定売上", "売上見込み", "予約件数"]}
+      headers={["事業者", "確定売上", "売上見込み", "予約件数", "キャンセル件数"]}
+      csvType="business"
+      csvLabel="事業者別CSV"
+      dateFrom={dateFrom}
+      dateTo={dateTo}
     >
       {rows.length === 0 ? (
-        <EmptyRow colSpan={4} message="期間内のデータはありません" />
+        <EmptyRow colSpan={5} message="期間内のデータはありません" />
       ) : (
         rows.map((row) => (
           <tr key={row.businessId}>
@@ -85,6 +120,7 @@ export function SalesBusinessTable({ rows }: { rows: BusinessSalesRow[] }) {
             <td className="px-4 py-3">{formatYen(row.confirmedRevenueYen)}</td>
             <td className="px-4 py-3">{formatYen(row.projectedRevenueYen)}</td>
             <td className="px-4 py-3">{row.reservationCount} 件</td>
+            <td className="px-4 py-3">{row.cancelledCount} 件</td>
           </tr>
         ))
       )}
@@ -92,14 +128,18 @@ export function SalesBusinessTable({ rows }: { rows: BusinessSalesRow[] }) {
   );
 }
 
-export function SalesPlanTable({ rows }: { rows: PlanSalesRow[] }) {
+export function SalesPlanTable({ rows, dateFrom, dateTo }: TableProps<PlanSalesRow>) {
   return (
     <SalesTable
       title="プラン別売上"
-      headers={["プラン", "確定売上", "売上見込み", "予約件数"]}
+      headers={["プラン", "確定売上", "売上見込み", "予約件数", "キャンセル件数"]}
+      csvType="plan"
+      csvLabel="プラン別CSV"
+      dateFrom={dateFrom}
+      dateTo={dateTo}
     >
       {rows.length === 0 ? (
-        <EmptyRow colSpan={4} message="期間内のデータはありません" />
+        <EmptyRow colSpan={5} message="期間内のデータはありません" />
       ) : (
         rows.map((row) => (
           <tr key={row.planName}>
@@ -107,6 +147,7 @@ export function SalesPlanTable({ rows }: { rows: PlanSalesRow[] }) {
             <td className="px-4 py-3">{formatYen(row.confirmedRevenueYen)}</td>
             <td className="px-4 py-3">{formatYen(row.projectedRevenueYen)}</td>
             <td className="px-4 py-3">{row.reservationCount} 件</td>
+            <td className="px-4 py-3">{row.cancelledCount} 件</td>
           </tr>
         ))
       )}

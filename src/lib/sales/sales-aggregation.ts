@@ -7,6 +7,7 @@ import type {
   BusinessSalesRow,
   DailySalesRow,
   PaymentMethodSalesBreakdown,
+  PaymentMethodSalesDetailRow,
   PlanSalesRow,
   SalesDateRange,
   SalesReport,
@@ -83,6 +84,23 @@ function addToPaymentBreakdown(
   }
 }
 
+const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  online: "オンライン決済",
+  cash_at_venue: "現地現金",
+};
+
+function emptyPaymentMethodDetail(
+  paymentMethod: PaymentMethod,
+): PaymentMethodSalesDetailRow {
+  return {
+    paymentMethod,
+    label: PAYMENT_METHOD_LABELS[paymentMethod],
+    confirmedRevenueYen: 0,
+    projectedRevenueYen: 0,
+    reservationCount: 0,
+  };
+}
+
 export function aggregateSalesReport(
   rows: SalesReservationRow[],
   range: SalesDateRange,
@@ -94,6 +112,7 @@ export function aggregateSalesReport(
   let reservationCount = 0;
   let cancelledCount = 0;
   const paymentMethodBreakdown = emptyPaymentBreakdown();
+  const paymentMethodMap = new Map<PaymentMethod, PaymentMethodSalesDetailRow>();
 
   const dailyMap = new Map<string, DailySalesRow>();
   const businessMap = new Map<string, BusinessSalesRow>();
@@ -123,6 +142,18 @@ export function aggregateSalesReport(
       addToPaymentBreakdown(paymentMethodBreakdown, row.payment_method, confirmedAmount);
     }
 
+    const paymentMethodDetail =
+      paymentMethodMap.get(row.payment_method) ??
+      emptyPaymentMethodDetail(row.payment_method);
+    paymentMethodDetail.confirmedRevenueYen += confirmedAmount;
+    if (projected) {
+      paymentMethodDetail.projectedRevenueYen += amount;
+    }
+    if (isReservation) {
+      paymentMethodDetail.reservationCount += 1;
+    }
+    paymentMethodMap.set(row.payment_method, paymentMethodDetail);
+
     const daily = dailyMap.get(row.reservation_date) ?? {
       date: row.reservation_date,
       confirmedRevenueYen: 0,
@@ -150,26 +181,34 @@ export function aggregateSalesReport(
         confirmedRevenueYen: 0,
         projectedRevenueYen: 0,
         reservationCount: 0,
+        cancelledCount: 0,
       };
       business.confirmedRevenueYen += confirmedAmount;
       if (projected) {
         business.projectedRevenueYen += amount;
         business.reservationCount += 1;
       }
+      if (isCancelled) {
+        business.cancelledCount += 1;
+      }
       businessMap.set(businessKey, business);
 
-      if (projected || confirmedAmount > 0) {
+      if (projected || confirmedAmount > 0 || isCancelled) {
         const planName = resolvePlanDisplayName(row);
         const plan = planMap.get(planName) ?? {
           planName,
           confirmedRevenueYen: 0,
           projectedRevenueYen: 0,
           reservationCount: 0,
+          cancelledCount: 0,
         };
         plan.confirmedRevenueYen += confirmedAmount;
         if (projected) {
           plan.projectedRevenueYen += amount;
           plan.reservationCount += 1;
+        }
+        if (isCancelled) {
+          plan.cancelledCount += 1;
         }
         planMap.set(planName, plan);
       }
@@ -185,6 +224,9 @@ export function aggregateSalesReport(
   const planBreakdown = [...planMap.values()].sort((a, b) =>
     a.planName.localeCompare(b.planName, "ja"),
   );
+  const paymentMethodDetailBreakdown = [...paymentMethodMap.values()].sort((a, b) =>
+    a.label.localeCompare(b.label, "ja"),
+  );
 
   return {
     dateFrom: range.dateFrom,
@@ -194,6 +236,7 @@ export function aggregateSalesReport(
     reservationCount,
     cancelledCount,
     paymentMethodBreakdown,
+    paymentMethodDetailBreakdown,
     dailyBreakdown,
     businessBreakdown,
     planBreakdown,

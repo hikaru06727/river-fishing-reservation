@@ -21,14 +21,11 @@ export function parseSalesDateRange(
   referenceDate: Date = new Date(),
 ): SalesDateRange {
   const defaults = getDefaultSalesDateRange(referenceDate);
+  const rawFrom = searchParams.dateFrom ?? searchParams.startDate;
+  const rawTo = searchParams.dateTo ?? searchParams.endDate;
   const dateFrom =
-    searchParams.dateFrom && isValidIsoDate(searchParams.dateFrom)
-      ? searchParams.dateFrom
-      : defaults.dateFrom;
-  const dateTo =
-    searchParams.dateTo && isValidIsoDate(searchParams.dateTo)
-      ? searchParams.dateTo
-      : defaults.dateTo;
+    rawFrom && isValidIsoDate(rawFrom) ? rawFrom : defaults.dateFrom;
+  const dateTo = rawTo && isValidIsoDate(rawTo) ? rawTo : defaults.dateTo;
 
   if (dateFrom <= dateTo) {
     return { dateFrom, dateTo };
