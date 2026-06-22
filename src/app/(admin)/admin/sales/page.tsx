@@ -27,6 +27,7 @@ export default async function AdminSalesPage({ searchParams }: AdminSalesPagePro
   return (
     <SalesDashboardView
       report={result.report}
+      insights={result.insights}
       isAdmin={result.isAdmin}
       scopedBusinessNames={result.scopedBusinessNames}
     />

@@ -8,16 +8,19 @@ import { SalesInsightsPanel } from "@/components/admin/sales/SalesInsightsPanel"
 import { SalesPaymentMethodBreakdown } from "@/components/admin/sales/SalesPaymentMethodBreakdown";
 import { SalesPeriodFilters } from "@/components/admin/sales/SalesPeriodFilters";
 import { SalesSummaryCards } from "@/components/admin/sales/SalesSummaryCards";
+import type { SalesInsights } from "@/lib/sales/sales-insights";
 import type { SalesReport } from "@/lib/sales/sales-types";
 
 interface SalesDashboardViewProps {
   report: SalesReport;
+  insights: SalesInsights;
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
 }
 
 export function SalesDashboardView({
   report,
+  insights,
   isAdmin,
   scopedBusinessNames,
 }: SalesDashboardViewProps) {
@@ -50,7 +53,7 @@ export function SalesDashboardView({
 
       <SalesSummaryCards report={report} />
 
-      <SalesInsightsPanel report={report} />
+      <SalesInsightsPanel insights={insights} />
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="xl:col-span-1">

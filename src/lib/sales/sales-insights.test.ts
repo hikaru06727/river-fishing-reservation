@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { countCalendarDaysInRange } from "@/lib/sales/sales-business-days";
 import { computeSalesInsights } from "@/lib/sales/sales-insights";
 import type { SalesReport } from "@/lib/sales/sales-types";
 
@@ -48,16 +49,36 @@ const baseReport = (overrides: Partial<SalesReport> = {}): SalesReport => ({
 });
 
 describe("computeSalesInsights", () => {
-  it("平均日次売上と予約単価を計算する", () => {
-    const insights = computeSalesInsights(baseReport());
+  it("営業日数を母数に平均営業日売上を計算する", () => {
+    const report = baseReport();
+    const insights = computeSalesInsights(report, 2);
 
-    expect(insights.averageDailyConfirmedRevenueYen).toBe(1000);
-    expect(insights.averageRevenuePerReservationYen).toBe(2000);
+    expect(insights.businessDayCount).toBe(2);
+    expect(insights.averageBusinessDayConfirmedRevenueYen).toBe(1500);
   });
 
-  it("最も売上が高い日とプランを返す", () => {
-    const insights = computeSalesInsights(baseReport());
+  it("全日数平均より営業日平均のほうが高くなる", () => {
+    const report = baseReport({ confirmedRevenueYen: 3000 });
+    const calendarDays = countCalendarDaysInRange(report.dateFrom, report.dateTo);
+    const calendarAverage = Math.round(report.confirmedRevenueYen / calendarDays);
+    const insights = computeSalesInsights(report, 2);
 
+    expect(calendarAverage).toBe(1000);
+    expect(insights.averageBusinessDayConfirmedRevenueYen).toBe(1500);
+    expect(insights.averageBusinessDayConfirmedRevenueYen!).toBeGreaterThan(calendarAverage);
+  });
+
+  it("営業日数が 0 の場合は null を返す", () => {
+    const insights = computeSalesInsights(baseReport(), 0);
+
+    expect(insights.businessDayCount).toBe(0);
+    expect(insights.averageBusinessDayConfirmedRevenueYen).toBeNull();
+  });
+
+  it("予約単価とトップ日・プランを返す", () => {
+    const insights = computeSalesInsights(baseReport(), 2);
+
+    expect(insights.averageRevenuePerReservationYen).toBe(2000);
     expect(insights.topDayByConfirmedRevenue).toEqual({
       date: "2026-06-02",
       amountYen: 2000,
@@ -77,10 +98,12 @@ describe("computeSalesInsights", () => {
         dailyBreakdown: [],
         planBreakdown: [],
       }),
+      0,
     );
 
     expect(insights.topDayByConfirmedRevenue).toBeNull();
     expect(insights.topPlanByProjectedRevenue).toBeNull();
     expect(insights.averageRevenuePerReservationYen).toBe(0);
+    expect(insights.averageBusinessDayConfirmedRevenueYen).toBeNull();
   });
 });

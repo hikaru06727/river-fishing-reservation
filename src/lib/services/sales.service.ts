@@ -5,11 +5,14 @@ import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.r
 import { findSalesReservationRows } from "@/lib/repositories/sales.repository";
 import { aggregateSalesReport } from "@/lib/sales/sales-aggregation";
 import { filterSalesRowsForProfile } from "@/lib/sales/sales-access";
+import { computeSalesInsights, type SalesInsights } from "@/lib/sales/sales-insights";
+import { resolveBusinessDayCountForSales } from "@/lib/sales/sales-insights-context";
 import { parseSalesDateRange } from "@/lib/sales/sales-period";
 import type { SalesDateRange, SalesReport } from "@/lib/sales/sales-types";
 
 export type SalesDashboardResult = {
   report: SalesReport;
+  insights: SalesInsights;
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
 };
@@ -53,6 +56,9 @@ export async function getSalesDashboard(
   const scopedRows = filterSalesRowsForProfile(rows, profile, assignedBusinessIds);
   const report = aggregateSalesReport(scopedRows, range);
 
+  const businessDayCount = await resolveBusinessDayCountForSales(range, isAdmin, assignedBusinessIds);
+  const insights = computeSalesInsights(report, businessDayCount);
+
   let scopedBusinessNames: string[] | null = null;
   if (!isAdmin) {
     const names = new Set<string>();
@@ -66,6 +72,7 @@ export async function getSalesDashboard(
 
   return {
     report,
+    insights,
     isAdmin,
     scopedBusinessNames,
   };

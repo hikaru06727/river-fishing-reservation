@@ -2,12 +2,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSalesDashboard } from "@/lib/services/sales.service";
 import type { SalesReservationRow } from "@/lib/sales/sales-types";
 
-const { getUserMock, getProfileMock, findAssignedBusinessIdsByUserIdMock, findSalesReservationRowsMock } =
+const { getUserMock, getProfileMock, findAssignedBusinessIdsByUserIdMock, findSalesReservationRowsMock, resolveBusinessDayCountForSalesMock } =
   vi.hoisted(() => ({
     getUserMock: vi.fn(),
     getProfileMock: vi.fn(),
     findAssignedBusinessIdsByUserIdMock: vi.fn(),
     findSalesReservationRowsMock: vi.fn(),
+    resolveBusinessDayCountForSalesMock: vi.fn(),
   }));
 
 vi.mock("next/cache", () => ({
@@ -25,6 +26,10 @@ vi.mock("@/lib/repositories/businesses.repository", () => ({
 
 vi.mock("@/lib/repositories/sales.repository", () => ({
   findSalesReservationRows: findSalesReservationRowsMock,
+}));
+
+vi.mock("@/lib/sales/sales-insights-context", () => ({
+  resolveBusinessDayCountForSales: resolveBusinessDayCountForSalesMock,
 }));
 
 const bizA = "11111111-1111-4111-8111-111111111111";
@@ -52,6 +57,8 @@ describe("getSalesDashboard", () => {
     getProfileMock.mockReset();
     findAssignedBusinessIdsByUserIdMock.mockReset();
     findSalesReservationRowsMock.mockReset();
+    resolveBusinessDayCountForSalesMock.mockReset();
+    resolveBusinessDayCountForSalesMock.mockResolvedValue(1);
   });
 
   it("admin は全売上を取得できる", async () => {
@@ -67,6 +74,7 @@ describe("getSalesDashboard", () => {
     expect(result).not.toBeNull();
     expect(result?.isAdmin).toBe(true);
     expect(result?.report.projectedRevenueYen).toBe(20000);
+    expect(result?.insights.businessDayCount).toBe(1);
     expect(findAssignedBusinessIdsByUserIdMock).not.toHaveBeenCalled();
   });
 
@@ -85,6 +93,11 @@ describe("getSalesDashboard", () => {
     expect(result?.isAdmin).toBe(false);
     expect(result?.report.projectedRevenueYen).toBe(10000);
     expect(result?.scopedBusinessNames).toEqual(["事業A"]);
+    expect(resolveBusinessDayCountForSalesMock).toHaveBeenCalledWith(
+      { dateFrom: "2026-06-22", dateTo: "2026-06-22" },
+      false,
+      [bizA],
+    );
   });
 
   it("管理権限がない場合は null", async () => {

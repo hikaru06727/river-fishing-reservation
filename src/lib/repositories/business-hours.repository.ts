@@ -198,3 +198,75 @@ export async function findDateExceptionSpotIdById(
 
   return data?.fishing_spot_id ?? null;
 }
+
+function groupWeeklyHoursBySpotId(
+  rows: FishingSpotWeeklyHour[],
+): Map<string, FishingSpotWeeklyHour[]> {
+  const map = new Map<string, FishingSpotWeeklyHour[]>();
+  for (const row of rows) {
+    const list = map.get(row.fishing_spot_id) ?? [];
+    list.push(row);
+    map.set(row.fishing_spot_id, list);
+  }
+  return map;
+}
+
+function groupDateExceptionsBySpotId(
+  rows: FishingSpotDateException[],
+): Map<string, FishingSpotDateException[]> {
+  const map = new Map<string, FishingSpotDateException[]>();
+  for (const row of rows) {
+    const list = map.get(row.fishing_spot_id) ?? [];
+    list.push(row);
+    map.set(row.fishing_spot_id, list);
+  }
+  return map;
+}
+
+/** 複数 spot の曜日別営業時間（RLS 下・管理画面スコープ） */
+export async function findWeeklyHoursBySpotIds(
+  spotIds: readonly string[],
+): Promise<Map<string, FishingSpotWeeklyHour[]>> {
+  if (spotIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fishing_spot_weekly_hours")
+    .select("*")
+    .in("fishing_spot_id", [...spotIds])
+    .order("day_of_week", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return groupWeeklyHoursBySpotId(data ?? []);
+}
+
+/** 複数 spot の期間内例外日（RLS 下・管理画面スコープ） */
+export async function findDateExceptionsBySpotIdsAndDateRange(
+  spotIds: readonly string[],
+  startDate: string,
+  endDate: string,
+): Promise<Map<string, FishingSpotDateException[]>> {
+  if (spotIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("fishing_spot_date_exceptions")
+    .select("*")
+    .in("fishing_spot_id", [...spotIds])
+    .gte("exception_date", startDate)
+    .lte("exception_date", endDate)
+    .order("exception_date", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return groupDateExceptionsBySpotId(data ?? []);
+}

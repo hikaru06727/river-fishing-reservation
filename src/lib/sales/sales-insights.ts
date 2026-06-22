@@ -1,22 +1,20 @@
 import type { SalesReport } from "@/lib/sales/sales-types";
 
 export type SalesInsights = {
-  averageDailyConfirmedRevenueYen: number;
+  /** 営業日数が 0 のとき null（表示は —） */
+  averageBusinessDayConfirmedRevenueYen: number | null;
+  businessDayCount: number;
   averageRevenuePerReservationYen: number;
   topDayByConfirmedRevenue: { date: string; amountYen: number } | null;
   topPlanByProjectedRevenue: { planName: string; amountYen: number } | null;
 };
 
-function countDaysInRange(dateFrom: string, dateTo: string): number {
-  const start = new Date(`${dateFrom}T00:00:00`);
-  const end = new Date(`${dateTo}T00:00:00`);
-  const diffMs = end.getTime() - start.getTime();
-  return Math.max(1, Math.floor(diffMs / (24 * 60 * 60 * 1000)) + 1);
-}
-
-export function computeSalesInsights(report: SalesReport): SalesInsights {
-  const dayCount = countDaysInRange(report.dateFrom, report.dateTo);
-  const averageDailyConfirmedRevenueYen = Math.round(report.confirmedRevenueYen / dayCount);
+export function computeSalesInsights(
+  report: SalesReport,
+  businessDayCount: number,
+): SalesInsights {
+  const averageBusinessDayConfirmedRevenueYen =
+    businessDayCount > 0 ? Math.round(report.confirmedRevenueYen / businessDayCount) : null;
   const averageRevenuePerReservationYen =
     report.reservationCount > 0
       ? Math.round(report.projectedRevenueYen / report.reservationCount)
@@ -43,7 +41,8 @@ export function computeSalesInsights(report: SalesReport): SalesInsights {
   );
 
   return {
-    averageDailyConfirmedRevenueYen,
+    averageBusinessDayConfirmedRevenueYen,
+    businessDayCount,
     averageRevenuePerReservationYen,
     topDayByConfirmedRevenue: topDay && topDay.amountYen > 0 ? topDay : null,
     topPlanByProjectedRevenue: topPlan && topPlan.amountYen > 0 ? topPlan : null,
