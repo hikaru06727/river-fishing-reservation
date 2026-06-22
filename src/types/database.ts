@@ -113,6 +113,8 @@ export interface Database {
           is_active: boolean;
           image_url: string | null;
           business_id: string | null;
+          category: string;
+          booking_type: string;
           created_at: string;
           updated_at: string;
         };
@@ -127,6 +129,8 @@ export interface Database {
           is_active?: boolean;
           image_url?: string | null;
           business_id?: string | null;
+          category?: string;
+          booking_type?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -141,6 +145,8 @@ export interface Database {
           is_active?: boolean;
           image_url?: string | null;
           business_id?: string | null;
+          category?: string;
+          booking_type?: string;
           created_at?: string;
           updated_at?: string;
         };
