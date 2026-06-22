@@ -201,6 +201,7 @@ export interface Database {
           is_24_hours: boolean;
           note: string | null;
           ignore_weekly_breaks: boolean;
+          tag_type: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -214,6 +215,7 @@ export interface Database {
           is_24_hours?: boolean;
           note?: string | null;
           ignore_weekly_breaks?: boolean;
+          tag_type?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -227,6 +229,7 @@ export interface Database {
           is_24_hours?: boolean;
           note?: string | null;
           ignore_weekly_breaks?: boolean;
+          tag_type?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -666,6 +669,14 @@ export type FishingSpotWeeklyHour =
   Database["public"]["Tables"]["fishing_spot_weekly_hours"]["Row"];
 export type FishingSpotDateException =
   Database["public"]["Tables"]["fishing_spot_date_exceptions"]["Row"];
+export type DateExceptionTagType =
+  | "closed"
+  | "temporary_closed"
+  | "special_open"
+  | "short_hours"
+  | "event"
+  | "maintenance"
+  | "other";
 export type FishingSpotWeeklyBreak =
   Database["public"]["Tables"]["fishing_spot_weekly_breaks"]["Row"];
 export type FishingSpotExceptionBreak =

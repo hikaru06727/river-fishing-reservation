@@ -239,6 +239,7 @@ export async function saveExceptionBreaksForSpot(
       is_24_hours: target.is_24_hours,
       note: target.note,
       ignore_weekly_breaks: input.ignoreWeeklyBreaks,
+      tag_type: target.tag_type,
     });
 
     const rows = await replaceExceptionBreaksForException(

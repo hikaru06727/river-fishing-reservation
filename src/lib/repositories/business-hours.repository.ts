@@ -20,6 +20,7 @@ export type DateExceptionUpsertInput = {
   is_24_hours: boolean;
   note: string | null;
   ignore_weekly_breaks: boolean;
+  tag_type: string | null;
 };
 
 export async function findWeeklyHoursBySpotId(
@@ -125,6 +126,7 @@ export async function insertDateException(
       is_24_hours: input.is_open && input.is_24_hours,
       note: input.note,
       ignore_weekly_breaks: input.ignore_weekly_breaks,
+      tag_type: input.tag_type,
     })
     .select("*")
     .single();
@@ -152,6 +154,7 @@ export async function updateDateExceptionById(
       is_24_hours: input.is_open && input.is_24_hours,
       note: input.note,
       ignore_weekly_breaks: input.ignore_weekly_breaks,
+      tag_type: input.tag_type,
     })
     .eq("id", exceptionId)
     .select("*")

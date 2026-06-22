@@ -90,6 +90,7 @@ function toExceptionUpsertInput(input: DateExceptionFormInput) {
     is_24_hours: input.is24Hours,
     note: input.note ?? null,
     ignore_weekly_breaks: input.ignoreWeeklyBreaks ?? false,
+    tag_type: input.tagType ?? null,
   };
 }
 

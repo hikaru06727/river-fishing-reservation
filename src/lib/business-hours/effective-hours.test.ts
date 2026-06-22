@@ -121,6 +121,30 @@ describe("getEffectiveBusinessHoursForDate", () => {
 });
 
 describe("isReservationWithinBusinessHours", () => {
+  it("tag_type は判定に影響しない（is_open / 営業時間のみ）", () => {
+    const effective = getEffectiveBusinessHoursForDate(
+      weeklyOpenWeekdays,
+      [
+        {
+          exception_date: "2026-06-22",
+          is_open: true,
+          open_time: "10:00",
+          close_time: "14:00",
+          is_24_hours: false,
+          note: "短縮営業タグ付きでも時間で判定",
+        },
+      ],
+      "2026-06-22",
+    );
+
+    expect(isReservationWithinBusinessHours(effective, "09:00", 60)).toBe(false);
+    expect(isReservationWithinBusinessHours(effective, "10:00", 60)).toBe(true);
+    expect(isReservationWithinBusinessHours(effective, "13:00", 60)).toBe(true);
+    expect(isReservationWithinBusinessHours(effective, "14:00", 60)).toBe(false);
+  });
+});
+
+describe("isReservationWithinBusinessHours — time bounds", () => {
   const mondayEffective = getEffectiveBusinessHoursForDate(
     weeklyOpenWeekdays,
     [],

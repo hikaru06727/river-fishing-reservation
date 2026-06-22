@@ -45,3 +45,15 @@ next-env.d.ts
 
 # Supabase
 supabase/.temp
+
+# Local Supabase snippets / temporary files
+supabase/snippets/
+
+# Temporary investigation test
+src/lib/slots/service-role-privileges.integration.test.ts
+
+# Local Supabase snippets / temporary files
+supabase/snippets/
+
+# Temporary investigation test
+src/lib/slots/service-role-privileges.integration.test.ts

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DATE_EXCEPTION_TAG_TYPES } from "@/lib/business-hours/date-exception-tags";
 
 const uuidSchema = z.string().uuid("釣り場IDが不正です");
 
@@ -60,6 +61,11 @@ export const weeklyHoursFormSchema = z.object({
 
 export type WeeklyHoursFormInput = z.infer<typeof weeklyHoursFormSchema>;
 
+export const dateExceptionTagTypeSchema = z.preprocess(
+  (value) => (value === "" || value === undefined ? null : value),
+  z.enum(DATE_EXCEPTION_TAG_TYPES).nullable(),
+);
+
 export const dateExceptionFormSchema = z
   .object({
     fishingSpotId: uuidSchema,
@@ -72,6 +78,7 @@ export const dateExceptionFormSchema = z
     ignoreWeeklyBreaks: z.boolean().optional(),
     openTime: z.string().nullable(),
     closeTime: z.string().nullable(),
+    tagType: dateExceptionTagTypeSchema.optional(),
     note: z
       .string()
       .trim()
@@ -137,6 +144,7 @@ export function parseDateExceptionForm(formData: FormData) {
     ignoreWeeklyBreaks: parseBooleanField(formData.get("ignoreWeeklyBreaks")),
     openTime: parseNullableTime(formData.get("openTime")),
     closeTime: parseNullableTime(formData.get("closeTime")),
+    tagType: formData.get("tagType"),
     note: formData.get("note") ?? undefined,
   });
 }
