@@ -28,6 +28,10 @@ import {
 } from "@/lib/repositories/business-hours.repository";
 import { canManageBusinessHoursForProfile } from "@/lib/business-hours/business-hours-access";
 import {
+  DATE_EXCEPTION_DUPLICATE_MESSAGE,
+  DATE_EXCEPTION_SAVE_FAILED_MESSAGE,
+} from "@/lib/business-hours/date-exception-errors";
+import {
   createDateExceptionForSpot,
   saveWeeklyHoursForSpot,
   updateDateExceptionForSpot,
@@ -210,5 +214,53 @@ describe("date exception tag_type (phase 10c)", () => {
       expect(result.status).toBe(403);
     }
     expect(insertDateException).not.toHaveBeenCalled();
+  });
+});
+
+describe("date exception save errors", () => {
+  const baseExceptionInput = {
+    fishingSpotId: spotA,
+    exceptionDate: "2026-06-24",
+    isOpen: false,
+    is24Hours: false,
+    openTime: null,
+    closeTime: null,
+    note: null,
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(findSpotBusinessIdBySpotId).mockResolvedValue(bizA);
+  });
+
+  it("duplicate key 時に日本語メッセージを返す", async () => {
+    vi.mocked(insertDateException).mockRejectedValue(
+      Object.assign(
+        new Error(
+          'duplicate key value violates unique constraint "fishing_spot_date_exceptions_fishing_spot_id_exception_date_key"',
+        ),
+        { code: "23505" },
+      ),
+    );
+
+    const result = await createDateExceptionForSpot(adminProfile, baseExceptionInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe(DATE_EXCEPTION_DUPLICATE_MESSAGE);
+      expect(result.status).toBe(409);
+    }
+  });
+
+  it("想定外エラー時に汎用日本語メッセージを返す", async () => {
+    vi.mocked(insertDateException).mockRejectedValue(new Error("connection failed"));
+
+    const result = await createDateExceptionForSpot(adminProfile, baseExceptionInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBe(DATE_EXCEPTION_SAVE_FAILED_MESSAGE);
+      expect(result.status).toBe(500);
+    }
   });
 });

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { throwSupabaseMutationError } from "@/lib/db/postgres-error";
 import type {
   FishingSpotDateException,
   FishingSpotWeeklyHour,
@@ -132,7 +133,7 @@ export async function insertDateException(
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    throwSupabaseMutationError(error);
   }
 
   return data;
@@ -161,7 +162,7 @@ export async function updateDateExceptionById(
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    throwSupabaseMutationError(error);
   }
 
   return data;

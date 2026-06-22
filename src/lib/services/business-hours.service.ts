@@ -10,6 +10,7 @@ import {
   upsertWeeklyHoursForSpot,
 } from "@/lib/repositories/business-hours.repository";
 import { canManageBusinessHoursForProfile } from "@/lib/business-hours/business-hours-access";
+import { mapDateExceptionMutationError } from "@/lib/business-hours/date-exception-errors";
 import { isAdminRole } from "@/lib/auth/role";
 import type {
   DateExceptionFormInput,
@@ -179,11 +180,8 @@ export async function createDateExceptionForSpot(
     revalidateBusinessHoursPaths(input.fishingSpotId);
     return { ok: true, data: row };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "例外日の追加に失敗しました。",
-      status: 500,
-    };
+    const mapped = mapDateExceptionMutationError(error, "create");
+    return { ok: false, error: mapped.error, status: mapped.status };
   }
 }
 
@@ -215,11 +213,8 @@ export async function updateDateExceptionForSpot(
     revalidateBusinessHoursPaths(input.fishingSpotId);
     return { ok: true, data: row };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "例外日の更新に失敗しました。",
-      status: 500,
-    };
+    const mapped = mapDateExceptionMutationError(error, "update");
+    return { ok: false, error: mapped.error, status: mapped.status };
   }
 }
 
@@ -251,10 +246,7 @@ export async function deleteDateExceptionForSpot(
     revalidateBusinessHoursPaths(spotId);
     return { ok: true, data: null };
   } catch (error) {
-    return {
-      ok: false,
-      error: error instanceof Error ? error.message : "例外日の削除に失敗しました。",
-      status: 500,
-    };
+    const mapped = mapDateExceptionMutationError(error, "delete");
+    return { ok: false, error: mapped.error, status: mapped.status };
   }
 }
