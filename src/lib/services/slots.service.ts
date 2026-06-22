@@ -13,6 +13,7 @@ import {
 } from "@/lib/slots/slot-step";
 import { computeRemainingCount } from "@/lib/slots/remaining-count";
 import type { GetAvailableSlotsWithPlanResponse, SlotDTO } from "@/types/api";
+import { AVAILABLE_SLOT_LOOKAHEAD_DAYS } from "@/lib/slots/availability-lookahead";
 import { isAllowedLegacyHourlyStartTimeByDuration } from "@/lib/slots/start-time-rules";
 
 export type GetAvailableSlotsWithPlanParams = {
@@ -21,9 +22,6 @@ export type GetAvailableSlotsWithPlanParams = {
   guestCount?: number;
   date?: string;
 };
-
-/** legacy hourly (+0..+6) と 15分 grid (+7..+13) の両方をカバー */
-const AVAILABILITY_LOOKAHEAD_DAYS = 13;
 
 function normalizeTime(time: string): string {
   return time.slice(0, 5);
@@ -80,7 +78,7 @@ export async function getAvailableSlotsWithPlan(
 
   const today = new Date();
   const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + AVAILABILITY_LOOKAHEAD_DAYS);
+  endDate.setDate(endDate.getDate() + AVAILABLE_SLOT_LOOKAHEAD_DAYS);
 
   const startDate = params.date ?? toISODate(today);
   const rangeEnd = params.date ?? toISODate(endDate);

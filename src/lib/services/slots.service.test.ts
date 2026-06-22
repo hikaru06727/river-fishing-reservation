@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { addMinutes } from "@/lib/utils/date";
 import { LEGACY_SLOT_STEP_MINUTES, SLOT_STEP_MINUTES } from "@/lib/slots/slot-step";
 
@@ -407,5 +407,39 @@ describe("getAvailableSlotsWithPlan — 15分 grid", () => {
     expect(result.slots.map((s) => s.start_time)).not.toContain("09:15");
     expect(result.slots.map((s) => s.start_time)).not.toContain("09:30");
     expect(result.slots.map((s) => s.start_time)).not.toContain("09:45");
+  });
+});
+
+describe("getAvailableSlotsWithPlan — date range", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-19T12:00:00+09:00"));
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_1H_ID,
+        name: "1時間プラン",
+        slug: "1h",
+        duration_minutes: 60,
+        price_yen: 3000,
+      }),
+    );
+    vi.mocked(findOpenSlotsBySpotAndDateRange).mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("date 未指定時は today から AVAILABLE_SLOT_LOOKAHEAD_DAYS まで取得する", async () => {
+    await getAvailableSlotsWithPlan({
+      spotId: SPOT_ID,
+      planId: PLAN_1H_ID,
+    });
+
+    expect(findOpenSlotsBySpotAndDateRange).toHaveBeenCalledWith(
+      SPOT_ID,
+      "2026-06-19",
+      "2026-07-02",
+    );
   });
 });

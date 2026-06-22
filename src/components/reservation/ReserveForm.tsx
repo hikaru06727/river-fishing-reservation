@@ -8,7 +8,9 @@ import { PaymentMethodSelector } from "@/components/reservation/PaymentMethodSel
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { useAvailableSlotsWithPlan } from "@/hooks/use-available-slots-with-plan";
+import { AVAILABLE_SLOT_LOOKAHEAD_DAYS } from "@/lib/slots/availability-lookahead";
 import { getUniqueSlotDates } from "@/lib/slots/group-slots-by-date";
+import { getAvailableDates } from "@/lib/utils/date";
 import type { PaymentMethod } from "@/lib/reservations/payment-method";
 import type { SpotSummary } from "@/lib/spots/get-spot-by-id";
 import { formatDate, formatTime, formatYen, cn } from "@/lib/utils/format";
@@ -40,20 +42,24 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
   const slots = data?.slots ?? [];
   const planInfo = data?.plan ?? plan;
 
-  const availableDates = useMemo(() => getUniqueSlotDates(slots), [slots]);
+  const selectableDates = useMemo(
+    () => getAvailableDates(AVAILABLE_SLOT_LOOKAHEAD_DAYS + 1),
+    [],
+  );
+  const datesWithSlots = useMemo(() => getUniqueSlotDates(slots), [slots]);
 
   useEffect(() => {
-    if (availableDates.length === 0) {
+    if (selectableDates.length === 0) {
       setSelectedDate("");
       setSelectedSlotId("");
       return;
     }
 
-    if (!selectedDate || !availableDates.includes(selectedDate)) {
-      setSelectedDate(availableDates[0]!);
+    if (!selectedDate || !selectableDates.includes(selectedDate)) {
+      setSelectedDate(datesWithSlots[0] ?? selectableDates[0]!);
       setSelectedSlotId("");
     }
-  }, [availableDates, selectedDate]);
+  }, [selectableDates, datesWithSlots, selectedDate]);
 
   const slotsForDate = useMemo(
     () => slots.filter((s) => s.date === selectedDate),
@@ -168,7 +174,7 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
               onChange={(e) => handleDateChange(e.target.value)}
               className="mt-1 w-full rounded-lg border border-border px-3 py-2.5 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
             >
-              {availableDates.map((date) => (
+              {selectableDates.map((date) => (
                 <option key={date} value={date}>
                   {formatDate(date)}
                 </option>
