@@ -440,6 +440,7 @@ export interface Database {
           reserved_plan_name: string | null;
           reserved_unit_price_yen: number | null;
           reserved_duration_minutes: number | null;
+          tax_rate_percent: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -462,6 +463,7 @@ export interface Database {
           reserved_plan_name?: string | null;
           reserved_unit_price_yen?: number | null;
           reserved_duration_minutes?: number | null;
+          tax_rate_percent?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -484,6 +486,7 @@ export interface Database {
           reserved_plan_name?: string | null;
           reserved_unit_price_yen?: number | null;
           reserved_duration_minutes?: number | null;
+          tax_rate_percent?: number | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -522,6 +525,117 @@ export interface Database {
           status?: PaymentStatus;
           paid_at?: string | null;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      tax_rates: {
+        Row: {
+          id: string;
+          rate_percent: number;
+          valid_from: string;
+          valid_until: string | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          rate_percent: number;
+          valid_from: string;
+          valid_until?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          rate_percent?: number;
+          valid_from?: string;
+          valid_until?: string | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      refunds: {
+        Row: {
+          id: string;
+          payment_id: string;
+          reservation_id: string;
+          amount_yen: number;
+          tax_rate_percent: number;
+          reason: string;
+          refund_type: "full" | "partial";
+          stripe_refund_id: string | null;
+          refunded_by: string;
+          refunded_at: string;
+        };
+        Insert: {
+          id?: string;
+          payment_id: string;
+          reservation_id: string;
+          amount_yen: number;
+          tax_rate_percent: number;
+          reason: string;
+          refund_type: "full" | "partial";
+          stripe_refund_id?: string | null;
+          refunded_by: string;
+          refunded_at?: string;
+        };
+        Update: {
+          id?: string;
+          payment_id?: string;
+          reservation_id?: string;
+          amount_yen?: number;
+          tax_rate_percent?: number;
+          reason?: string;
+          refund_type?: "full" | "partial";
+          stripe_refund_id?: string | null;
+          refunded_by?: string;
+          refunded_at?: string;
+        };
+        Relationships: [];
+      };
+      manual_sales: {
+        Row: {
+          id: string;
+          business_id: string;
+          location_id: string | null;
+          sale_date: string;
+          amount_yen: number;
+          tax_rate_percent: number;
+          category: "bait" | "rental" | "parking" | "food" | "event" | "other";
+          payment_method: "cash" | "card" | "qr" | "other";
+          description: string | null;
+          recorded_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          location_id?: string | null;
+          sale_date: string;
+          amount_yen: number;
+          tax_rate_percent: number;
+          category: "bait" | "rental" | "parking" | "food" | "event" | "other";
+          payment_method: "cash" | "card" | "qr" | "other";
+          description?: string | null;
+          recorded_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          location_id?: string | null;
+          sale_date?: string;
+          amount_yen?: number;
+          tax_rate_percent?: number;
+          category?: "bait" | "rental" | "parking" | "food" | "event" | "other";
+          payment_method?: "cash" | "card" | "qr" | "other";
+          description?: string | null;
+          recorded_by?: string;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -691,5 +805,8 @@ export type Plan = Database["public"]["Tables"]["plans"]["Row"];
 export type AvailabilitySlot = Database["public"]["Tables"]["availability_slots"]["Row"];
 export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];
 export type Payment = Database["public"]["Tables"]["payments"]["Row"];
+export type TaxRate = Database["public"]["Tables"]["tax_rates"]["Row"];
+export type Refund = Database["public"]["Tables"]["refunds"]["Row"];
+export type ManualSale = Database["public"]["Tables"]["manual_sales"]["Row"];
 export type CatchReport = Database["public"]["Tables"]["catch_reports"]["Row"];
 export type BlogPost = Database["public"]["Tables"]["blog_posts"]["Row"];
