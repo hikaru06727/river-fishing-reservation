@@ -1,5 +1,14 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { addMinutes, toISODate } from "@/lib/utils/date";
+import {
+  getEffectiveBusinessHoursForDate,
+  hasBusinessHoursConfigured,
+  isReservationWithinBusinessHours,
+} from "@/lib/business-hours/effective-hours";
+import {
+  findDateExceptionsBySpotAndDateRange,
+  findWeeklyHoursBySpotId,
+} from "@/lib/repositories/business-hours.repository";
 import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
 import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
 import {
@@ -89,6 +98,12 @@ export async function getAvailableSlotsWithPlan(
     rangeEnd,
   );
 
+  const weeklyHours = await findWeeklyHoursBySpotId(params.spotId);
+  const businessHoursConfigured = hasBusinessHoursConfigured(weeklyHours);
+  const dateExceptions = businessHoursConfigured
+    ? await findDateExceptionsBySpotAndDateRange(params.spotId, startDate, rangeEnd)
+    : [];
+
   const slotMap = new Map<string, (typeof allSlots)[number]>();
   for (const slot of allSlots) {
     slotMap.set(slotMapKey(slot.slot_date, slot.start_time), slot);
@@ -147,6 +162,23 @@ export async function getAvailableSlotsWithPlan(
 
     if (!validation.valid) {
       continue;
+    }
+
+    if (businessHoursConfigured) {
+      const effective = getEffectiveBusinessHoursForDate(
+        weeklyHours,
+        dateExceptions,
+        candidate.slot_date,
+      );
+      if (
+        !isReservationWithinBusinessHours(
+          effective,
+          candidate.start_time,
+          plan.duration_minutes,
+        )
+      ) {
+        continue;
+      }
     }
 
     bookableSlots.push({

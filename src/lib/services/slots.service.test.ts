@@ -14,7 +14,16 @@ vi.mock("@/lib/repositories/slots.repository", () => ({
   findOpenSlotsBySpotAndDateRange: vi.fn(),
 }));
 
+vi.mock("@/lib/repositories/business-hours.repository", () => ({
+  findWeeklyHoursBySpotId: vi.fn(),
+  findDateExceptionsBySpotAndDateRange: vi.fn(),
+}));
+
 import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
+import {
+  findDateExceptionsBySpotAndDateRange,
+  findWeeklyHoursBySpotId,
+} from "@/lib/repositories/business-hours.repository";
 import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
 import { getAvailableSlotsWithPlan } from "./slots.service";
 
@@ -107,6 +116,11 @@ function makeFifteenMinuteGridSlots(
 }
 
 const ALL_HOURLY_SLOTS = makeLegacyHourlySlots();
+
+beforeEach(() => {
+  vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue([]);
+  vi.mocked(findDateExceptionsBySpotAndDateRange).mockResolvedValue([]);
+});
 
 describe("getAvailableSlotsWithPlan — legacy hourly", () => {
   beforeEach(() => {
@@ -407,6 +421,75 @@ describe("getAvailableSlotsWithPlan — 15分 grid", () => {
     expect(result.slots.map((s) => s.start_time)).not.toContain("09:15");
     expect(result.slots.map((s) => s.start_time)).not.toContain("09:30");
     expect(result.slots.map((s) => s.start_time)).not.toContain("09:45");
+  });
+});
+
+describe("getAvailableSlotsWithPlan — business hours", () => {
+  const businessHoursDate = "2026-06-22";
+
+  const weeklyHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
+    id: `wh-${dayOfWeek}`,
+    fishing_spot_id: SPOT_ID,
+    day_of_week: dayOfWeek,
+    is_open: dayOfWeek >= 1 && dayOfWeek <= 5,
+    open_time: dayOfWeek >= 1 && dayOfWeek <= 5 ? "09:00:00" : null,
+    close_time: dayOfWeek >= 1 && dayOfWeek <= 5 ? "17:00:00" : null,
+    is_24_hours: false,
+    created_at: "",
+    updated_at: "",
+  }));
+
+  beforeEach(() => {
+    vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue(weeklyHours);
+    vi.mocked(findDateExceptionsBySpotAndDateRange).mockResolvedValue([]);
+    vi.mocked(findOpenSlotsBySpotAndDateRange).mockResolvedValue(
+      makeFifteenMinuteGridSlots(businessHoursDate),
+    );
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makeLegacyPlan({
+        id: PLAN_1H_ID,
+        name: "2時間プラン",
+        slug: "2h",
+        duration_minutes: 120,
+        price_yen: 5500,
+      }),
+    );
+  });
+
+  it("営業時間外の開始時刻は候補から除外する", async () => {
+    const result = await getAvailableSlotsWithPlan({
+      spotId: SPOT_ID,
+      planId: PLAN_1H_ID,
+      date: businessHoursDate,
+    });
+
+    expect(result.slots.map((s) => s.start_time)).not.toContain("08:00");
+    expect(result.slots.map((s) => s.start_time)).toContain("09:00");
+  });
+
+  it("2時間プランで 16:00 開始は営業終了を超えるため除外する", async () => {
+    const result = await getAvailableSlotsWithPlan({
+      spotId: SPOT_ID,
+      planId: PLAN_1H_ID,
+      date: businessHoursDate,
+    });
+
+    expect(result.slots.map((s) => s.start_time)).not.toContain("16:00");
+    expect(result.slots.map((s) => s.start_time)).toContain("14:00");
+  });
+
+  it("営業時間未設定 spot は既存挙動を維持する", async () => {
+    vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue([]);
+    vi.mocked(findDateExceptionsBySpotAndDateRange).mockClear();
+
+    const result = await getAvailableSlotsWithPlan({
+      spotId: SPOT_ID,
+      planId: PLAN_1H_ID,
+      date: businessHoursDate,
+    });
+
+    expect(result.slots.length).toBeGreaterThan(0);
+    expect(findDateExceptionsBySpotAndDateRange).not.toHaveBeenCalled();
   });
 });
 
