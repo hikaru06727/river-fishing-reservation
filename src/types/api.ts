@@ -26,7 +26,7 @@ export interface SlotDTO {
    * @see RemainingCount
    */
   remaining_count: RemainingCount;
-  /** remaining_count 算出に使用した hourly スロット ID 一覧 */
+  /** remaining_count 算出に使用した availability_slots ID 一覧（15分/60分 grid 共通） */
   affected_slot_ids: string[];
 }
 

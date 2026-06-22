@@ -1,6 +1,15 @@
 import { revalidatePath } from "next/cache";
 import { canCancelReservation } from "@/lib/reservations/cancel-policy";
 import {
+  getEffectiveBusinessHoursForDate,
+  hasBusinessHoursConfigured,
+  isReservationWithinBusinessHours,
+} from "@/lib/business-hours/effective-hours";
+import {
+  findDateExceptionsBySpotAndDateRange,
+  findWeeklyHoursBySpotId,
+} from "@/lib/repositories/business-hours.repository";
+import {
   fetchAffectedSlots,
   getAffectedSlotStartTimes,
   validateAffectedSlotsCapacity,
@@ -175,6 +184,29 @@ export async function createReservation(
 
   if (!validation.valid) {
     return { ok: false, error: validation.message, status: 422 };
+  }
+
+  const weeklyHours = await findWeeklyHoursBySpotId(spotId);
+  if (hasBusinessHoursConfigured(weeklyHours)) {
+    const exceptions = await findDateExceptionsBySpotAndDateRange(
+      spotId,
+      reservationDate,
+      reservationDate,
+    );
+    const effective = getEffectiveBusinessHoursForDate(
+      weeklyHours,
+      exceptions,
+      reservationDate,
+    );
+    if (
+      !isReservationWithinBusinessHours(
+        effective,
+        startSlot.start_time,
+        plan.duration_minutes,
+      )
+    ) {
+      return { ok: false, error: "選択できない時間帯です", status: 422 };
+    }
   }
 
   const startTime = toDbTime(startSlot.start_time);

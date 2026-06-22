@@ -14,6 +14,11 @@ vi.mock("@/lib/repositories/slots.repository", () => ({
   findSlotById: vi.fn(),
 }));
 
+vi.mock("@/lib/repositories/business-hours.repository", () => ({
+  findWeeklyHoursBySpotId: vi.fn(),
+  findDateExceptionsBySpotAndDateRange: vi.fn(),
+}));
+
 vi.mock("@/lib/repositories/reservations.repository", () => ({
   createReservationAtomic: vi.fn(),
   findSpotNotificationMetaById: vi.fn(),
@@ -38,6 +43,10 @@ vi.mock("@/lib/email/reservation-emails", () => ({
 }));
 
 import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
+import {
+  findDateExceptionsBySpotAndDateRange,
+  findWeeklyHoursBySpotId,
+} from "@/lib/repositories/business-hours.repository";
 import {
   createReservationAtomic,
   findSpotNotificationMetaById,
@@ -114,6 +123,17 @@ function mockFetchAffectedSlotsFromStartTimes(
   });
 }
 
+const FIFTEEN_MIN_2H_START_TIMES = [
+  "09:15",
+  "09:30",
+  "09:45",
+  "10:00",
+  "10:15",
+  "10:30",
+  "10:45",
+  "11:00",
+] as const;
+
 const validInput = {
   spotId: spotA,
   planId: planA,
@@ -122,6 +142,11 @@ const validInput = {
   guestCount: 2,
   paymentMethod: "cash_at_venue" as const,
 };
+
+beforeEach(() => {
+  vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue([]);
+  vi.mocked(findDateExceptionsBySpotAndDateRange).mockResolvedValue([]);
+});
 
 describe("createReservation plan/spot validation (phase 8a)", () => {
   beforeEach(() => {
@@ -292,16 +317,7 @@ describe("createReservation dual-path (phase 9d-4)", () => {
   });
 
   it("15分 grid 09:15 / 2h → affected slot ids が 8 件", async () => {
-    const startTimes = [
-      "09:15",
-      "09:30",
-      "09:45",
-      "10:00",
-      "10:15",
-      "10:30",
-      "10:45",
-      "11:00",
-    ];
+    const startTimes = [...FIFTEEN_MIN_2H_START_TIMES];
     vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:15", slotId, SLOT_STEP_MINUTES));
     mockFetchAffectedSlotsFromStartTimes(startTimes, SLOT_STEP_MINUTES, "fifteen");
 
@@ -389,7 +405,57 @@ describe("createReservation dual-path (phase 9d-4)", () => {
     expect(createReservationAtomic).not.toHaveBeenCalled();
   });
 
-  it("online pending の作成フローが壊れていない", async () => {
+  it("15分 online pending → affected slot ids が 8 件", async () => {
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:15", slotId, SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(
+      [...FIFTEEN_MIN_2H_START_TIMES],
+      SLOT_STEP_MINUTES,
+      "fifteen",
+    );
+
+    const result = await createReservation(userId, {
+      ...validInput,
+      paymentMethod: "online",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(createReservationAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "pending",
+        payment_method: "online",
+        affected_slot_ids: FIFTEEN_MIN_2H_START_TIMES.map((_, index) => `fifteen-${index}`),
+      }),
+    );
+    expect(insertPendingPaymentForReservation).not.toHaveBeenCalled();
+  });
+
+  it("15分 cash_at_venue → confirmed で affected slot ids が 8 件", async () => {
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:15", slotId, SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(
+      [...FIFTEEN_MIN_2H_START_TIMES],
+      SLOT_STEP_MINUTES,
+      "fifteen",
+    );
+
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(true);
+    expect(createReservationAtomic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "confirmed",
+        payment_method: "cash_at_venue",
+        affected_slot_ids: FIFTEEN_MIN_2H_START_TIMES.map((_, index) => `fifteen-${index}`),
+      }),
+    );
+    expect(insertPendingPaymentForReservation).toHaveBeenCalledOnce();
+    expect(updateReservationPlanSnapshot).toHaveBeenCalledWith("res-dual", {
+      reserved_plan_name: "テストプラン",
+      reserved_unit_price_yen: 3000,
+      reserved_duration_minutes: 120,
+    });
+  });
+
+  it("online pending の作成フローが壊れていない（legacy hourly）", async () => {
     vi.mocked(findActivePlanForReservation).mockResolvedValue(
       makePlan({ id: planA, duration_minutes: 60, slug: "1h" }),
     );
@@ -423,6 +489,82 @@ describe("createReservation dual-path (phase 9d-4)", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(422);
+    }
+    expect(createReservationAtomic).not.toHaveBeenCalled();
+  });
+});
+
+describe("createReservation business hours (phase 10)", () => {
+  const weeklyHours = [
+    {
+      id: "wh-1",
+      fishing_spot_id: spotA,
+      day_of_week: new Date(`${reservationDate}T00:00:00`).getDay(),
+      is_open: true,
+      open_time: "09:00:00",
+      close_time: "17:00:00",
+      is_24_hours: false,
+      created_at: "",
+      updated_at: "",
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue(weeklyHours);
+    vi.mocked(findDateExceptionsBySpotAndDateRange).mockResolvedValue([]);
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({ id: planA, duration_minutes: 120 }),
+    );
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("16:00", slotId, LEGACY_SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(["16:00", "17:00"], LEGACY_SLOT_STEP_MINUTES, "slot");
+  });
+
+  it("営業時間外の開始時刻は予約を拒否する", async () => {
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.error).toContain("選択できない時間帯");
+    }
+    expect(createReservationAtomic).not.toHaveBeenCalled();
+  });
+});
+
+describe("createReservation business hours (phase 10)", () => {
+  const weeklyHours = [
+    {
+      id: "wh-1",
+      fishing_spot_id: spotA,
+      day_of_week: new Date(`${reservationDate}T00:00:00`).getDay(),
+      is_open: true,
+      open_time: "09:00:00",
+      close_time: "17:00:00",
+      is_24_hours: false,
+      created_at: "",
+      updated_at: "",
+    },
+  ];
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue(weeklyHours);
+    vi.mocked(findDateExceptionsBySpotAndDateRange).mockResolvedValue([]);
+    vi.mocked(findActivePlanForReservation).mockResolvedValue(
+      makePlan({ id: planA, duration_minutes: 120 }),
+    );
+    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("16:00", slotId, LEGACY_SLOT_STEP_MINUTES));
+    mockFetchAffectedSlotsFromStartTimes(["16:00", "17:00"], LEGACY_SLOT_STEP_MINUTES, "slot");
+  });
+
+  it("営業時間外の開始時刻は予約を拒否する", async () => {
+    const result = await createReservation(userId, validInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(422);
+      expect(result.error).toContain("選択できない時間帯");
     }
     expect(createReservationAtomic).not.toHaveBeenCalled();
   });

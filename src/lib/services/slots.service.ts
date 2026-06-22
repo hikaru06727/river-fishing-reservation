@@ -1,5 +1,14 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { addMinutes, toISODate } from "@/lib/utils/date";
+import {
+  getEffectiveBusinessHoursForDate,
+  hasBusinessHoursConfigured,
+  isReservationWithinBusinessHours,
+} from "@/lib/business-hours/effective-hours";
+import {
+  findDateExceptionsBySpotAndDateRange,
+  findWeeklyHoursBySpotId,
+} from "@/lib/repositories/business-hours.repository";
 import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
 import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
 import {
@@ -13,6 +22,7 @@ import {
 } from "@/lib/slots/slot-step";
 import { computeRemainingCount } from "@/lib/slots/remaining-count";
 import type { GetAvailableSlotsWithPlanResponse, SlotDTO } from "@/types/api";
+import { AVAILABLE_SLOT_LOOKAHEAD_DAYS } from "@/lib/slots/availability-lookahead";
 import { isAllowedLegacyHourlyStartTimeByDuration } from "@/lib/slots/start-time-rules";
 
 export type GetAvailableSlotsWithPlanParams = {
@@ -21,9 +31,6 @@ export type GetAvailableSlotsWithPlanParams = {
   guestCount?: number;
   date?: string;
 };
-
-/** legacy hourly (+0..+6) と 15分 grid (+7..+13) の両方をカバー */
-const AVAILABILITY_LOOKAHEAD_DAYS = 13;
 
 function normalizeTime(time: string): string {
   return time.slice(0, 5);
@@ -80,7 +87,7 @@ export async function getAvailableSlotsWithPlan(
 
   const today = new Date();
   const endDate = new Date(today);
-  endDate.setDate(endDate.getDate() + AVAILABILITY_LOOKAHEAD_DAYS);
+  endDate.setDate(endDate.getDate() + AVAILABLE_SLOT_LOOKAHEAD_DAYS);
 
   const startDate = params.date ?? toISODate(today);
   const rangeEnd = params.date ?? toISODate(endDate);
@@ -90,6 +97,12 @@ export async function getAvailableSlotsWithPlan(
     startDate,
     rangeEnd,
   );
+
+  const weeklyHours = await findWeeklyHoursBySpotId(params.spotId);
+  const businessHoursConfigured = hasBusinessHoursConfigured(weeklyHours);
+  const dateExceptions = businessHoursConfigured
+    ? await findDateExceptionsBySpotAndDateRange(params.spotId, startDate, rangeEnd)
+    : [];
 
   const slotMap = new Map<string, (typeof allSlots)[number]>();
   for (const slot of allSlots) {
@@ -149,6 +162,23 @@ export async function getAvailableSlotsWithPlan(
 
     if (!validation.valid) {
       continue;
+    }
+
+    if (businessHoursConfigured) {
+      const effective = getEffectiveBusinessHoursForDate(
+        weeklyHours,
+        dateExceptions,
+        candidate.slot_date,
+      );
+      if (
+        !isReservationWithinBusinessHours(
+          effective,
+          candidate.start_time,
+          plan.duration_minutes,
+        )
+      ) {
+        continue;
+      }
     }
 
     bookableSlots.push({

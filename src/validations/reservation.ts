@@ -50,7 +50,10 @@ export const cancelReservationSchema = z.object({
 
 export type CancelReservationInput = z.infer<typeof cancelReservationSchema>;
 
-/** プラン slug + 日付 + 時間（レガシー／API 補助用） */
+/**
+ * プラン slug + 日付 + 時間（legacy 1h/3h 補助用）。
+ * createReservationSchema は slotId ベースのため duration/step は service 層で判定する。
+ */
 export const reservationSchema = z
   .object({
     planId: z.enum(["1h", "3h"]),

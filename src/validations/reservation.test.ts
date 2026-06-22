@@ -95,6 +95,17 @@ describe("createReservationSchema", () => {
     expect(result.success).toBe(false);
   });
 
+  it("duration や slot step を検証しない（15分/60分判定は service 層）", () => {
+    const result = createReservationSchema.safeParse({
+      ...validBase,
+      reservationDate: "2026-06-16",
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data).not.toHaveProperty("duration_minutes");
+    }
+  });
+
   it("cash_at_venue を受け付ける", () => {
     const result = createReservationSchema.safeParse({
       ...validBase,

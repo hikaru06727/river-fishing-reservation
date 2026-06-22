@@ -10,6 +10,13 @@ const ADMIN_LOGIN_PATH = "/admin/login";
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // Supabase が site_url へ code 付きでフォールバックした場合も callback で session 交換する
+  if (request.nextUrl.searchParams.has("code") && pathname !== "/auth/callback") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/auth/callback";
+    return NextResponse.redirect(url);
+  }
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient<Database>(

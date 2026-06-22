@@ -10,13 +10,6 @@ function getSupabaseEnv() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // デバッグ: 環境変数の読み込み状態を確認
-  console.log("[createClient] NEXT_PUBLIC_SUPABASE_URL:", url ?? "(undefined)");
-  console.log(
-    "[createClient] NEXT_PUBLIC_SUPABASE_ANON_KEY:",
-    anonKey ? `${anonKey.slice(0, 20)}...` : "(undefined)",
-  );
-
   if (!url || !anonKey) {
     throw new Error(
       "Supabase 環境変数が未設定です。.env.local に NEXT_PUBLIC_SUPABASE_URL と NEXT_PUBLIC_SUPABASE_ANON_KEY を設定してください。",
@@ -35,10 +28,6 @@ function getSupabaseEnv() {
     throw new Error(
       `Supabase URL が不正です。"-project" を除いた ${suggested} を .env.local に設定してください。`,
     );
-  }
-
-  if (!url.match(/^https:\/\/[a-z0-9-]+\.supabase\.co\/?$/)) {
-    console.warn("[createClient] URL 形式が想定と異なります:", url);
   }
 
   return { url, anonKey };
@@ -66,11 +55,6 @@ export async function createClient(): Promise<SupabaseClient<Database>> {
         }
       },
     },
-  });
-
-  console.log("[createClient] 初期化成功:", {
-    url,
-    clientCreated: !!client,
   });
 
   return client as unknown as SupabaseClient<Database>;
