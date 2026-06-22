@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { throwSupabaseMutationError } from "@/lib/db/postgres-error";
 import type {
   FishingSpotDateException,
   FishingSpotWeeklyHour,
@@ -19,6 +20,8 @@ export type DateExceptionUpsertInput = {
   close_time: string | null;
   is_24_hours: boolean;
   note: string | null;
+  ignore_weekly_breaks: boolean;
+  tag_type: string | null;
 };
 
 export async function findWeeklyHoursBySpotId(
@@ -123,12 +126,14 @@ export async function insertDateException(
       close_time: input.is_open && !input.is_24_hours ? input.close_time : null,
       is_24_hours: input.is_open && input.is_24_hours,
       note: input.note,
+      ignore_weekly_breaks: input.ignore_weekly_breaks,
+      tag_type: input.tag_type,
     })
     .select("*")
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    throwSupabaseMutationError(error);
   }
 
   return data;
@@ -149,13 +154,15 @@ export async function updateDateExceptionById(
       close_time: input.is_open && !input.is_24_hours ? input.close_time : null,
       is_24_hours: input.is_open && input.is_24_hours,
       note: input.note,
+      ignore_weekly_breaks: input.ignore_weekly_breaks,
+      tag_type: input.tag_type,
     })
     .eq("id", exceptionId)
     .select("*")
     .single();
 
   if (error) {
-    throw new Error(error.message);
+    throwSupabaseMutationError(error);
   }
 
   return data;

@@ -6,6 +6,15 @@ import {
   isReservationWithinBusinessHours,
 } from "@/lib/business-hours/effective-hours";
 import {
+  getEffectiveBreaksForDate,
+  hasBreaksConfigured,
+  isReservationOverlappingBreaks,
+} from "@/lib/business-hours/effective-breaks";
+import {
+  findExceptionBreaksBySpotAndDateRange,
+  findWeeklyBreaksBySpotId,
+} from "@/lib/repositories/business-breaks.repository";
+import {
   findDateExceptionsBySpotAndDateRange,
   findWeeklyHoursBySpotId,
 } from "@/lib/repositories/business-hours.repository";
@@ -206,6 +215,58 @@ export async function createReservation(
       )
     ) {
       return { ok: false, error: "選択できない時間帯です", status: 422 };
+    }
+
+    const weeklyBreaks = await findWeeklyBreaksBySpotId(spotId);
+    const exceptionBreakRows = await findExceptionBreaksBySpotAndDateRange(
+      spotId,
+      reservationDate,
+      reservationDate,
+    );
+    if (
+      hasBreaksConfigured(
+        weeklyBreaks,
+        exceptionBreakRows.map((row) => ({
+          date_exception_id: row.date_exception_id,
+          start_time: row.start_time,
+          end_time: row.end_time,
+          label: row.label,
+        })),
+      )
+    ) {
+      const breaks = getEffectiveBreaksForDate(
+        weeklyBreaks,
+        exceptionBreakRows.map((row) => ({
+          date_exception_id: row.date_exception_id,
+          start_time: row.start_time,
+          end_time: row.end_time,
+          label: row.label,
+        })),
+        exceptions.map((row) => ({
+          id: row.id,
+          exception_date: row.exception_date,
+          is_open: row.is_open,
+          open_time: row.open_time,
+          close_time: row.close_time,
+          is_24_hours: row.is_24_hours,
+          note: row.note,
+          ignore_weekly_breaks: row.ignore_weekly_breaks,
+        })),
+        reservationDate,
+      );
+      if (
+        isReservationOverlappingBreaks(
+          startSlot.start_time,
+          plan.duration_minutes,
+          breaks,
+        )
+      ) {
+        return {
+          ok: false,
+          error: "選択した時間は休み時間と重なるため予約できません",
+          status: 422,
+        };
+      }
     }
   }
 

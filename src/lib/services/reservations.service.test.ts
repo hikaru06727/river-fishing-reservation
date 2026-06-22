@@ -19,6 +19,11 @@ vi.mock("@/lib/repositories/business-hours.repository", () => ({
   findDateExceptionsBySpotAndDateRange: vi.fn(),
 }));
 
+vi.mock("@/lib/repositories/business-breaks.repository", () => ({
+  findWeeklyBreaksBySpotId: vi.fn(),
+  findExceptionBreaksBySpotAndDateRange: vi.fn(),
+}));
+
 vi.mock("@/lib/repositories/reservations.repository", () => ({
   createReservationAtomic: vi.fn(),
   findSpotNotificationMetaById: vi.fn(),
@@ -47,6 +52,10 @@ import {
   findDateExceptionsBySpotAndDateRange,
   findWeeklyHoursBySpotId,
 } from "@/lib/repositories/business-hours.repository";
+import {
+  findExceptionBreaksBySpotAndDateRange,
+  findWeeklyBreaksBySpotId,
+} from "@/lib/repositories/business-breaks.repository";
 import {
   createReservationAtomic,
   findSpotNotificationMetaById,
@@ -94,14 +103,19 @@ function makeSlotRow(
   startTime: string,
   id: string,
   slotStepMinutes: typeof LEGACY_SLOT_STEP_MINUTES | typeof SLOT_STEP_MINUTES,
-  overrides?: Partial<{ booked_count: number; max_capacity: number; status: string }>,
+  overrides?: Partial<{
+    booked_count: number;
+    max_capacity: number;
+    status: string;
+    slot_date: string;
+  }>,
 ) {
   const startNorm = startTime.slice(0, 5);
   const endNorm = addMinutes(startNorm, slotStepMinutes);
   return {
     id,
     spot_id: spotA,
-    slot_date: reservationDate,
+    slot_date: overrides?.slot_date ?? reservationDate,
     start_time: `${startNorm}:00`,
     end_time: `${endNorm}:00`,
     max_capacity: overrides?.max_capacity ?? 5,
@@ -114,10 +128,11 @@ function mockFetchAffectedSlotsFromStartTimes(
   startTimes: string[],
   slotStepMinutes: typeof LEGACY_SLOT_STEP_MINUTES | typeof SLOT_STEP_MINUTES,
   idPrefix: string,
+  slotDate: string = reservationDate,
 ) {
   fetchAffectedSlotsMock.mockResolvedValue({
     slots: startTimes.map((time, index) =>
-      makeSlotRow(time, `${idPrefix}-${index}`, slotStepMinutes),
+      makeSlotRow(time, `${idPrefix}-${index}`, slotStepMinutes, { slot_date: slotDate }),
     ),
     error: null,
   });
@@ -146,6 +161,8 @@ const validInput = {
 beforeEach(() => {
   vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue([]);
   vi.mocked(findDateExceptionsBySpotAndDateRange).mockResolvedValue([]);
+  vi.mocked(findWeeklyBreaksBySpotId).mockResolvedValue([]);
+  vi.mocked(findExceptionBreaksBySpotAndDateRange).mockResolvedValue([]);
 });
 
 describe("createReservation plan/spot validation (phase 8a)", () => {
@@ -532,16 +549,29 @@ describe("createReservation business hours (phase 10)", () => {
   });
 });
 
-describe("createReservation business hours (phase 10)", () => {
-  const weeklyHours = [
+describe("createReservation business breaks (phase 10b)", () => {
+  const breakReservationDate = "2026-06-22";
+
+  const weeklyHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
+    id: `wh-${dayOfWeek}`,
+    fishing_spot_id: spotA,
+    day_of_week: dayOfWeek,
+    is_open: dayOfWeek >= 1 && dayOfWeek <= 5,
+    open_time: dayOfWeek >= 1 && dayOfWeek <= 5 ? "09:00:00" : null,
+    close_time: dayOfWeek >= 1 && dayOfWeek <= 5 ? "17:00:00" : null,
+    is_24_hours: false,
+    created_at: "",
+    updated_at: "",
+  }));
+
+  const weeklyLunchBreak = [
     {
-      id: "wh-1",
+      id: "wb-1",
       fishing_spot_id: spotA,
-      day_of_week: new Date(`${reservationDate}T00:00:00`).getDay(),
-      is_open: true,
-      open_time: "09:00:00",
-      close_time: "17:00:00",
-      is_24_hours: false,
+      day_of_week: 1,
+      start_time: "12:00:00",
+      end_time: "13:00:00",
+      label: "昼休み",
       created_at: "",
       updated_at: "",
     },
@@ -551,20 +581,34 @@ describe("createReservation business hours (phase 10)", () => {
     vi.clearAllMocks();
     vi.mocked(findWeeklyHoursBySpotId).mockResolvedValue(weeklyHours);
     vi.mocked(findDateExceptionsBySpotAndDateRange).mockResolvedValue([]);
+    vi.mocked(findWeeklyBreaksBySpotId).mockResolvedValue(weeklyLunchBreak);
+    vi.mocked(findExceptionBreaksBySpotAndDateRange).mockResolvedValue([]);
     vi.mocked(findActivePlanForReservation).mockResolvedValue(
-      makePlan({ id: planA, duration_minutes: 120 }),
+      makePlan({ id: planA, duration_minutes: 120, slug: "2h" }),
     );
-    vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("16:00", slotId, LEGACY_SLOT_STEP_MINUTES));
-    mockFetchAffectedSlotsFromStartTimes(["16:00", "17:00"], LEGACY_SLOT_STEP_MINUTES, "slot");
+    vi.mocked(findSlotById).mockResolvedValue(
+      makeSlotRow("11:00", slotId, SLOT_STEP_MINUTES, {
+        slot_date: breakReservationDate,
+      }),
+    );
+    mockFetchAffectedSlotsFromStartTimes(
+      ["11:00", "11:15", "11:30", "11:45", "12:00", "12:15", "12:30", "12:45"],
+      SLOT_STEP_MINUTES,
+      "slot",
+      breakReservationDate,
+    );
   });
 
-  it("営業時間外の開始時刻は予約を拒否する", async () => {
-    const result = await createReservation(userId, validInput);
+  it("休み時間に重なる予約は拒否する", async () => {
+    const result = await createReservation(userId, {
+      ...validInput,
+      reservationDate: breakReservationDate,
+    });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.status).toBe(422);
-      expect(result.error).toContain("選択できない時間帯");
+      expect(result.error).toBe("選択した時間は休み時間と重なるため予約できません");
     }
     expect(createReservationAtomic).not.toHaveBeenCalled();
   });

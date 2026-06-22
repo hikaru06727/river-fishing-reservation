@@ -6,6 +6,15 @@ import {
   isReservationWithinBusinessHours,
 } from "@/lib/business-hours/effective-hours";
 import {
+  getEffectiveBreaksForDate,
+  hasBreaksConfigured,
+  isReservationOverlappingBreaks,
+} from "@/lib/business-hours/effective-breaks";
+import {
+  findExceptionBreaksBySpotAndDateRange,
+  findWeeklyBreaksBySpotId,
+} from "@/lib/repositories/business-breaks.repository";
+import {
   findDateExceptionsBySpotAndDateRange,
   findWeeklyHoursBySpotId,
 } from "@/lib/repositories/business-hours.repository";
@@ -103,6 +112,33 @@ export async function getAvailableSlotsWithPlan(
   const dateExceptions = businessHoursConfigured
     ? await findDateExceptionsBySpotAndDateRange(params.spotId, startDate, rangeEnd)
     : [];
+  const weeklyBreaks = businessHoursConfigured
+    ? await findWeeklyBreaksBySpotId(params.spotId)
+    : [];
+  const exceptionBreakRows = businessHoursConfigured
+    ? await findExceptionBreaksBySpotAndDateRange(params.spotId, startDate, rangeEnd)
+    : [];
+  const breaksConfigured = businessHoursConfigured
+    ? hasBreaksConfigured(
+        weeklyBreaks,
+        exceptionBreakRows.map((row) => ({
+          date_exception_id: row.date_exception_id,
+          start_time: row.start_time,
+          end_time: row.end_time,
+          label: row.label,
+        })),
+      )
+    : false;
+  const dateExceptionsWithBreakMeta = dateExceptions.map((row) => ({
+    id: row.id,
+    exception_date: row.exception_date,
+    is_open: row.is_open,
+    open_time: row.open_time,
+    close_time: row.close_time,
+    is_24_hours: row.is_24_hours,
+    note: row.note,
+    ignore_weekly_breaks: row.ignore_weekly_breaks,
+  }));
 
   const slotMap = new Map<string, (typeof allSlots)[number]>();
   for (const slot of allSlots) {
@@ -178,6 +214,29 @@ export async function getAvailableSlotsWithPlan(
         )
       ) {
         continue;
+      }
+
+      if (breaksConfigured) {
+        const breaks = getEffectiveBreaksForDate(
+          weeklyBreaks,
+          exceptionBreakRows.map((row) => ({
+            date_exception_id: row.date_exception_id,
+            start_time: row.start_time,
+            end_time: row.end_time,
+            label: row.label,
+          })),
+          dateExceptionsWithBreakMeta,
+          candidate.slot_date,
+        );
+        if (
+          isReservationOverlappingBreaks(
+            candidate.start_time,
+            plan.duration_minutes,
+            breaks,
+          )
+        ) {
+          continue;
+        }
       }
     }
 

@@ -10,8 +10,17 @@ import {
   findDateExceptionsBySpotId,
   findWeeklyHoursBySpotId,
 } from "@/lib/repositories/business-hours.repository";
+import {
+  findExceptionBreaksByExceptionId,
+  findWeeklyBreaksBySpotId,
+} from "@/lib/repositories/business-breaks.repository";
 import { filterSelectableSpotsForProfile } from "@/lib/plans/admin-plan-scope";
-import type { FishingSpotDateException, FishingSpotWeeklyHour } from "@/types/database";
+import type {
+  FishingSpotDateException,
+  FishingSpotExceptionBreak,
+  FishingSpotWeeklyBreak,
+  FishingSpotWeeklyHour,
+} from "@/types/database";
 
 export type AdminBusinessHoursFilters = {
   spotId?: string;
@@ -68,7 +77,9 @@ export async function getManageableBusinessesForBusinessHours() {
 
 export async function getBusinessHoursDataForSpot(spotId: string): Promise<{
   weeklyHours: FishingSpotWeeklyHour[];
+  weeklyBreaks: FishingSpotWeeklyBreak[];
   exceptions: FishingSpotDateException[];
+  exceptionBreaksByExceptionId: Record<string, FishingSpotExceptionBreak[]>;
 } | null> {
   noStore();
   const context = await getManagementContext();
@@ -81,10 +92,20 @@ export async function getBusinessHoursDataForSpot(spotId: string): Promise<{
     return null;
   }
 
-  const [weeklyHours, exceptions] = await Promise.all([
+  const [weeklyHours, weeklyBreaks, exceptions] = await Promise.all([
     findWeeklyHoursBySpotId(spotId),
+    findWeeklyBreaksBySpotId(spotId),
     findDateExceptionsBySpotId(spotId),
   ]);
 
-  return { weeklyHours, exceptions };
+  const exceptionBreaksEntries = await Promise.all(
+    exceptions.map(async (exception) => {
+      const breaks = await findExceptionBreaksByExceptionId(exception.id);
+      return [exception.id, breaks] as const;
+    }),
+  );
+
+  const exceptionBreaksByExceptionId = Object.fromEntries(exceptionBreaksEntries);
+
+  return { weeklyHours, weeklyBreaks, exceptions, exceptionBreaksByExceptionId };
 }
