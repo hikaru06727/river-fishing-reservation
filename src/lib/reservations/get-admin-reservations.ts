@@ -40,7 +40,7 @@ export type AdminReservationRow = {
   stripe_checkout_session_id: string | null;
   plans: { name: string } | null;
   profiles: { full_name: string | null; email: string } | null;
-  fishing_spots: { name: string; slug: string; business_id: string | null } | null;
+  locations: { name: string; slug: string; business_id: string | null } | null;
   payments: Array<{
     status: PaymentStatus;
     amount_yen: number;

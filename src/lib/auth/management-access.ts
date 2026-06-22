@@ -54,7 +54,7 @@ export function canManageReservationForProfile(
   return canManageSpotForProfile(profile, spotBusinessId, assignedBusinessIds);
 }
 
-/** 純粋関数: plan の fishing_spot_id 経由でプラン操作可否 */
+/** 純粋関数: plan の location_id 経由でプラン操作可否 */
 export function canManagePlanForProfile(
   profile: Pick<Profile, "role" | "id"> | null | undefined,
   planSpotId: string | null | undefined,

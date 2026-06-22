@@ -48,7 +48,7 @@ describe("createAdminPlan", () => {
       duration_minutes: validInput.durationMinutes,
       price_yen: validInput.priceYen,
       is_active: true,
-      fishing_spot_id: spotB,
+      location_id: spotB,
       description: null,
       max_guests: validInput.maxGuests,
       is_visible: true,

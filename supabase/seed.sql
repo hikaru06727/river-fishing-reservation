@@ -6,18 +6,18 @@
 -- ------------------------------------------------------------
 -- plans（共通 legacy 1h / 3h）
 -- migration 010 以降: slug 単独 UNIQUE ではなく partial unique
---   → ON CONFLICT (slug) WHERE fishing_spot_id IS NULL
+--   → ON CONFLICT (slug) WHERE location_id IS NULL
 -- ------------------------------------------------------------
-INSERT INTO plans (name, slug, duration_minutes, price_yen, fishing_spot_id) VALUES
+INSERT INTO plans (name, slug, duration_minutes, price_yen, location_id) VALUES
   ('1時間プラン', '1h',  60,  3000, NULL),
   ('3時間プラン', '3h', 180,  8000, NULL)
-ON CONFLICT (slug) WHERE (fishing_spot_id IS NULL) DO NOTHING;
+ON CONFLICT (slug) WHERE (location_id IS NULL) DO NOTHING;
 
 -- ------------------------------------------------------------
--- fishing_spots（釣り場）
+-- locations（釣り場）
 -- businesses 紐づけは migration 006 で実施済み
 -- ------------------------------------------------------------
-INSERT INTO fishing_spots (name, slug, description, address, prefecture, capacity) VALUES
+INSERT INTO locations (name, slug, description, address, prefecture, capacity) VALUES
   (
     '清流渓谷フィッシング',
     'seiryu-keikoku',
@@ -39,7 +39,7 @@ ON CONFLICT (slug) DO NOTHING;
 -- ------------------------------------------------------------
 -- 釣り場別プラン（Phase 8 検証用: 1h / 2h）
 -- ------------------------------------------------------------
-INSERT INTO plans (name, slug, duration_minutes, price_yen, fishing_spot_id, max_guests)
+INSERT INTO plans (name, slug, duration_minutes, price_yen, location_id, max_guests)
 SELECT
   '渓谷1時間プラン',
   'seiryu-1h',
@@ -47,11 +47,11 @@ SELECT
   3200,
   fs.id,
   4
-FROM fishing_spots fs
+FROM locations fs
 WHERE fs.slug = 'seiryu-keikoku'
-ON CONFLICT (fishing_spot_id, slug) WHERE (fishing_spot_id IS NOT NULL) DO NOTHING;
+ON CONFLICT (location_id, slug) WHERE (location_id IS NOT NULL) DO NOTHING;
 
-INSERT INTO plans (name, slug, duration_minutes, price_yen, fishing_spot_id, max_guests)
+INSERT INTO plans (name, slug, duration_minutes, price_yen, location_id, max_guests)
 SELECT
   '渓谷2時間プラン',
   'seiryu-2h',
@@ -59,9 +59,9 @@ SELECT
   5500,
   fs.id,
   4
-FROM fishing_spots fs
+FROM locations fs
 WHERE fs.slug = 'seiryu-keikoku'
-ON CONFLICT (fishing_spot_id, slug) WHERE (fishing_spot_id IS NOT NULL) DO NOTHING;
+ON CONFLICT (location_id, slug) WHERE (location_id IS NOT NULL) DO NOTHING;
 
 -- ------------------------------------------------------------
 -- availability_slots（今後7日分の空き枠サンプル）
@@ -74,7 +74,7 @@ SELECT
   t.end_time,
   5,
   'open'
-FROM fishing_spots fs
+FROM locations fs
 CROSS JOIN (
   SELECT (CURRENT_DATE + i)::DATE AS slot_date
   FROM generate_series(0, 6) AS i
@@ -105,7 +105,7 @@ SELECT generate_fifteen_minute_availability_slots(
   (CURRENT_DATE + 7)::DATE,
   (CURRENT_DATE + 13)::DATE
 )
-FROM fishing_spots fs
+FROM locations fs
 WHERE fs.slug IN ('seiryu-keikoku', 'okutama');
 
 -- ------------------------------------------------------------
@@ -191,8 +191,8 @@ SELECT
   '1時間プラン',
   3000,
   60
-FROM fishing_spots fs
-INNER JOIN plans p ON p.slug = '1h' AND p.fishing_spot_id IS NULL
+FROM locations fs
+INNER JOIN plans p ON p.slug = '1h' AND p.location_id IS NULL
 INNER JOIN availability_slots s
   ON s.spot_id = fs.id
  AND s.slot_date = CURRENT_DATE + 1
@@ -236,8 +236,8 @@ SELECT
   '渓谷2時間プラン',
   5500,
   120
-FROM fishing_spots fs
-INNER JOIN plans p ON p.slug = 'seiryu-2h' AND p.fishing_spot_id = fs.id
+FROM locations fs
+INNER JOIN plans p ON p.slug = 'seiryu-2h' AND p.location_id = fs.id
 INNER JOIN availability_slots s
   ON s.spot_id = fs.id
  AND s.slot_date = CURRENT_DATE + 1
@@ -275,8 +275,8 @@ SELECT
   'confirmed',
   'cash_at_venue',
   NULL
-FROM fishing_spots fs
-INNER JOIN plans p ON p.slug = 'seiryu-1h' AND p.fishing_spot_id = fs.id
+FROM locations fs
+INNER JOIN plans p ON p.slug = 'seiryu-1h' AND p.location_id = fs.id
 INNER JOIN availability_slots s
   ON s.spot_id = fs.id
  AND s.slot_date = CURRENT_DATE + 2

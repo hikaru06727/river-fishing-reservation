@@ -130,7 +130,7 @@ export function AdminDashboard({
                         </Link>
                       </td>
                       <td className="px-3 py-2">
-                        {reservation.fishing_spots?.name ?? "—"}
+                        {reservation.locations?.name ?? "—"}
                       </td>
                       <td className="px-3 py-2 text-muted">
                         {reservation.profiles?.full_name ||

@@ -7,7 +7,7 @@ import {
 } from "@/app/(admin)/admin/business-hours/action-state";
 import { saveWeeklyHoursAction } from "@/app/(admin)/admin/business-hours/actions";
 import { Button } from "@/components/ui/Button";
-import type { FishingSpotWeeklyHour } from "@/types/database";
+import type { LocationWeeklyHour } from "@/types/database";
 
 const DAY_LABELS = ["日曜", "月曜", "火曜", "水曜", "木曜", "金曜", "土曜"] as const;
 
@@ -19,7 +19,7 @@ type DayFormState = {
   closeTime: string;
 };
 
-function defaultDayState(dayOfWeek: number, existing?: FishingSpotWeeklyHour): DayFormState {
+function defaultDayState(dayOfWeek: number, existing?: LocationWeeklyHour): DayFormState {
   if (existing) {
     return {
       dayOfWeek,
@@ -42,7 +42,7 @@ function defaultDayState(dayOfWeek: number, existing?: FishingSpotWeeklyHour): D
 
 interface BusinessHoursWeeklyFormProps {
   spotId: string;
-  weeklyHours: FishingSpotWeeklyHour[];
+  weeklyHours: LocationWeeklyHour[];
   actionState?: AdminBusinessHoursActionState;
 }
 

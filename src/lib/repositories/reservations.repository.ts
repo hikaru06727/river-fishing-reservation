@@ -250,7 +250,7 @@ export async function findSpotNotificationMetaById(
   const admin = createAdminClient();
 
   const { data, error } = await admin
-    .from("fishing_spots")
+    .from("locations")
     .select("slug, name, business_id")
     .eq("id", spotId)
     .maybeSingle();
@@ -391,14 +391,14 @@ export async function findReservationPaymentEmailMetaById(
 
 const RESERVATION_DETAIL_SELECT = `
   *,
-  fishing_spots ( name, slug ),
+  locations ( name, slug ),
   plans ( name, slug, duration_minutes, price_yen ),
   payments ( status )
 `;
 
 const MY_RESERVATIONS_SELECT = `
   *,
-  fishing_spots ( name, slug ),
+  locations ( name, slug ),
   plans ( name, slug ),
   payments ( status )
 `;
@@ -421,7 +421,7 @@ export const ADMIN_RESERVATION_LIST_SELECT = `
   stripe_checkout_session_id,
   plans ( name ),
   profiles ( full_name, email ),
-  fishing_spots ( name, slug, business_id ),
+  locations ( name, slug, business_id ),
   payments ( status, amount_yen, paid_at, created_at )
 `;
 
@@ -429,20 +429,20 @@ const ADMIN_RESERVATION_DETAIL_SELECT = `
   *,
   plans ( name ),
   profiles ( full_name, email ),
-  fishing_spots ( name, slug, business_id ),
+  locations ( name, slug, business_id ),
   payments ( status, amount_yen, paid_at, created_at, stripe_payment_intent_id, stripe_checkout_session_id )
 `;
 
 export type ReservationDetailRow = Reservation & {
   payment_method?: PaymentMethod | null;
-  fishing_spots: { name: string; slug: string } | null;
+  locations: { name: string; slug: string } | null;
   plans: { name: string; slug: string; duration_minutes: number; price_yen: number } | null;
   payments: Array<{ status: PaymentStatus }> | null;
 };
 
 export type MyReservationRow = Reservation & {
   payment_method?: PaymentMethod | null;
-  fishing_spots: { name: string; slug: string } | null;
+  locations: { name: string; slug: string } | null;
   plans: { name: string; slug: string } | null;
   payments: Array<{ status: PaymentStatus }> | null;
 };

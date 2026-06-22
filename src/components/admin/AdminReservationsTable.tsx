@@ -69,7 +69,7 @@ export function AdminReservationsTable({
                   </Link>
                 </td>
                 <td className="px-4 py-3">
-                  {reservation.fishing_spots?.name ?? "—"}
+                  {reservation.locations?.name ?? "—"}
                 </td>
                 <td className="px-4 py-3">{planDisplay.name}</td>
                 <td className="px-4 py-3">

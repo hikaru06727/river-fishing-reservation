@@ -17,7 +17,7 @@ function makePlan(overrides: Partial<Plan> & Pick<Plan, "id" | "name" | "slug">)
     duration_minutes: 60,
     price_yen: 3000,
     is_active: true,
-    fishing_spot_id: spotA,
+    location_id: spotA,
     description: null,
     max_guests: 4,
     is_visible: true,
@@ -66,7 +66,7 @@ describe("resolveBookablePlansForSpot", () => {
     id: "legacy-1h",
     name: "1h",
     slug: "1h",
-    fishing_spot_id: null,
+    location_id: null,
   });
 
   it("spot 別プランがある場合は spot 別プランを優先する", () => {
@@ -83,14 +83,14 @@ describe("isPlanAllowedForSpot", () => {
     id: "legacy-1h",
     name: "1h",
     slug: "1h",
-    fishing_spot_id: null,
+    location_id: null,
   });
   const spotPlan = makePlan({ id: "spot-plan", name: "Spot", slug: "spot-plan" });
   const otherSpotPlan = makePlan({
     id: "other",
     name: "Other",
     slug: "other",
-    fishing_spot_id: spotB,
+    location_id: spotB,
   });
 
   it("legacy 共通プランは移行期間中は許可される", () => {
@@ -115,7 +115,7 @@ describe("validatePlanForReservation", () => {
     id: "legacy-1h",
     name: "1h",
     slug: "1h",
-    fishing_spot_id: null,
+    location_id: null,
   });
 
   it("slug だけで担当外 spot の plan は拒否される", () => {
@@ -123,7 +123,7 @@ describe("validatePlanForReservation", () => {
       id: "other",
       name: "Other",
       slug: "other",
-      fishing_spot_id: spotB,
+      location_id: spotB,
     });
     const result = validatePlanForReservation(otherSpotPlan, spotA, true);
     expect(result.ok).toBe(false);

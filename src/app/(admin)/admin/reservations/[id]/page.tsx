@@ -103,7 +103,7 @@ export default async function AdminReservationDetailPage({
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">釣り場</dt>
-              <dd>{reservation.fishing_spots?.name ?? "—"}</dd>
+              <dd>{reservation.locations?.name ?? "—"}</dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">プラン</dt>

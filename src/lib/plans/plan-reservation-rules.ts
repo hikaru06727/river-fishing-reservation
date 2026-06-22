@@ -2,7 +2,7 @@ import type { Plan } from "@/types/database";
 
 export type PlanBookabilityFields = Pick<
   Plan,
-  "is_active" | "is_visible" | "is_accepting_reservations" | "fishing_spot_id"
+  "is_active" | "is_visible" | "is_accepting_reservations" | "location_id"
 >;
 
 export function meetsBookablePlanConditions(plan: PlanBookabilityFields): boolean {
@@ -10,7 +10,7 @@ export function meetsBookablePlanConditions(plan: PlanBookabilityFields): boolea
 }
 
 /**
- * spot 別プランが存在する場合は legacy（fishing_spot_id IS NULL）を除外する。
+ * spot 別プランが存在する場合は legacy（location_id IS NULL）を除外する。
  */
 export function isPlanAllowedForSpot(
   plan: PlanBookabilityFields,
@@ -20,10 +20,10 @@ export function isPlanAllowedForSpot(
   if (!meetsBookablePlanConditions(plan)) {
     return false;
   }
-  if (plan.fishing_spot_id === null) {
+  if (plan.location_id === null) {
     return !hasSpotSpecificBookablePlans;
   }
-  return plan.fishing_spot_id === spotId;
+  return plan.location_id === spotId;
 }
 
 /** spot 別プランがあればそれのみ、なければ legacy 共通プラン */

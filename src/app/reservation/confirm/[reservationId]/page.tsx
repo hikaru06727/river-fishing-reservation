@@ -34,7 +34,7 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
     notFound();
   }
 
-  const spotName = reservation.fishing_spots?.name ?? "—";
+  const spotName = reservation.locations?.name ?? "—";
   const planDisplay = getReservationPlanDisplay(reservation);
   const paymentInfo = buildReservationPaymentInfo(reservation);
   const isOnlinePending =
@@ -160,9 +160,9 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
         >
           マイ予約を見る
         </Link>
-        {reservation.fishing_spots?.slug && (
+        {reservation.locations?.slug && (
           <Link
-            href={`/spots/${reservation.fishing_spots.slug}`}
+            href={`/spots/${reservation.locations.slug}`}
             className="text-center text-sm text-muted hover:text-primary"
           >
             釣り場詳細に戻る

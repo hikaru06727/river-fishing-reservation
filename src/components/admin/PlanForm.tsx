@@ -131,7 +131,7 @@ export function PlanForm({
             id="fishingSpotId"
             name="fishingSpotId"
             required
-            defaultValue={plan?.fishing_spot_id ?? ""}
+            defaultValue={plan?.location_id ?? ""}
             className="mt-1 w-full min-h-12 rounded-xl border border-border px-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
           >
             <option value="" disabled>

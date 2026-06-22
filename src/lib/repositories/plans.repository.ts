@@ -3,7 +3,7 @@ import { resolveBookablePlansForSpot, validatePlanForReservation } from "@/lib/p
 import type { Plan } from "@/types/database";
 
 export type AdminPlanRow = Plan & {
-  fishing_spots: {
+  locations: {
     name: string;
     business_id: string | null;
   } | null;
@@ -16,7 +16,7 @@ export type AdminPlanFilters = {
 
 const ADMIN_PLAN_SELECT = `
   *,
-  fishing_spots ( name, business_id )
+  locations ( name, business_id )
 `;
 
 export async function findActivePlanById(planId: string): Promise<Plan | null> {
@@ -77,7 +77,7 @@ async function findSpotSpecificBookablePlansBySpotId(spotId: string): Promise<Pl
   const { data, error } = await supabase
     .from("plans")
     .select(BOOKABLE_PLAN_SELECT)
-    .eq("fishing_spot_id", spotId)
+    .eq("location_id", spotId)
     .eq("is_active", true)
     .eq("is_visible", true)
     .eq("is_accepting_reservations", true)
@@ -96,7 +96,7 @@ async function findLegacyBookablePlans(): Promise<Plan[]> {
   const { data, error } = await supabase
     .from("plans")
     .select(BOOKABLE_PLAN_SELECT)
-    .is("fishing_spot_id", null)
+    .is("location_id", null)
     .eq("is_active", true)
     .eq("is_visible", true)
     .eq("is_accepting_reservations", true)
@@ -176,17 +176,17 @@ export async function findAdminPlans(
 
   const select =
     filters.businessId != null
-      ? `*, fishing_spots!inner ( name, business_id )`
+      ? `*, locations!inner ( name, business_id )`
       : ADMIN_PLAN_SELECT;
 
   let query = supabase.from("plans").select(select).order("created_at", { ascending: false });
 
   if (filters.spotId) {
-    query = query.eq("fishing_spot_id", filters.spotId);
+    query = query.eq("location_id", filters.spotId);
   }
 
   if (filters.businessId) {
-    query = query.eq("fishing_spots.business_id", filters.businessId);
+    query = query.eq("locations.business_id", filters.businessId);
   }
 
   const { data, error } = await query;
@@ -222,7 +222,7 @@ export type InsertPlanInput = {
   duration_minutes: number;
   price_yen: number;
   max_guests: number;
-  fishing_spot_id: string;
+  location_id: string;
   is_visible: boolean;
   is_accepting_reservations: boolean;
 };
@@ -239,7 +239,7 @@ export async function insertPlan(input: InsertPlanInput): Promise<Plan> {
       duration_minutes: input.duration_minutes,
       price_yen: input.price_yen,
       max_guests: input.max_guests,
-      fishing_spot_id: input.fishing_spot_id,
+      location_id: input.location_id,
       is_visible: input.is_visible,
       is_accepting_reservations: input.is_accepting_reservations,
       is_active: true,
@@ -260,7 +260,7 @@ export type UpdatePlanInput = {
   duration_minutes: number;
   price_yen: number;
   max_guests: number;
-  fishing_spot_id: string | null;
+  location_id: string | null;
   is_visible: boolean;
   is_accepting_reservations: boolean;
 };
@@ -279,7 +279,7 @@ export async function updatePlanById(
       duration_minutes: input.duration_minutes,
       price_yen: input.price_yen,
       max_guests: input.max_guests,
-      fishing_spot_id: input.fishing_spot_id,
+      location_id: input.location_id,
       is_visible: input.is_visible,
       is_accepting_reservations: input.is_accepting_reservations,
     })
@@ -339,7 +339,7 @@ export async function findPlanSpotIdByPlanId(planId: string): Promise<string | n
 
   const { data, error } = await supabase
     .from("plans")
-    .select("fishing_spot_id")
+    .select("location_id")
     .eq("id", planId)
     .maybeSingle();
 
@@ -347,5 +347,5 @@ export async function findPlanSpotIdByPlanId(planId: string): Promise<string | n
     throw new Error(error.message);
   }
 
-  return data?.fishing_spot_id ?? null;
+  return data?.location_id ?? null;
 }

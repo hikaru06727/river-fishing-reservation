@@ -14,9 +14,9 @@ import {
   DATE_EXCEPTION_TAG_OPTIONS,
   getDateExceptionTagLabel,
 } from "@/lib/business-hours/date-exception-tags";
-import type { FishingSpotDateException } from "@/types/database";
+import type { LocationDateException } from "@/types/database";
 
-function formatTimeRange(row: FishingSpotDateException): string {
+function formatTimeRange(row: LocationDateException): string {
   if (!row.is_open) {
     return "休業";
   }
@@ -57,7 +57,7 @@ function DateExceptionFormFields({
   row,
   idPrefix,
 }: {
-  row?: FishingSpotDateException;
+  row?: LocationDateException;
   idPrefix: string;
 }) {
   return (
@@ -155,7 +155,7 @@ function DateExceptionEditRow({
   onCancel,
 }: {
   spotId: string;
-  row: FishingSpotDateException;
+  row: LocationDateException;
   onCancel: () => void;
 }) {
   const [state, formAction, pending] = useActionState(
@@ -195,7 +195,7 @@ function DateExceptionEditRow({
 
 interface BusinessDayExceptionsPanelProps {
   spotId: string;
-  exceptions: FishingSpotDateException[];
+  exceptions: LocationDateException[];
   actionState?: AdminBusinessHoursActionState;
 }
 

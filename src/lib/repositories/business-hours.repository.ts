@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { throwSupabaseMutationError } from "@/lib/db/postgres-error";
 import type {
-  FishingSpotDateException,
-  FishingSpotWeeklyHour,
+  LocationDateException,
+  LocationWeeklyHour,
 } from "@/types/database";
 
 export type WeeklyHourUpsertInput = {
@@ -26,13 +26,13 @@ export type DateExceptionUpsertInput = {
 
 export async function findWeeklyHoursBySpotId(
   spotId: string,
-): Promise<FishingSpotWeeklyHour[]> {
+): Promise<LocationWeeklyHour[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_weekly_hours")
+    .from("location_weekly_hours")
     .select("*")
-    .eq("fishing_spot_id", spotId)
+    .eq("location_id", spotId)
     .order("day_of_week", { ascending: true });
 
   if (error) {
@@ -45,11 +45,11 @@ export async function findWeeklyHoursBySpotId(
 export async function upsertWeeklyHoursForSpot(
   spotId: string,
   rows: WeeklyHourUpsertInput[],
-): Promise<FishingSpotWeeklyHour[]> {
+): Promise<LocationWeeklyHour[]> {
   const supabase = await createClient();
 
   const payload = rows.map((row) => ({
-    fishing_spot_id: spotId,
+    location_id: spotId,
     day_of_week: row.day_of_week,
     is_open: row.is_open,
     open_time: row.is_open && !row.is_24_hours ? row.open_time : null,
@@ -58,8 +58,8 @@ export async function upsertWeeklyHoursForSpot(
   }));
 
   const { data, error } = await supabase
-    .from("fishing_spot_weekly_hours")
-    .upsert(payload, { onConflict: "fishing_spot_id,day_of_week" })
+    .from("location_weekly_hours")
+    .upsert(payload, { onConflict: "location_id,day_of_week" })
     .select("*")
     .order("day_of_week", { ascending: true });
 
@@ -72,13 +72,13 @@ export async function upsertWeeklyHoursForSpot(
 
 export async function findDateExceptionsBySpotId(
   spotId: string,
-): Promise<FishingSpotDateException[]> {
+): Promise<LocationDateException[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_date_exceptions")
+    .from("location_date_exceptions")
     .select("*")
-    .eq("fishing_spot_id", spotId)
+    .eq("location_id", spotId)
     .order("exception_date", { ascending: true });
 
   if (error) {
@@ -92,13 +92,13 @@ export async function findDateExceptionsBySpotAndDateRange(
   spotId: string,
   startDate: string,
   endDate: string,
-): Promise<FishingSpotDateException[]> {
+): Promise<LocationDateException[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_date_exceptions")
+    .from("location_date_exceptions")
     .select("*")
-    .eq("fishing_spot_id", spotId)
+    .eq("location_id", spotId)
     .gte("exception_date", startDate)
     .lte("exception_date", endDate)
     .order("exception_date", { ascending: true });
@@ -113,13 +113,13 @@ export async function findDateExceptionsBySpotAndDateRange(
 export async function insertDateException(
   spotId: string,
   input: DateExceptionUpsertInput,
-): Promise<FishingSpotDateException> {
+): Promise<LocationDateException> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_date_exceptions")
+    .from("location_date_exceptions")
     .insert({
-      fishing_spot_id: spotId,
+      location_id: spotId,
       exception_date: input.exception_date,
       is_open: input.is_open,
       open_time: input.is_open && !input.is_24_hours ? input.open_time : null,
@@ -142,11 +142,11 @@ export async function insertDateException(
 export async function updateDateExceptionById(
   exceptionId: string,
   input: DateExceptionUpsertInput,
-): Promise<FishingSpotDateException> {
+): Promise<LocationDateException> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_date_exceptions")
+    .from("location_date_exceptions")
     .update({
       exception_date: input.exception_date,
       is_open: input.is_open,
@@ -172,7 +172,7 @@ export async function deleteDateExceptionById(exceptionId: string): Promise<void
   const supabase = await createClient();
 
   const { error } = await supabase
-    .from("fishing_spot_date_exceptions")
+    .from("location_date_exceptions")
     .delete()
     .eq("id", exceptionId);
 
@@ -187,8 +187,8 @@ export async function findDateExceptionSpotIdById(
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_date_exceptions")
-    .select("fishing_spot_id")
+    .from("location_date_exceptions")
+    .select("location_id")
     .eq("id", exceptionId)
     .maybeSingle();
 
@@ -196,5 +196,77 @@ export async function findDateExceptionSpotIdById(
     throw new Error(error.message);
   }
 
-  return data?.fishing_spot_id ?? null;
+  return data?.location_id ?? null;
+}
+
+function groupWeeklyHoursBySpotId(
+  rows: LocationWeeklyHour[],
+): Map<string, LocationWeeklyHour[]> {
+  const map = new Map<string, LocationWeeklyHour[]>();
+  for (const row of rows) {
+    const list = map.get(row.location_id) ?? [];
+    list.push(row);
+    map.set(row.location_id, list);
+  }
+  return map;
+}
+
+function groupDateExceptionsBySpotId(
+  rows: LocationDateException[],
+): Map<string, LocationDateException[]> {
+  const map = new Map<string, LocationDateException[]>();
+  for (const row of rows) {
+    const list = map.get(row.location_id) ?? [];
+    list.push(row);
+    map.set(row.location_id, list);
+  }
+  return map;
+}
+
+/** 複数 spot の曜日別営業時間（RLS 下・管理画面スコープ） */
+export async function findWeeklyHoursBySpotIds(
+  spotIds: readonly string[],
+): Promise<Map<string, LocationWeeklyHour[]>> {
+  if (spotIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("location_weekly_hours")
+    .select("*")
+    .in("location_id", [...spotIds])
+    .order("day_of_week", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return groupWeeklyHoursBySpotId(data ?? []);
+}
+
+/** 複数 spot の期間内例外日（RLS 下・管理画面スコープ） */
+export async function findDateExceptionsBySpotIdsAndDateRange(
+  spotIds: readonly string[],
+  startDate: string,
+  endDate: string,
+): Promise<Map<string, LocationDateException[]>> {
+  if (spotIds.length === 0) {
+    return new Map();
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("location_date_exceptions")
+    .select("*")
+    .in("location_id", [...spotIds])
+    .gte("exception_date", startDate)
+    .lte("exception_date", endDate)
+    .order("exception_date", { ascending: true });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return groupDateExceptionsBySpotId(data ?? []);
 }

@@ -1,15 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
-import type { FishingSpot } from "@/types/database";
+import type { Location } from "@/types/database";
 
 export type SpotListItem = Pick<
-  FishingSpot,
+  Location,
   "id" | "name" | "slug" | "description" | "prefecture" | "image_url"
 >;
 
-export type SpotSummaryRow = Pick<FishingSpot, "id" | "name" | "slug">;
+export type SpotSummaryRow = Pick<Location, "id" | "name" | "slug">;
 
 export type SpotDetailRow = Pick<
-  FishingSpot,
+  Location,
   | "id"
   | "name"
   | "slug"
@@ -25,7 +25,7 @@ export async function findActiveSpots(): Promise<SpotListItem[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("id, name, slug, description, prefecture, image_url")
     .eq("is_active", true)
     .order("name", { ascending: true });
@@ -42,7 +42,7 @@ export async function findActiveSpotSummaryById(id: string): Promise<SpotSummary
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("id, name, slug")
     .eq("id", id)
     .eq("is_active", true)
@@ -60,7 +60,7 @@ export async function findActiveSpotDetailBySlug(slug: string): Promise<SpotDeta
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("id, name, slug, description, prefecture, address, image_url, capacity")
     .eq("slug", slug)
     .eq("is_active", true)
@@ -86,11 +86,11 @@ export async function findActiveSpotsForApi(): Promise<SpotListItem[]> {
 }
 
 /** 公開中釣り場一覧（全カラム・API 用） */
-export async function findActiveSpotsFull(): Promise<FishingSpot[]> {
+export async function findActiveSpotsFull(): Promise<Location[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("*")
     .eq("is_active", true)
     .order("name");
@@ -103,11 +103,11 @@ export async function findActiveSpotsFull(): Promise<FishingSpot[]> {
 }
 
 /** 公開中釣り場（slug・全カラム・API 用） */
-export async function findActiveSpotFullBySlug(slug: string): Promise<FishingSpot | null> {
+export async function findActiveSpotFullBySlug(slug: string): Promise<Location | null> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("*")
     .eq("slug", slug)
     .eq("is_active", true)
@@ -122,12 +122,12 @@ export async function findActiveSpotFullBySlug(slug: string): Promise<FishingSpo
 
 /** 公開中釣り場の id/name 一覧（管理フォーム用） */
 export async function findActiveSpotIdAndNames(): Promise<
-  Pick<FishingSpot, "id" | "name">[]
+  Pick<Location, "id" | "name">[]
 > {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("id, name")
     .eq("is_active", true)
     .order("name");
@@ -141,12 +141,12 @@ export async function findActiveSpotIdAndNames(): Promise<
 
 /** 管理画面: 釣り場 ID 一覧（active フィルタなし） */
 export async function findAllSpotIdsAndNames(): Promise<
-  Pick<FishingSpot, "id" | "name">[]
+  Pick<Location, "id" | "name">[]
 > {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("id, name")
     .order("name");
 
