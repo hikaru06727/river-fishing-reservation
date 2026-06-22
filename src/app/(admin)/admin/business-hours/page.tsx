@@ -1,6 +1,8 @@
 import { BusinessDayExceptionsPanel } from "@/components/admin/BusinessDayExceptionsPanel";
+import { BusinessExceptionBreaksSection } from "@/components/admin/BusinessExceptionBreaksSection";
 import { BusinessHoursSpotFilters } from "@/components/admin/BusinessHoursSpotFilters";
 import { BusinessHoursWeeklyForm } from "@/components/admin/BusinessHoursWeeklyForm";
+import { BusinessWeeklyBreaksSection } from "@/components/admin/BusinessWeeklyBreaksSection";
 import { getManagementScope } from "@/lib/auth/management-access";
 import { isAdminRole } from "@/lib/auth/role";
 import {
@@ -87,9 +89,18 @@ export default async function AdminBusinessHoursPage({
             spotId={filters.spotId}
             weeklyHours={hoursData.weeklyHours}
           />
+          <BusinessWeeklyBreaksSection
+            spotId={filters.spotId}
+            weeklyBreaks={hoursData.weeklyBreaks}
+          />
           <BusinessDayExceptionsPanel
             spotId={filters.spotId}
             exceptions={hoursData.exceptions}
+          />
+          <BusinessExceptionBreaksSection
+            spotId={filters.spotId}
+            exceptions={hoursData.exceptions}
+            exceptionBreaksByExceptionId={hoursData.exceptionBreaksByExceptionId}
           />
         </div>
       )}

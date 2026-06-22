@@ -69,6 +69,7 @@ export const dateExceptionFormSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "日付の形式が不正です"),
     isOpen: z.boolean(),
     is24Hours: z.boolean(),
+    ignoreWeeklyBreaks: z.boolean().optional(),
     openTime: z.string().nullable(),
     closeTime: z.string().nullable(),
     note: z
@@ -133,6 +134,7 @@ export function parseDateExceptionForm(formData: FormData) {
     exceptionDate: formData.get("exceptionDate"),
     isOpen: parseBooleanField(formData.get("isOpen")),
     is24Hours: parseBooleanField(formData.get("is24Hours")),
+    ignoreWeeklyBreaks: parseBooleanField(formData.get("ignoreWeeklyBreaks")),
     openTime: parseNullableTime(formData.get("openTime")),
     closeTime: parseNullableTime(formData.get("closeTime")),
     note: formData.get("note") ?? undefined,
