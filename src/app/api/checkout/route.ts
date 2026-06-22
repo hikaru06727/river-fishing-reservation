@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     }
 
     const stripe = getStripe();
-    const spotName = reservation.fishing_spots?.name ?? "釣り場";
+    const spotName = reservation.locations?.name ?? "釣り場";
     const planName = getReservationPlanDisplay(reservation, { nameFallback: "プラン" }).name;
 
     const session = await stripe.checkout.sessions.create({

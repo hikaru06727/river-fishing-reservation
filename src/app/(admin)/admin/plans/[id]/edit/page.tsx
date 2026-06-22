@@ -62,7 +62,7 @@ export default async function AdminPlanEditPage({
     notFound();
   }
 
-  const isLegacyGlobalPlan = plan.fishing_spot_id == null;
+  const isLegacyGlobalPlan = plan.location_id == null;
   if (isLegacyGlobalPlan && !isAdminRole(session.profile.role)) {
     redirect("/admin/plans");
   }

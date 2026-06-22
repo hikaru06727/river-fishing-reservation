@@ -101,7 +101,7 @@ export interface Database {
         };
         Relationships: [];
       };
-      fishing_spots: {
+      locations: {
         Row: {
           id: string;
           name: string;
@@ -146,10 +146,10 @@ export interface Database {
         };
         Relationships: [];
       };
-      fishing_spot_weekly_hours: {
+      location_weekly_hours: {
         Row: {
           id: string;
-          fishing_spot_id: string;
+          location_id: string;
           day_of_week: number;
           is_open: boolean;
           open_time: string | null;
@@ -160,7 +160,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          fishing_spot_id: string;
+          location_id: string;
           day_of_week: number;
           is_open?: boolean;
           open_time?: string | null;
@@ -171,7 +171,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          fishing_spot_id?: string;
+          location_id?: string;
           day_of_week?: number;
           is_open?: boolean;
           open_time?: string | null;
@@ -182,18 +182,18 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "fishing_spot_weekly_hours_fishing_spot_id_fkey";
-            columns: ["fishing_spot_id"];
+            foreignKeyName: "location_weekly_hours_location_id_fkey";
+            columns: ["location_id"];
             isOneToOne: false;
-            referencedRelation: "fishing_spots";
+            referencedRelation: "locations";
             referencedColumns: ["id"];
           },
         ];
       };
-      fishing_spot_date_exceptions: {
+      location_date_exceptions: {
         Row: {
           id: string;
-          fishing_spot_id: string;
+          location_id: string;
           exception_date: string;
           is_open: boolean;
           open_time: string | null;
@@ -207,7 +207,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          fishing_spot_id: string;
+          location_id: string;
           exception_date: string;
           is_open?: boolean;
           open_time?: string | null;
@@ -221,7 +221,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          fishing_spot_id?: string;
+          location_id?: string;
           exception_date?: string;
           is_open?: boolean;
           open_time?: string | null;
@@ -235,18 +235,18 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "fishing_spot_date_exceptions_fishing_spot_id_fkey";
-            columns: ["fishing_spot_id"];
+            foreignKeyName: "location_date_exceptions_location_id_fkey";
+            columns: ["location_id"];
             isOneToOne: false;
-            referencedRelation: "fishing_spots";
+            referencedRelation: "locations";
             referencedColumns: ["id"];
           },
         ];
       };
-      fishing_spot_weekly_breaks: {
+      location_weekly_breaks: {
         Row: {
           id: string;
-          fishing_spot_id: string;
+          location_id: string;
           day_of_week: number;
           start_time: string;
           end_time: string;
@@ -256,7 +256,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          fishing_spot_id: string;
+          location_id: string;
           day_of_week: number;
           start_time: string;
           end_time: string;
@@ -266,7 +266,7 @@ export interface Database {
         };
         Update: {
           id?: string;
-          fishing_spot_id?: string;
+          location_id?: string;
           day_of_week?: number;
           start_time?: string;
           end_time?: string;
@@ -276,15 +276,15 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "fishing_spot_weekly_breaks_fishing_spot_id_fkey";
-            columns: ["fishing_spot_id"];
+            foreignKeyName: "location_weekly_breaks_location_id_fkey";
+            columns: ["location_id"];
             isOneToOne: false;
-            referencedRelation: "fishing_spots";
+            referencedRelation: "locations";
             referencedColumns: ["id"];
           },
         ];
       };
-      fishing_spot_exception_breaks: {
+      location_exception_breaks: {
         Row: {
           id: string;
           date_exception_id: string;
@@ -314,10 +314,10 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "fishing_spot_exception_breaks_date_exception_id_fkey";
+            foreignKeyName: "location_exception_breaks_date_exception_id_fkey";
             columns: ["date_exception_id"];
             isOneToOne: false;
-            referencedRelation: "fishing_spot_date_exceptions";
+            referencedRelation: "location_date_exceptions";
             referencedColumns: ["id"];
           },
         ];
@@ -330,7 +330,7 @@ export interface Database {
           duration_minutes: number;
           price_yen: number;
           is_active: boolean;
-          fishing_spot_id: string | null;
+          location_id: string | null;
           description: string | null;
           max_guests: number;
           is_visible: boolean;
@@ -345,7 +345,7 @@ export interface Database {
           duration_minutes: number;
           price_yen: number;
           is_active?: boolean;
-          fishing_spot_id?: string | null;
+          location_id?: string | null;
           description?: string | null;
           max_guests?: number;
           is_visible?: boolean;
@@ -360,7 +360,7 @@ export interface Database {
           duration_minutes?: number;
           price_yen?: number;
           is_active?: boolean;
-          fishing_spot_id?: string | null;
+          location_id?: string | null;
           description?: string | null;
           max_guests?: number;
           is_visible?: boolean;
@@ -370,10 +370,10 @@ export interface Database {
         };
         Relationships: [
           {
-            foreignKeyName: "plans_fishing_spot_id_fkey";
-            columns: ["fishing_spot_id"];
+            foreignKeyName: "plans_location_id_fkey";
+            columns: ["location_id"];
             isOneToOne: false;
-            referencedRelation: "fishing_spots";
+            referencedRelation: "locations";
             referencedColumns: ["id"];
           },
         ];
@@ -664,11 +664,11 @@ export interface Database {
 }
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
-export type FishingSpot = Database["public"]["Tables"]["fishing_spots"]["Row"];
-export type FishingSpotWeeklyHour =
-  Database["public"]["Tables"]["fishing_spot_weekly_hours"]["Row"];
-export type FishingSpotDateException =
-  Database["public"]["Tables"]["fishing_spot_date_exceptions"]["Row"];
+export type Location = Database["public"]["Tables"]["locations"]["Row"];
+export type LocationWeeklyHour =
+  Database["public"]["Tables"]["location_weekly_hours"]["Row"];
+export type LocationDateException =
+  Database["public"]["Tables"]["location_date_exceptions"]["Row"];
 export type DateExceptionTagType =
   | "closed"
   | "temporary_closed"
@@ -677,10 +677,10 @@ export type DateExceptionTagType =
   | "event"
   | "maintenance"
   | "other";
-export type FishingSpotWeeklyBreak =
-  Database["public"]["Tables"]["fishing_spot_weekly_breaks"]["Row"];
-export type FishingSpotExceptionBreak =
-  Database["public"]["Tables"]["fishing_spot_exception_breaks"]["Row"];
+export type LocationWeeklyBreak =
+  Database["public"]["Tables"]["location_weekly_breaks"]["Row"];
+export type LocationExceptionBreak =
+  Database["public"]["Tables"]["location_exception_breaks"]["Row"];
 export type Plan = Database["public"]["Tables"]["plans"]["Row"];
 export type AvailabilitySlot = Database["public"]["Tables"]["availability_slots"]["Row"];
 export type Reservation = Database["public"]["Tables"]["reservations"]["Row"];

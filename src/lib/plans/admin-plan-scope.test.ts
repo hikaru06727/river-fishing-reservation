@@ -28,14 +28,14 @@ function makePlan(overrides: Partial<AdminPlanRow> & Pick<AdminPlanRow, "id" | "
     duration_minutes: 60,
     price_yen: 3000,
     is_active: true,
-    fishing_spot_id: spotA,
+    location_id: spotA,
     description: null,
     max_guests: 4,
     is_visible: true,
     is_accepting_reservations: true,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
-    fishing_spots: { name: "担当釣り場", business_id: bizA },
+    locations: { name: "担当釣り場", business_id: bizA },
     ...overrides,
   };
 }
@@ -54,12 +54,12 @@ describe("filterSelectableSpotsForProfile", () => {
 
 describe("filterAdminPlansForProfile", () => {
   const plans = [
-    makePlan({ id: "plan-1", name: "担当プラン", fishing_spot_id: spotA }),
+    makePlan({ id: "plan-1", name: "担当プラン", location_id: spotA }),
     makePlan({
       id: "plan-2",
       name: "担当外プラン",
-      fishing_spot_id: spotB,
-      fishing_spots: { name: "担当外釣り場", business_id: bizB },
+      location_id: spotB,
+      locations: { name: "担当外釣り場", business_id: bizB },
     }),
   ];
 
@@ -73,12 +73,12 @@ describe("filterAdminPlansForProfile", () => {
     expect(result[0]?.id).toBe("plan-1");
   });
 
-  it("business_admin は共通プラン（fishing_spot_id null）を除外する", () => {
+  it("business_admin は共通プラン（location_id null）を除外する", () => {
     const legacy = makePlan({
       id: "legacy-1h",
       name: "1時間プラン",
-      fishing_spot_id: null,
-      fishing_spots: null,
+      location_id: null,
+      locations: null,
     });
     const result = filterAdminPlansForProfile(
       [legacy, plans[0]!],

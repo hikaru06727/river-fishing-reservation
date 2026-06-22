@@ -51,7 +51,7 @@ function makeLegacyPlan(
   return {
     ...overrides,
     is_active: true,
-    fishing_spot_id: null,
+    location_id: null,
     description: null,
     max_guests: 10,
     is_visible: true,
@@ -440,7 +440,7 @@ describe("getAvailableSlotsWithPlan — business hours", () => {
 
   const weeklyHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
     id: `wh-${dayOfWeek}`,
-    fishing_spot_id: SPOT_ID,
+    location_id: SPOT_ID,
     day_of_week: dayOfWeek,
     is_open: dayOfWeek >= 1 && dayOfWeek <= 5,
     open_time: dayOfWeek >= 1 && dayOfWeek <= 5 ? "09:00:00" : null,
@@ -512,7 +512,7 @@ describe("getAvailableSlotsWithPlan — business breaks (phase 10b)", () => {
 
   const weeklyHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
     id: `wh-${dayOfWeek}`,
-    fishing_spot_id: SPOT_ID,
+    location_id: SPOT_ID,
     day_of_week: dayOfWeek,
     is_open: dayOfWeek >= 1 && dayOfWeek <= 5,
     open_time: dayOfWeek >= 1 && dayOfWeek <= 5 ? "09:00:00" : null,
@@ -525,7 +525,7 @@ describe("getAvailableSlotsWithPlan — business breaks (phase 10b)", () => {
   const weeklyLunchBreak = [
     {
       id: "wb-1",
-      fishing_spot_id: SPOT_ID,
+      location_id: SPOT_ID,
       day_of_week: 1,
       start_time: "12:00:00",
       end_time: "13:00:00",

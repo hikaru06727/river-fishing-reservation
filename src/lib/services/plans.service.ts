@@ -119,7 +119,7 @@ function toInsertInput(
     duration_minutes: input.durationMinutes,
     price_yen: input.priceYen,
     max_guests: input.maxGuests,
-    fishing_spot_id: input.fishingSpotId,
+    location_id: input.fishingSpotId,
     is_visible: input.isVisible ?? true,
     is_accepting_reservations: input.isAcceptingReservations ?? true,
   };
@@ -139,7 +139,7 @@ function toUpdateInput(
     duration_minutes: input.durationMinutes,
     price_yen: input.priceYen,
     max_guests: input.maxGuests,
-    fishing_spot_id: keepLegacyGlobalPlan ? null : input.fishingSpotId,
+    location_id: keepLegacyGlobalPlan ? null : input.fishingSpotId,
     is_visible: input.isVisible ?? true,
     is_accepting_reservations: input.isAcceptingReservations ?? true,
   };

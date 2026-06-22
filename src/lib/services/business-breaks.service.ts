@@ -19,8 +19,8 @@ import type {
   WeeklyBreaksFormInput,
 } from "@/validations/business-breaks";
 import type {
-  FishingSpotExceptionBreak,
-  FishingSpotWeeklyBreak,
+  LocationExceptionBreak,
+  LocationWeeklyBreak,
   Profile,
 } from "@/types/database";
 
@@ -113,7 +113,7 @@ function normalizeDbTime(time: string | null): string | null {
 export async function getWeeklyBreaksForSpot(
   profile: Pick<Profile, "role" | "id">,
   spotId: string,
-): Promise<ServiceResult<FishingSpotWeeklyBreak[]>> {
+): Promise<ServiceResult<LocationWeeklyBreak[]>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, spotId);
   if (!access.ok) {
@@ -135,7 +135,7 @@ export async function getWeeklyBreaksForSpot(
 export async function saveWeeklyBreaksForSpot(
   profile: Pick<Profile, "role" | "id">,
   input: WeeklyBreaksFormInput,
-): Promise<ServiceResult<FishingSpotWeeklyBreak[]>> {
+): Promise<ServiceResult<LocationWeeklyBreak[]>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, input.fishingSpotId);
   if (!access.ok) {
@@ -174,7 +174,7 @@ export async function getExceptionBreaksForException(
   profile: Pick<Profile, "role" | "id">,
   spotId: string,
   exceptionId: string,
-): Promise<ServiceResult<FishingSpotExceptionBreak[]>> {
+): Promise<ServiceResult<LocationExceptionBreak[]>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, spotId);
   if (!access.ok) {
@@ -201,7 +201,7 @@ export async function getExceptionBreaksForException(
 export async function saveExceptionBreaksForSpot(
   profile: Pick<Profile, "role" | "id">,
   input: ExceptionBreaksFormInput,
-): Promise<ServiceResult<FishingSpotExceptionBreak[]>> {
+): Promise<ServiceResult<LocationExceptionBreak[]>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, input.fishingSpotId);
   if (!access.ok) {

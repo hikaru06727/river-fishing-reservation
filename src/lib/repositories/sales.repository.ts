@@ -13,7 +13,7 @@ const SALES_RESERVATION_SELECT = `
   total_amount_yen,
   reserved_plan_name,
   reserved_unit_price_yen,
-  fishing_spots (
+  locations (
     business_id
   ),
   payments ( status, amount_yen )
@@ -28,7 +28,7 @@ type SalesReservationDbRow = {
   total_amount_yen: number;
   reserved_plan_name: string | null;
   reserved_unit_price_yen: number | null;
-  fishing_spots:
+  locations:
     | { business_id: string | null }
     | Array<{ business_id: string | null }>
     | null;
@@ -58,13 +58,13 @@ async function fetchBusinessNameMap(businessIds: string[]): Promise<Map<string, 
 }
 
 function resolveEmbeddedSpot(
-  fishingSpots: SalesReservationDbRow["fishing_spots"],
+  locations: SalesReservationDbRow["locations"],
 ): { business_id: string | null } {
-  if (fishingSpots == null) {
+  if (locations == null) {
     return { business_id: null };
   }
 
-  const spot = Array.isArray(fishingSpots) ? fishingSpots[0] : fishingSpots;
+  const spot = Array.isArray(locations) ? locations[0] : locations;
   return { business_id: spot?.business_id ?? null };
 }
 
@@ -72,7 +72,7 @@ function mapSalesReservationRow(
   row: SalesReservationDbRow,
   businessNameMap: Map<string, string>,
 ): SalesReservationRow {
-  const spot = resolveEmbeddedSpot(row.fishing_spots);
+  const spot = resolveEmbeddedSpot(row.locations);
   const businessName =
     spot.business_id != null ? (businessNameMap.get(spot.business_id) ?? null) : null;
 
@@ -113,7 +113,7 @@ export async function findSalesReservationRows(
 
   const dbRows = (data ?? []) as unknown as SalesReservationDbRow[];
   const businessIds = dbRows
-    .map((row) => resolveEmbeddedSpot(row.fishing_spots).business_id)
+    .map((row) => resolveEmbeddedSpot(row.locations).business_id)
     .filter((id): id is string => id != null);
   const businessNameMap = await fetchBusinessNameMap(businessIds);
 

@@ -7,8 +7,8 @@ import {
 import { saveExceptionBreaksAction } from "@/app/(admin)/admin/business-hours/actions";
 import { Button } from "@/components/ui/Button";
 import type {
-  FishingSpotDateException,
-  FishingSpotExceptionBreak,
+  LocationDateException,
+  LocationExceptionBreak,
 } from "@/types/database";
 
 type BreakRowState = {
@@ -18,7 +18,7 @@ type BreakRowState = {
   label: string;
 };
 
-function toRows(existing: FishingSpotExceptionBreak[]): BreakRowState[] {
+function toRows(existing: LocationExceptionBreak[]): BreakRowState[] {
   return existing.map((row) => ({
     key: row.id,
     startTime: row.start_time.slice(0, 5),
@@ -29,8 +29,8 @@ function toRows(existing: FishingSpotExceptionBreak[]): BreakRowState[] {
 
 interface BusinessExceptionBreaksEditorProps {
   spotId: string;
-  exception: FishingSpotDateException;
-  breaks: FishingSpotExceptionBreak[];
+  exception: LocationDateException;
+  breaks: LocationExceptionBreak[];
 }
 
 export function BusinessExceptionBreaksEditor({
@@ -182,8 +182,8 @@ export function BusinessExceptionBreaksEditor({
 
 interface BusinessExceptionBreaksSectionProps {
   spotId: string;
-  exceptions: FishingSpotDateException[];
-  exceptionBreaksByExceptionId: Record<string, FishingSpotExceptionBreak[]>;
+  exceptions: LocationDateException[];
+  exceptionBreaksByExceptionId: Record<string, LocationExceptionBreak[]>;
 }
 
 export function BusinessExceptionBreaksSection({

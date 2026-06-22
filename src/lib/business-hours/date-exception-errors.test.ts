@@ -9,7 +9,7 @@ describe("mapDateExceptionMutationError", () => {
   it("unique violation (code 23505) を日本語メッセージに変換する", () => {
     const error = Object.assign(
       new Error(
-        'duplicate key value violates unique constraint "fishing_spot_date_exceptions_fishing_spot_id_exception_date_key"',
+        'duplicate key value violates unique constraint "location_date_exceptions_location_id_exception_date_key"',
       ),
       { code: "23505" },
     );
@@ -24,7 +24,7 @@ describe("mapDateExceptionMutationError", () => {
 
   it("constraint 名のみでも duplicate key を日本語メッセージに変換する", () => {
     const error = new Error(
-      'duplicate key value violates unique constraint "fishing_spot_date_exceptions_fishing_spot_id_exception_date_key"',
+      'duplicate key value violates unique constraint "location_date_exceptions_location_id_exception_date_key"',
     );
 
     const result = mapDateExceptionMutationError(error, "update");

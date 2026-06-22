@@ -88,7 +88,7 @@ function makePlan(overrides: Partial<Plan> & Pick<Plan, "id">): Plan {
     duration_minutes: 60,
     price_yen: 3000,
     is_active: true,
-    fishing_spot_id: spotA,
+    location_id: spotA,
     description: null,
     max_guests: 4,
     is_visible: true,
@@ -169,7 +169,7 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(findActivePlanForReservation).mockResolvedValue(
-      makePlan({ id: planA, fishing_spot_id: spotA }),
+      makePlan({ id: planA, location_id: spotA }),
     );
     vi.mocked(findSlotById).mockResolvedValue(makeSlotRow("09:00", slotId, LEGACY_SLOT_STEP_MINUTES));
     mockFetchAffectedSlotsFromStartTimes(["09:00"], LEGACY_SLOT_STEP_MINUTES, "slot");
@@ -232,7 +232,7 @@ describe("createReservation plan/spot validation (phase 8a)", () => {
 
   it("legacy 共通プランは移行期間中 cash_at_venue で作成できる", async () => {
     vi.mocked(findActivePlanForReservation).mockResolvedValue(
-      makePlan({ id: planA, fishing_spot_id: null, slug: "1h" }),
+      makePlan({ id: planA, location_id: null, slug: "1h" }),
     );
 
     const result = await createReservation(userId, validInput);
@@ -515,7 +515,7 @@ describe("createReservation business hours (phase 10)", () => {
   const weeklyHours = [
     {
       id: "wh-1",
-      fishing_spot_id: spotA,
+      location_id: spotA,
       day_of_week: new Date(`${reservationDate}T00:00:00`).getDay(),
       is_open: true,
       open_time: "09:00:00",
@@ -550,11 +550,11 @@ describe("createReservation business hours (phase 10)", () => {
 });
 
 describe("createReservation business breaks (phase 10b)", () => {
-  const breakReservationDate = "2026-06-22";
+  const breakReservationDate = "2026-12-07";
 
   const weeklyHours = Array.from({ length: 7 }, (_, dayOfWeek) => ({
     id: `wh-${dayOfWeek}`,
-    fishing_spot_id: spotA,
+    location_id: spotA,
     day_of_week: dayOfWeek,
     is_open: dayOfWeek >= 1 && dayOfWeek <= 5,
     open_time: dayOfWeek >= 1 && dayOfWeek <= 5 ? "09:00:00" : null,
@@ -567,7 +567,7 @@ describe("createReservation business breaks (phase 10b)", () => {
   const weeklyLunchBreak = [
     {
       id: "wb-1",
-      fishing_spot_id: spotA,
+      location_id: spotA,
       day_of_week: 1,
       start_time: "12:00:00",
       end_time: "13:00:00",

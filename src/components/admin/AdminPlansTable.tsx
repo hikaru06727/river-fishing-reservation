@@ -135,7 +135,7 @@ export function AdminPlansTable({
         </thead>
         <tbody className="divide-y divide-border">
           {plans.map((plan) => {
-            const isGlobalPlan = plan.fishing_spot_id == null;
+            const isGlobalPlan = plan.location_id == null;
             const canEdit = !isGlobalPlan || canEditGlobalPlans;
 
             return (
@@ -150,7 +150,7 @@ export function AdminPlansTable({
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  {plan.fishing_spots?.name ?? "共通（全釣り場）"}
+                  {plan.locations?.name ?? "共通（全釣り場）"}
                 </td>
                 <td className="px-4 py-3">{formatYen(plan.price_yen)}</td>
                 <td className="px-4 py-3">{formatDuration(plan.duration_minutes)}</td>

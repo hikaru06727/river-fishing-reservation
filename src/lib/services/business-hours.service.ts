@@ -16,7 +16,7 @@ import type {
   DateExceptionFormInput,
   WeeklyHoursFormInput,
 } from "@/validations/business-hours";
-import type { FishingSpotDateException, FishingSpotWeeklyHour, Profile } from "@/types/database";
+import type { LocationDateException, LocationWeeklyHour, Profile } from "@/types/database";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
@@ -98,7 +98,7 @@ function toExceptionUpsertInput(input: DateExceptionFormInput) {
 export async function getWeeklyHoursForSpot(
   profile: Pick<Profile, "role" | "id">,
   spotId: string,
-): Promise<ServiceResult<FishingSpotWeeklyHour[]>> {
+): Promise<ServiceResult<LocationWeeklyHour[]>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, spotId);
   if (!access.ok) {
@@ -120,7 +120,7 @@ export async function getWeeklyHoursForSpot(
 export async function getDateExceptionsForSpot(
   profile: Pick<Profile, "role" | "id">,
   spotId: string,
-): Promise<ServiceResult<FishingSpotDateException[]>> {
+): Promise<ServiceResult<LocationDateException[]>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, spotId);
   if (!access.ok) {
@@ -142,7 +142,7 @@ export async function getDateExceptionsForSpot(
 export async function saveWeeklyHoursForSpot(
   profile: Pick<Profile, "role" | "id">,
   input: WeeklyHoursFormInput,
-): Promise<ServiceResult<FishingSpotWeeklyHour[]>> {
+): Promise<ServiceResult<LocationWeeklyHour[]>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, input.fishingSpotId);
   if (!access.ok) {
@@ -168,7 +168,7 @@ export async function saveWeeklyHoursForSpot(
 export async function createDateExceptionForSpot(
   profile: Pick<Profile, "role" | "id">,
   input: DateExceptionFormInput,
-): Promise<ServiceResult<FishingSpotDateException>> {
+): Promise<ServiceResult<LocationDateException>> {
   const context = await buildMutationContext(profile);
   const access = await assertCanManageSpot(context, input.fishingSpotId);
   if (!access.ok) {
@@ -189,7 +189,7 @@ export async function updateDateExceptionForSpot(
   profile: Pick<Profile, "role" | "id">,
   exceptionId: string,
   input: DateExceptionFormInput,
-): Promise<ServiceResult<FishingSpotDateException>> {
+): Promise<ServiceResult<LocationDateException>> {
   const context = await buildMutationContext(profile);
 
   let exceptionSpotId: string | null;

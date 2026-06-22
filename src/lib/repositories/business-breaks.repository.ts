@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { toDbTime } from "@/lib/utils/date";
 import type {
-  FishingSpotExceptionBreak,
-  FishingSpotWeeklyBreak,
+  LocationExceptionBreak,
+  LocationWeeklyBreak,
 } from "@/types/database";
 
 export type WeeklyBreakUpsertInput = {
@@ -18,20 +18,20 @@ export type ExceptionBreakUpsertInput = {
   label: string | null;
 };
 
-export type ExceptionBreakWithDate = FishingSpotExceptionBreak & {
+export type ExceptionBreakWithDate = LocationExceptionBreak & {
   exception_date: string;
   ignore_weekly_breaks: boolean;
 };
 
 export async function findWeeklyBreaksBySpotId(
   spotId: string,
-): Promise<FishingSpotWeeklyBreak[]> {
+): Promise<LocationWeeklyBreak[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_weekly_breaks")
+    .from("location_weekly_breaks")
     .select("*")
-    .eq("fishing_spot_id", spotId)
+    .eq("location_id", spotId)
     .order("day_of_week", { ascending: true })
     .order("start_time", { ascending: true });
 
@@ -45,13 +45,13 @@ export async function findWeeklyBreaksBySpotId(
 export async function replaceWeeklyBreaksForSpot(
   spotId: string,
   rows: WeeklyBreakUpsertInput[],
-): Promise<FishingSpotWeeklyBreak[]> {
+): Promise<LocationWeeklyBreak[]> {
   const supabase = await createClient();
 
   const { error: deleteError } = await supabase
-    .from("fishing_spot_weekly_breaks")
+    .from("location_weekly_breaks")
     .delete()
-    .eq("fishing_spot_id", spotId);
+    .eq("location_id", spotId);
 
   if (deleteError) {
     throw new Error(deleteError.message);
@@ -62,7 +62,7 @@ export async function replaceWeeklyBreaksForSpot(
   }
 
   const payload = rows.map((row) => ({
-    fishing_spot_id: spotId,
+    location_id: spotId,
     day_of_week: row.day_of_week,
     start_time: toDbTime(row.start_time),
     end_time: toDbTime(row.end_time),
@@ -70,7 +70,7 @@ export async function replaceWeeklyBreaksForSpot(
   }));
 
   const { data, error } = await supabase
-    .from("fishing_spot_weekly_breaks")
+    .from("location_weekly_breaks")
     .insert(payload)
     .select("*")
     .order("day_of_week", { ascending: true })
@@ -91,9 +91,9 @@ export async function findExceptionBreaksBySpotAndDateRange(
   const supabase = await createClient();
 
   const { data: exceptions, error: exceptionsError } = await supabase
-    .from("fishing_spot_date_exceptions")
+    .from("location_date_exceptions")
     .select("id, exception_date, ignore_weekly_breaks")
-    .eq("fishing_spot_id", spotId)
+    .eq("location_id", spotId)
     .gte("exception_date", startDate)
     .lte("exception_date", endDate);
 
@@ -109,7 +109,7 @@ export async function findExceptionBreaksBySpotAndDateRange(
   const exceptionById = new Map(exceptions.map((row) => [row.id, row]));
 
   const { data, error } = await supabase
-    .from("fishing_spot_exception_breaks")
+    .from("location_exception_breaks")
     .select("*")
     .in("date_exception_id", exceptionIds)
     .order("start_time", { ascending: true });
@@ -130,11 +130,11 @@ export async function findExceptionBreaksBySpotAndDateRange(
 
 export async function findExceptionBreaksByExceptionId(
   exceptionId: string,
-): Promise<FishingSpotExceptionBreak[]> {
+): Promise<LocationExceptionBreak[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_exception_breaks")
+    .from("location_exception_breaks")
     .select("*")
     .eq("date_exception_id", exceptionId)
     .order("start_time", { ascending: true });
@@ -149,11 +149,11 @@ export async function findExceptionBreaksByExceptionId(
 export async function replaceExceptionBreaksForException(
   exceptionId: string,
   rows: ExceptionBreakUpsertInput[],
-): Promise<FishingSpotExceptionBreak[]> {
+): Promise<LocationExceptionBreak[]> {
   const supabase = await createClient();
 
   const { error: deleteError } = await supabase
-    .from("fishing_spot_exception_breaks")
+    .from("location_exception_breaks")
     .delete()
     .eq("date_exception_id", exceptionId);
 
@@ -173,7 +173,7 @@ export async function replaceExceptionBreaksForException(
   }));
 
   const { data, error } = await supabase
-    .from("fishing_spot_exception_breaks")
+    .from("location_exception_breaks")
     .insert(payload)
     .select("*")
     .order("start_time", { ascending: true });
@@ -191,8 +191,8 @@ export async function findExceptionBreakSpotIdByExceptionId(
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spot_date_exceptions")
-    .select("fishing_spot_id")
+    .from("location_date_exceptions")
+    .select("location_id")
     .eq("id", exceptionId)
     .maybeSingle();
 
@@ -200,5 +200,5 @@ export async function findExceptionBreakSpotIdByExceptionId(
     throw new Error(error.message);
   }
 
-  return data?.fishing_spot_id ?? null;
+  return data?.location_id ?? null;
 }

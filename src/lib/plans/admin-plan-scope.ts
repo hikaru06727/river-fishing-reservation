@@ -39,8 +39,8 @@ export function filterAdminPlansForProfile(
   return plans.filter((plan) =>
     canManagePlanForProfile(
       profile,
-      plan.fishing_spot_id,
-      plan.fishing_spots?.business_id ?? null,
+      plan.location_id,
+      plan.locations?.business_id ?? null,
       assignedBusinessIds,
     ),
   );

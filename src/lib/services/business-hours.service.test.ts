@@ -129,7 +129,7 @@ describe("date exception tag_type (phase 10c)", () => {
 
   const savedException = {
     id: exceptionId,
-    fishing_spot_id: spotA,
+    location_id: spotA,
     exception_date: "2026-06-24",
     is_open: false,
     open_time: null,
@@ -237,7 +237,7 @@ describe("date exception save errors", () => {
     vi.mocked(insertDateException).mockRejectedValue(
       Object.assign(
         new Error(
-          'duplicate key value violates unique constraint "fishing_spot_date_exceptions_fishing_spot_id_exception_date_key"',
+          'duplicate key value violates unique constraint "location_date_exceptions_location_id_exception_date_key"',
         ),
         { code: "23505" },
       ),

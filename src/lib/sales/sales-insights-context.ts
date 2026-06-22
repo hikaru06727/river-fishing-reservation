@@ -9,9 +9,9 @@ import {
   countOpenBusinessDaysInRange,
 } from "@/lib/sales/sales-business-days";
 import type { SalesDateRange } from "@/lib/sales/sales-types";
-import type { FishingSpotDateException, FishingSpotWeeklyHour } from "@/types/database";
+import type { LocationDateException, LocationWeeklyHour } from "@/types/database";
 
-function mapWeeklyHourRow(row: FishingSpotWeeklyHour): WeeklyHourInput {
+function mapWeeklyHourRow(row: LocationWeeklyHour): WeeklyHourInput {
   return {
     day_of_week: row.day_of_week,
     is_open: row.is_open,
@@ -21,7 +21,7 @@ function mapWeeklyHourRow(row: FishingSpotWeeklyHour): WeeklyHourInput {
   };
 }
 
-function mapDateExceptionRow(row: FishingSpotDateException): DateExceptionInput {
+function mapDateExceptionRow(row: LocationDateException): DateExceptionInput {
   return {
     exception_date: row.exception_date,
     is_open: row.is_open,
@@ -33,7 +33,7 @@ function mapDateExceptionRow(row: FishingSpotDateException): DateExceptionInput 
 }
 
 function mapWeeklyHoursBySpotId(
-  source: Map<string, FishingSpotWeeklyHour[]>,
+  source: Map<string, LocationWeeklyHour[]>,
 ): Map<string, WeeklyHourInput[]> {
   const result = new Map<string, WeeklyHourInput[]>();
   for (const [spotId, rows] of source) {
@@ -43,7 +43,7 @@ function mapWeeklyHoursBySpotId(
 }
 
 function mapExceptionsBySpotId(
-  source: Map<string, FishingSpotDateException[]>,
+  source: Map<string, LocationDateException[]>,
 ): Map<string, DateExceptionInput[]> {
   const result = new Map<string, DateExceptionInput[]>();
   for (const [spotId, rows] of source) {

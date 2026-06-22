@@ -44,7 +44,7 @@ export async function findSpotBusinessIdBySpotId(
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("business_id")
     .eq("id", spotId)
     .maybeSingle();
@@ -109,7 +109,7 @@ export async function findManageableSpots(): Promise<ManageableSpotRow[]> {
   const supabase = await createClient();
 
   const { data, error } = await supabase
-    .from("fishing_spots")
+    .from("locations")
     .select("id, name, business_id, is_active")
     .order("name");
 

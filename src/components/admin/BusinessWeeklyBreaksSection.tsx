@@ -4,7 +4,7 @@ import { useActionState, useMemo, useState } from "react";
 import { adminBusinessHoursActionInitialState } from "@/app/(admin)/admin/business-hours/action-state";
 import { saveWeeklyBreaksAction } from "@/app/(admin)/admin/business-hours/actions";
 import { Button } from "@/components/ui/Button";
-import type { FishingSpotWeeklyBreak } from "@/types/database";
+import type { LocationWeeklyBreak } from "@/types/database";
 
 const DAY_LABELS = ["日曜", "月曜", "火曜", "水曜", "木曜", "金曜", "土曜"] as const;
 
@@ -16,7 +16,7 @@ type BreakRowState = {
   label: string;
 };
 
-function toRows(existing: FishingSpotWeeklyBreak[]): BreakRowState[] {
+function toRows(existing: LocationWeeklyBreak[]): BreakRowState[] {
   return existing.map((row) => ({
     key: row.id,
     dayOfWeek: row.day_of_week,
@@ -28,7 +28,7 @@ function toRows(existing: FishingSpotWeeklyBreak[]): BreakRowState[] {
 
 interface BusinessWeeklyBreaksSectionProps {
   spotId: string;
-  weeklyBreaks: FishingSpotWeeklyBreak[];
+  weeklyBreaks: LocationWeeklyBreak[];
 }
 
 export function BusinessWeeklyBreaksSection({

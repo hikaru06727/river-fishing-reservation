@@ -6,7 +6,7 @@ type PostgresErrorLike = {
 };
 
 export const DATE_EXCEPTION_UNIQUE_CONSTRAINT =
-  "fishing_spot_date_exceptions_fishing_spot_id_exception_date_key";
+  "location_date_exceptions_location_id_exception_date_key";
 
 export function getPostgresErrorLike(error: unknown): PostgresErrorLike | null {
   if (error instanceof Error) {

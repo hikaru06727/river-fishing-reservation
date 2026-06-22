@@ -16,10 +16,10 @@ import {
 } from "@/lib/repositories/business-breaks.repository";
 import { filterSelectableSpotsForProfile } from "@/lib/plans/admin-plan-scope";
 import type {
-  FishingSpotDateException,
-  FishingSpotExceptionBreak,
-  FishingSpotWeeklyBreak,
-  FishingSpotWeeklyHour,
+  LocationDateException,
+  LocationExceptionBreak,
+  LocationWeeklyBreak,
+  LocationWeeklyHour,
 } from "@/types/database";
 
 export type AdminBusinessHoursFilters = {
@@ -76,10 +76,10 @@ export async function getManageableBusinessesForBusinessHours() {
 }
 
 export async function getBusinessHoursDataForSpot(spotId: string): Promise<{
-  weeklyHours: FishingSpotWeeklyHour[];
-  weeklyBreaks: FishingSpotWeeklyBreak[];
-  exceptions: FishingSpotDateException[];
-  exceptionBreaksByExceptionId: Record<string, FishingSpotExceptionBreak[]>;
+  weeklyHours: LocationWeeklyHour[];
+  weeklyBreaks: LocationWeeklyBreak[];
+  exceptions: LocationDateException[];
+  exceptionBreaksByExceptionId: Record<string, LocationExceptionBreak[]>;
 } | null> {
   noStore();
   const context = await getManagementContext();

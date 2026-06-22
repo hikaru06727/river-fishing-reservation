@@ -19,7 +19,7 @@ interface ReservationCardProps {
 }
 
 export function ReservationCard({ reservation }: ReservationCardProps) {
-  const spotName = reservation.fishing_spots?.name ?? "—";
+  const spotName = reservation.locations?.name ?? "—";
   const planDisplay = getReservationPlanDisplay(reservation);
   const cancelPolicy = canCancelReservation({
     status: reservation.status,
@@ -82,9 +82,9 @@ export function ReservationCard({ reservation }: ReservationCardProps) {
           >
             詳細を見る
           </Link>
-          {reservation.fishing_spots?.slug && (
+          {reservation.locations?.slug && (
             <Link
-              href={`/spots/${reservation.fishing_spots.slug}`}
+              href={`/spots/${reservation.locations.slug}`}
               className="text-sm font-medium text-muted hover:text-primary hover:underline"
             >
               釣り場詳細

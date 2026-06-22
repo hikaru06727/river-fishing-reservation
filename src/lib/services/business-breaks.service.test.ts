@@ -54,7 +54,7 @@ const validWeeklyBreaksInput = {
 
 const existingException = {
   id: exceptionId,
-  fishing_spot_id: spotA,
+  location_id: spotA,
   exception_date: "2026-06-24",
   is_open: true,
   open_time: "09:00:00",

@@ -44,7 +44,7 @@ export default async function ReservationDetailPage({
     notFound();
   }
 
-  const spotName = reservation.fishing_spots?.name ?? "—";
+  const spotName = reservation.locations?.name ?? "—";
   const planDisplay = getReservationPlanDisplay(reservation);
   const cancelPolicy = canCancelReservation({
     status: reservation.status,
@@ -143,9 +143,9 @@ export default async function ReservationDetailPage({
         )}
       </Card>
 
-      {reservation.fishing_spots?.slug && (
+      {reservation.locations?.slug && (
         <Link
-          href={`/spots/${reservation.fishing_spots.slug}`}
+          href={`/spots/${reservation.locations.slug}`}
           className="inline-block text-sm font-medium text-primary hover:underline"
         >
           釣り場詳細を見る
