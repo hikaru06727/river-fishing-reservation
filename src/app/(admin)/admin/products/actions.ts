@@ -110,13 +110,14 @@ export async function createProductSaleAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, productId, quantity, paymentMethod } = parsed.data;
+  const { businessId, productId, quantity, paymentMethod, purchasedAt } = parsed.data;
 
   const result = await createProductSale(session.profile, {
     business_id: businessId,
     product_id: productId,
     quantity,
     payment_method: paymentMethod,
+    purchased_at: purchasedAt ?? null,
   });
 
   if (!result.ok) {

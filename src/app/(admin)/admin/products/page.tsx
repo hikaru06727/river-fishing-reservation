@@ -142,7 +142,11 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((p) => (
+                  {products.map((p) => {
+                    const canSell =
+                      p.status === "on_sale" &&
+                      (p.stock_quantity === null || p.stock_quantity > 0);
+                    return (
                     <tr key={p.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-medium">{p.name}</div>
@@ -155,7 +159,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                       <td className="px-4 py-3 text-right">
                         ¥{p.price_excluding_tax.toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-center">
+                      <td className={`px-4 py-3 text-center ${p.stock_quantity === 0 ? "text-red-500 font-medium" : ""}`}>
                         {p.stock_quantity !== null ? p.stock_quantity.toLocaleString() : "∞"}
                       </td>
                       <td className="px-4 py-3 text-center">
@@ -166,15 +170,30 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <Link
-                          href={`/admin/products/${p.id}/edit`}
-                          className="text-sm text-primary hover:underline"
-                        >
-                          編集
-                        </Link>
+                        <div className="flex items-center gap-3">
+                          {canSell ? (
+                            <Link
+                              href={`/admin/products/${p.id}/sell`}
+                              className="text-sm font-medium text-primary hover:underline"
+                            >
+                              販売登録
+                            </Link>
+                          ) : (
+                            <span className="text-sm text-slate-300 cursor-not-allowed">
+                              販売登録
+                            </span>
+                          )}
+                          <Link
+                            href={`/admin/products/${p.id}/edit`}
+                            className="text-sm text-muted hover:underline"
+                          >
+                            編集
+                          </Link>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

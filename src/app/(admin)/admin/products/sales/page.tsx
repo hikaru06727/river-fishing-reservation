@@ -6,8 +6,7 @@ import { findManageableBusinesses } from "@/lib/repositories/businesses.reposito
 import { findProductsByBusinessId } from "@/lib/repositories/products.repository";
 import { getProductSalesForBusiness } from "@/lib/services/product.service";
 import { isAdminRole } from "@/lib/auth/role";
-import { ProductSaleForm } from "@/components/admin/ProductSaleForm";
-import { createProductSaleAction, deleteProductSaleAction } from "../actions";
+import { deleteProductSaleAction } from "../actions";
 import type { Product, ProductSale } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -68,7 +67,7 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
   }
 
   const selectedBusiness = businesses.find((b) => b.id === businessId);
-  const productMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
+  const productMap = Object.fromEntries(products.map((p) => [p.id, p]));
 
   return (
     <div>
@@ -83,6 +82,15 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
           </Link>
         )}
       </div>
+      {businessId && (
+        <p className="mt-1 text-xs text-muted">
+          商品ごとの販売登録は
+          <Link href={`/admin/products?businessId=${businessId}`} className="text-primary hover:underline mx-1">
+            商品管理
+          </Link>
+          画面の「販売登録」から行えます。
+        </p>
+      )}
 
       {businesses.length > 1 && (
         <form method="get" action="/admin/products/sales" className="mt-4">
@@ -121,27 +129,6 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
             ? "操作可能な事業がありません。"
             : "事業を選択して販売記録を表示します。"}
         </p>
-      )}
-
-      {businessId && (
-        <div className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold text-foreground">現地販売を登録</h3>
-          {selectedBusiness && businesses.length === 1 ? (
-            <ProductSaleForm
-              action={createProductSaleAction}
-              businesses={businesses}
-              products={products}
-              defaultBusinessId={businessId}
-            />
-          ) : (
-            <ProductSaleForm
-              action={createProductSaleAction}
-              businesses={businesses}
-              products={products}
-              defaultBusinessId={businessId}
-            />
-          )}
-        </div>
       )}
 
       {businessId && sales !== null && (
@@ -185,7 +172,7 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
                         })}
                       </td>
                       <td className="px-4 py-3">
-                        {productMap[s.product_id] ?? s.product_id.slice(0, 8)}
+                        {productMap[s.product_id]?.name ?? s.product_id.slice(0, 8)}
                       </td>
                       <td className="px-4 py-3 text-center">{s.quantity}</td>
                       <td className="px-4 py-3 text-right">

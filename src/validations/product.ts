@@ -53,6 +53,10 @@ export const productSaleFormSchema = z.object({
   paymentMethod: z.enum(["cash", "stripe"], {
     error: "支払方法を選択してください",
   }),
+  purchasedAt: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().nullable().optional(),
+  ),
 });
 
 export type ProductSaleFormInput = z.infer<typeof productSaleFormSchema>;
@@ -63,5 +67,6 @@ export function parseProductSaleForm(formData: FormData) {
     productId: formData.get("productId"),
     quantity: formData.get("quantity"),
     paymentMethod: formData.get("paymentMethod"),
+    purchasedAt: formData.get("purchasedAt"),
   });
 }
