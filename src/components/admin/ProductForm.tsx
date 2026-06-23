@@ -142,6 +142,39 @@ export function ProductForm({
         </select>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="defaultTaxRate" className="block text-sm font-medium">
+            デフォルト税率 <span className="text-red-600">*</span>
+          </label>
+          <select
+            id="defaultTaxRate"
+            name="defaultTaxRate"
+            required
+            defaultValue={product?.default_tax_rate ?? 10}
+            className={selectClass}
+          >
+            <option value="10">10%（標準）</option>
+            <option value="8">8%（軽減税率）</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="category" className="block text-sm font-medium">
+            カテゴリ
+            <span className="ml-1 text-xs text-muted">（任意）</span>
+          </label>
+          <input
+            id="category"
+            name="category"
+            type="text"
+            defaultValue={product?.category ?? ""}
+            placeholder="例：釣り餌、レンタル"
+            maxLength={50}
+            className={inputClass}
+          />
+        </div>
+      </div>
+
       <div>
         <label htmlFor="imageUrl" className="block text-sm font-medium">
           画像URL
