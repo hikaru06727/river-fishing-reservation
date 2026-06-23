@@ -2,7 +2,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { getProfile, getUser } from "@/lib/auth/get-user";
 import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
-import { findSalesReservationRows } from "@/lib/repositories/sales.repository";
+import { findProductSalesTotalYen, findSalesReservationRows } from "@/lib/repositories/sales.repository";
 import { aggregateSalesReport } from "@/lib/sales/sales-aggregation";
 import { filterSalesRowsForProfile } from "@/lib/sales/sales-access";
 import { computeSalesInsights, type SalesInsights } from "@/lib/sales/sales-insights";
@@ -15,6 +15,7 @@ export type SalesDashboardResult = {
   insights: SalesInsights;
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
+  productSalesYen: number;
 };
 
 export async function getSalesDashboard(
@@ -46,8 +47,12 @@ export async function getSalesDashboard(
   }
 
   let rows;
+  let productSalesYen = 0;
   try {
-    rows = await findSalesReservationRows(range);
+    [rows, productSalesYen] = await Promise.all([
+      findSalesReservationRows(range),
+      findProductSalesTotalYen(range).catch(() => 0),
+    ]);
   } catch (error) {
     console.error("[getSalesDashboard]", error instanceof Error ? error.message : error);
     throw new Error("売上データの取得に失敗しました。");
@@ -75,6 +80,7 @@ export async function getSalesDashboard(
     insights,
     isAdmin,
     scopedBusinessNames,
+    productSalesYen,
   };
 }
 
