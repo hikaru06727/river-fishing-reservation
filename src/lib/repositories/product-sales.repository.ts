@@ -10,10 +10,11 @@ export type InsertProductSaleInput = {
   quantity: number;
   unit_price_excluding_tax: number;
   tax_rate_percent: number;
-  payment_method: "stripe" | "cash";
+  payment_method: "stripe" | "cash" | "credit_card" | "e_money" | "qr" | "other";
   status?: ProductSaleStatus;
   recorded_by: string;
   purchased_at?: string;
+  sale_session_id?: string | null;
 };
 
 export type UpdateProductSaleInput = {
@@ -82,6 +83,7 @@ export async function insertProductSale(input: InsertProductSaleInput): Promise<
       status: input.status ?? "completed",
       recorded_by: input.recorded_by,
       ...(input.purchased_at ? { purchased_at: input.purchased_at } : {}),
+      ...(input.sale_session_id !== undefined ? { sale_session_id: input.sale_session_id } : {}),
     })
     .select()
     .single();

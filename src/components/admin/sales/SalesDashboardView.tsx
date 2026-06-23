@@ -1,4 +1,4 @@
-import { formatDate } from "@/lib/utils/format";
+import { formatDate, formatYen } from "@/lib/utils/format";
 import {
   SalesBusinessTable,
   SalesDailyTable,
@@ -16,6 +16,7 @@ interface SalesDashboardViewProps {
   insights: SalesInsights;
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
+  productSalesYen: number;
 }
 
 export function SalesDashboardView({
@@ -23,6 +24,7 @@ export function SalesDashboardView({
   insights,
   isAdmin,
   scopedBusinessNames,
+  productSalesYen,
 }: SalesDashboardViewProps) {
   const periodLabel =
     report.dateFrom === report.dateTo
@@ -52,6 +54,12 @@ export function SalesDashboardView({
       <SalesPeriodFilters dateFrom={report.dateFrom} dateTo={report.dateTo} />
 
       <SalesSummaryCards report={report} />
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-sm text-muted">商品売上（期間合計・税抜き）</p>
+        <p className="mt-1 text-2xl font-bold text-foreground">{formatYen(productSalesYen)}</p>
+        <p className="mt-1 text-xs text-muted">確定済み商品販売の合計。予約売上とは別集計です。</p>
+      </div>
 
       <SalesInsightsPanel insights={insights} />
 

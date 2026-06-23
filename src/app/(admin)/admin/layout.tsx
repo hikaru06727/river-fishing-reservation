@@ -8,6 +8,7 @@ const adminLinks = [
   { href: "/admin/sales", label: "売上" },
   { href: "/admin/reservations", label: "予約管理" },
   { href: "/admin/plans", label: "プラン管理" },
+  { href: "/admin/products", label: "商品管理" },
   { href: "/admin/business-hours", label: "営業時間設定" },
   { href: "/admin/spots", label: "釣り場管理" },
   { href: "/admin/slots", label: "空き枠管理" },

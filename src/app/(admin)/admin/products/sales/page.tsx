@@ -2,44 +2,30 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
-import { findProductsByBusinessId } from "@/lib/repositories/products.repository";
-import { getProductSalesForBusiness } from "@/lib/services/product.service";
+import { getSaleSessionsForBusiness } from "@/lib/services/sale-session.service";
 import { isAdminRole } from "@/lib/auth/role";
-import { ProductSaleForm } from "@/components/admin/ProductSaleForm";
-import { createProductSaleAction, deleteProductSaleAction } from "../actions";
-import type { Product, ProductSale } from "@/types/database";
+import { POS_PAYMENT_METHODS } from "@/validations/pos";
+import type { SaleSessionListRow } from "@/lib/sales/sale-session-types";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-export const metadata = { title: "商品販売記録" };
-
-const PAYMENT_LABELS: Record<string, string> = {
-  cash: "現金",
-  stripe: "Stripe",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "決済待ち",
-  completed: "確定",
-  refunded: "返金済み",
-};
-
-const STATUS_COLORS: Record<string, string> = {
-  pending: "text-yellow-700 bg-yellow-50 border-yellow-200",
-  completed: "text-green-700 bg-green-50 border-green-200",
-  refunded: "text-slate-500 bg-slate-50 border-slate-200",
-};
+export const metadata = { title: "販売履歴" };
 
 interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
+  searchParams: Promise<{
+    businessId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    paymentMethod?: string;
+  }>;
 }
 
 export default async function AdminProductSalesPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/admin/login?next=/admin/products/sales");
 
-  const { businessId } = await searchParams;
+  const { businessId, dateFrom, dateTo, paymentMethod } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);
 
   const businesses = await findManageableBusinesses();
@@ -48,37 +34,37 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
     redirect(`/admin/products/sales?businessId=${businesses[0].id}`);
   }
 
-  let sales: ProductSale[] | null = null;
-  let salesError: string | null = null;
-  let products: Product[] = [];
+  let sessions: SaleSessionListRow[] | null = null;
+  let sessionsError: string | null = null;
 
   if (businessId) {
-    const [salesResult, productsData] = await Promise.all([
-      getProductSalesForBusiness(session.profile, businessId),
-      findProductsByBusinessId(businessId),
-    ]);
-
-    if (salesResult.ok) {
-      sales = salesResult.data;
+    const result = await getSaleSessionsForBusiness(session.profile, businessId, {
+      dateFrom: dateFrom || null,
+      dateTo: dateTo || null,
+      paymentMethod: paymentMethod || null,
+    });
+    if (result.ok) {
+      sessions = result.data;
     } else {
-      salesError = salesResult.error;
+      sessionsError = result.error;
     }
-    products = productsData;
   }
 
   const selectedBusiness = businesses.find((b) => b.id === businessId);
-  const productMap = Object.fromEntries(products.map((p) => [p.id, p.name]));
+
+  const filterTotal = sessions?.reduce((s, r) => s + r.total_amount, 0) ?? 0;
+  const hasActiveFilter = dateFrom || dateTo || paymentMethod;
 
   return (
     <div>
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-foreground">商品販売記録</h2>
+        <h2 className="text-lg font-semibold text-foreground">販売履歴</h2>
         {businessId && (
           <Link
-            href={`/admin/products?businessId=${businessId}`}
-            className="text-sm text-primary hover:underline"
+            href={`/admin/pos?businessId=${businessId}`}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90"
           >
-            ← 商品管理
+            レジへ
           </Link>
         )}
       </div>
@@ -112,116 +98,151 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
         </form>
       )}
 
-      {salesError && <p className="mt-4 text-sm text-red-600">{salesError}</p>}
+      {/* 絞り込みフィルター */}
+      {businessId && (
+        <form method="get" action="/admin/products/sales" className="mt-4 rounded-xl border border-border bg-slate-50 p-4">
+          <input type="hidden" name="businessId" value={businessId} />
+          <p className="mb-3 text-xs font-semibold text-muted">絞り込み</p>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <label className="block text-xs text-muted">開始日</label>
+              <input
+                name="dateFrom"
+                type="date"
+                defaultValue={dateFrom ?? ""}
+                className="mt-1 rounded-lg border border-border px-3 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-muted">終了日</label>
+              <input
+                name="dateTo"
+                type="date"
+                defaultValue={dateTo ?? ""}
+                className="mt-1 rounded-lg border border-border px-3 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-muted">支払方法</label>
+              <select
+                name="paymentMethod"
+                defaultValue={paymentMethod ?? ""}
+                className="mt-1 rounded-lg border border-border bg-white px-3 py-1.5 text-sm"
+              >
+                <option value="">すべて</option>
+                {POS_PAYMENT_METHODS.map((m) => (
+                  <option key={m.value} value={m.value}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              className="rounded-lg border border-border bg-white px-4 py-1.5 text-sm hover:bg-slate-100"
+            >
+              絞り込む
+            </button>
+            {hasActiveFilter && (
+              <Link
+                href={`/admin/products/sales?businessId=${businessId}`}
+                className="text-xs text-primary hover:underline"
+              >
+                クリア
+              </Link>
+            )}
+          </div>
+        </form>
+      )}
+
+      {sessionsError && <p className="mt-4 text-sm text-red-600">{sessionsError}</p>}
 
       {!businessId && (
         <p className="mt-4 text-sm text-muted">
           {businesses.length === 0
             ? "操作可能な事業がありません。"
-            : "事業を選択して販売記録を表示します。"}
+            : "事業を選択して販売履歴を表示します。"}
         </p>
       )}
 
-      {businessId && (
+      {businessId && sessions !== null && (
         <div className="mt-6">
-          <h3 className="mb-3 text-sm font-semibold text-foreground">現地販売を登録</h3>
-          {selectedBusiness && businesses.length === 1 ? (
-            <ProductSaleForm
-              action={createProductSaleAction}
-              businesses={businesses}
-              products={products}
-              defaultBusinessId={businessId}
-            />
-          ) : (
-            <ProductSaleForm
-              action={createProductSaleAction}
-              businesses={businesses}
-              products={products}
-              defaultBusinessId={businessId}
-            />
-          )}
-        </div>
-      )}
-
-      {businessId && sales !== null && (
-        <div className="mt-8">
           {selectedBusiness && (
             <p className="mb-2 text-sm text-muted">
               事業:{" "}
               <span className="font-medium text-foreground">{selectedBusiness.name}</span>
             </p>
           )}
-          <h3 className="mb-3 text-sm font-semibold text-foreground">販売履歴</h3>
-          {sales.length === 0 ? (
+
+          {sessions.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">
-              販売記録がありません。
+              {hasActiveFilter ? "条件に一致する販売履歴がありません。" : "販売履歴がありません。"}
             </p>
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-slate-50">
-                    <th className="px-4 py-3 text-left font-medium">日時</th>
-                    <th className="px-4 py-3 text-left font-medium">商品</th>
-                    <th className="px-4 py-3 text-center font-medium">数量</th>
-                    <th className="px-4 py-3 text-right font-medium">単価（税抜）</th>
-                    <th className="px-4 py-3 text-center font-medium">税率</th>
-                    <th className="px-4 py-3 text-left font-medium">支払方法</th>
-                    <th className="px-4 py-3 text-center font-medium">状態</th>
-                    <th className="px-4 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sales.map((s) => (
-                    <tr key={s.id} className="border-b border-border last:border-0">
-                      <td className="px-4 py-3 text-muted">
-                        {new Date(s.purchased_at).toLocaleString("ja-JP", {
-                          year: "numeric",
-                          month: "2-digit",
-                          day: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </td>
-                      <td className="px-4 py-3">
-                        {productMap[s.product_id] ?? s.product_id.slice(0, 8)}
-                      </td>
-                      <td className="px-4 py-3 text-center">{s.quantity}</td>
-                      <td className="px-4 py-3 text-right">
-                        ¥{s.unit_price_excluding_tax.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-3 text-center">{s.tax_rate_percent}%</td>
-                      <td className="px-4 py-3">
-                        {PAYMENT_LABELS[s.payment_method] ?? s.payment_method}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <span
-                          className={`inline-block rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[s.status] ?? ""}`}
-                        >
-                          {STATUS_LABELS[s.status] ?? s.status}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <form action={deleteProductSaleAction}>
-                          <input type="hidden" name="id" value={s.id} />
-                          <input type="hidden" name="businessId" value={businessId} />
-                          <button
-                            type="submit"
-                            className="text-xs text-red-500 hover:underline"
-                            onClick={(e) => {
-                              if (!confirm("この販売記録を削除してよろしいですか？"))
-                                e.preventDefault();
-                            }}
-                          >
-                            削除
-                          </button>
-                        </form>
-                      </td>
+            <>
+              {/* 合計表示 */}
+              <div className="mb-3 flex items-center justify-between text-sm">
+                <span className="text-muted">{sessions.length}件</span>
+                <span className="font-semibold text-foreground">
+                  合計 ¥{filterTotal.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-border">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-slate-50">
+                      <th className="px-4 py-3 text-left font-medium">販売日時</th>
+                      <th className="px-4 py-3 text-center font-medium">商品数</th>
+                      <th className="px-4 py-3 text-left font-medium">支払方法</th>
+                      <th className="px-4 py-3 text-right font-medium">税抜合計</th>
+                      <th className="px-4 py-3 text-right font-medium">消費税</th>
+                      <th className="px-4 py-3 text-right font-medium">税込合計</th>
+                      <th className="px-4 py-3"></th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody>
+                    {sessions.map((s) => {
+                      const pmLabel = POS_PAYMENT_METHODS.find((m) => m.value === s.payment_method)?.label
+                        ?? s.payment_method;
+                      return (
+                        <tr key={s.id} className="border-b border-border last:border-0">
+                          <td className="px-4 py-3 text-muted">
+                            {new Date(s.sold_at).toLocaleString("ja-JP", {
+                              year: "numeric",
+                              month: "2-digit",
+                              day: "2-digit",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-4 py-3 text-center">{s.item_count}種</td>
+                          <td className="px-4 py-3">
+                            {pmLabel}
+                            {s.payment_other_label ? `（${s.payment_other_label}）` : ""}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            ¥{(s.subtotal_amount - s.discount_amount).toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-right">¥{s.tax_amount.toLocaleString()}</td>
+                          <td className="px-4 py-3 text-right font-medium">
+                            ¥{s.total_amount.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3">
+                            <Link
+                              href={`/admin/products/sales/${s.id}`}
+                              className="text-sm text-primary hover:underline"
+                            >
+                              詳細
+                            </Link>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
         </div>
       )}

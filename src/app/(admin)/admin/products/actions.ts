@@ -24,7 +24,7 @@ export async function createProductAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, name, description, priceExcludingTax, stockQuantity, imageUrl, status } =
+  const { businessId, name, description, priceExcludingTax, stockQuantity, imageUrl, status, defaultTaxRate, category } =
     parsed.data;
 
   const result = await createProduct(session.profile, {
@@ -35,6 +35,8 @@ export async function createProductAction(
     stock_quantity: stockQuantity ?? null,
     image_url: imageUrl ?? null,
     status,
+    default_tax_rate: defaultTaxRate,
+    category: category ?? null,
   });
 
   if (!result.ok) {
@@ -61,7 +63,7 @@ export async function updateProductAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, name, description, priceExcludingTax, stockQuantity, imageUrl, status } =
+  const { businessId, name, description, priceExcludingTax, stockQuantity, imageUrl, status, defaultTaxRate, category } =
     parsed.data;
 
   const result = await updateProductById(session.profile, id, {
@@ -71,6 +73,8 @@ export async function updateProductAction(
     stock_quantity: stockQuantity ?? null,
     image_url: imageUrl ?? null,
     status,
+    default_tax_rate: defaultTaxRate,
+    category: category ?? null,
   });
 
   if (!result.ok) {
@@ -110,13 +114,14 @@ export async function createProductSaleAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, productId, quantity, paymentMethod } = parsed.data;
+  const { businessId, productId, quantity, paymentMethod, purchasedAt } = parsed.data;
 
   const result = await createProductSale(session.profile, {
     business_id: businessId,
     product_id: productId,
     quantity,
     payment_method: paymentMethod,
+    purchased_at: purchasedAt ?? null,
   });
 
   if (!result.ok) {

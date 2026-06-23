@@ -162,6 +162,7 @@ export type CreateProductSaleInput = {
   product_id: string;
   quantity: number;
   payment_method: "stripe" | "cash";
+  purchased_at?: string | null;
 };
 
 export async function createProductSale(
@@ -212,6 +213,7 @@ export async function createProductSale(
       payment_method: input.payment_method,
       status: "completed",
       recorded_by: profile.id,
+      ...(input.purchased_at ? { purchased_at: input.purchased_at } : {}),
     });
 
     if (product.stock_quantity !== null) {

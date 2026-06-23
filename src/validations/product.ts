@@ -27,6 +27,13 @@ export const productFormSchema = z.object({
   status: z.enum(["on_sale", "off_sale", "archived"], {
     error: "ステータスを選択してください",
   }),
+  defaultTaxRate: z.coerce
+    .number({ error: "税率は数値で入力してください" })
+    .refine((v) => v === 10 || v === 8, "税率は 10% または 8% を選択してください"),
+  category: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().max(50, "カテゴリは50文字以内で入力してください").nullable().optional(),
+  ),
 });
 
 export type ProductFormInput = z.infer<typeof productFormSchema>;
@@ -40,6 +47,8 @@ export function parseProductForm(formData: FormData) {
     stockQuantity: formData.get("stockQuantity"),
     imageUrl: formData.get("imageUrl"),
     status: formData.get("status"),
+    defaultTaxRate: formData.get("defaultTaxRate") ?? "10",
+    category: formData.get("category"),
   });
 }
 
@@ -53,6 +62,10 @@ export const productSaleFormSchema = z.object({
   paymentMethod: z.enum(["cash", "stripe"], {
     error: "支払方法を選択してください",
   }),
+  purchasedAt: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().nullable().optional(),
+  ),
 });
 
 export type ProductSaleFormInput = z.infer<typeof productSaleFormSchema>;
@@ -63,5 +76,6 @@ export function parseProductSaleForm(formData: FormData) {
     productId: formData.get("productId"),
     quantity: formData.get("quantity"),
     paymentMethod: formData.get("paymentMethod"),
+    purchasedAt: formData.get("purchasedAt"),
   });
 }

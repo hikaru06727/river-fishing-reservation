@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ManualSaleForm } from "@/components/admin/ManualSaleForm";
+import { DeleteConfirmButton } from "@/components/admin/DeleteConfirmButton";
 import { deleteManualSaleAction, updateManualSaleAction } from "../../actions";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import {
@@ -72,15 +73,7 @@ export default async function AdminManualSalesEditPage({ params }: PageProps) {
         <form action={deleteManualSaleAction}>
           <input type="hidden" name="id" value={sale.id} />
           <input type="hidden" name="businessId" value={sale.business_id} />
-          <button
-            type="submit"
-            className="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-            onClick={(e) => {
-              if (!confirm("この売上を削除してよろしいですか？")) e.preventDefault();
-            }}
-          >
-            削除する
-          </button>
+          <DeleteConfirmButton message="この売上を削除してよろしいですか？" />
         </form>
       </div>
     </div>

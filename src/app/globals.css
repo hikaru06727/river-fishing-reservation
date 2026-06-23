@@ -28,3 +28,17 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
 }
+
+@media print {
+  .print\:hidden {
+    display: none !important;
+  }
+  nav,
+  aside,
+  header {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+}

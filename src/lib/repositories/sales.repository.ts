@@ -93,6 +93,29 @@ function mapSalesReservationRow(
   };
 }
 
+/**
+ * 期間内の確定済み商品売上合計（税抜き）を取得
+ * product_sales テーブルを直接クエリし、RLS でアクセス制御する
+ */
+export async function findProductSalesTotalYen(range: SalesDateRange): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("product_sales")
+    .select("quantity, unit_price_excluding_tax")
+    .eq("status", "completed")
+    .gte("purchased_at", range.dateFrom)
+    .lte("purchased_at", range.dateTo + "T23:59:59.999Z");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).reduce(
+    (sum, row) => sum + row.quantity * row.unit_price_excluding_tax,
+    0,
+  );
+}
+
 /** 期間内の予約行を取得（管理画面・RLS 下） */
 export async function findSalesReservationRows(
   range: SalesDateRange,
