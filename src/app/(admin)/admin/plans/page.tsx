@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AdminPlansTable } from "@/components/admin/AdminPlansTable";
 import { PlanFilters } from "@/components/admin/PlanFilters";
 import { getManagementScope } from "@/lib/auth/management-access";
+import { getAuthenticatedManagement } from "@/lib/auth/get-user";
+import { hasPermission } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth/role";
 import {
   buildAdminPlanSearchParams,
@@ -26,6 +29,10 @@ interface AdminPlansPageProps {
 }
 
 export default async function AdminPlansPage({ searchParams }: AdminPlansPageProps) {
+  const session = await getAuthenticatedManagement();
+  if (!session) redirect("/admin/login?next=/admin/plans");
+  if (!hasPermission(session.profile.role, "PRODUCT_MANAGE")) redirect("/admin");
+
   const params = await searchParams;
   const filters = parseAdminPlanFilters(params);
 

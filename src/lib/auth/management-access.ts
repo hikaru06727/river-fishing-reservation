@@ -6,7 +6,7 @@ import {
 } from "@/lib/repositories/businesses.repository";
 import { findPlanSpotIdByPlanId } from "@/lib/repositories/plans.repository";
 import { getProfile, getUser } from "@/lib/auth/get-user";
-import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
+import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { Profile, UserRole } from "@/types/database";
 
 export type ManagementScope = {
@@ -27,10 +27,10 @@ export function canManageBusinessForProfile(
   if (isAdminRole(profile.role)) {
     return true;
   }
-  if (!isBusinessAdminRole(profile.role)) {
-    return false;
+  if (isBusinessAdminRole(profile.role) || isStaffRole(profile.role)) {
+    return assignedBusinessIds.includes(businessId);
   }
-  return assignedBusinessIds.includes(businessId);
+  return false;
 }
 
 /** 純粋関数: spot の business_id 経由で spot 操作可否 */

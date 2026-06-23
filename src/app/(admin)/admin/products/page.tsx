@@ -4,6 +4,7 @@ import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import { getProductsForBusiness } from "@/lib/services/product.service";
 import { isAdminRole } from "@/lib/auth/role";
+import { hasPermission } from "@/lib/permissions";
 import type { Product } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -30,6 +31,10 @@ interface PageProps {
 export default async function AdminProductsPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/admin/login?next=/admin/products");
+
+  if (!hasPermission(session.profile.role, "PRODUCT_MANAGE")) {
+    redirect("/admin");
+  }
 
   const { businessId } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);
@@ -142,11 +147,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map((p) => {
-                    const canSell =
-                      p.status === "on_sale" &&
-                      (p.stock_quantity === null || p.stock_quantity > 0);
-                    return (
+                  {products.map((p) => (
                     <tr key={p.id} className="border-b border-border last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-medium">{p.name}</div>
@@ -170,30 +171,15 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          {canSell ? (
-                            <Link
-                              href={`/admin/products/${p.id}/sell`}
-                              className="text-sm font-medium text-primary hover:underline"
-                            >
-                              販売登録
-                            </Link>
-                          ) : (
-                            <span className="text-sm text-slate-300 cursor-not-allowed">
-                              販売登録
-                            </span>
-                          )}
-                          <Link
-                            href={`/admin/products/${p.id}/edit`}
-                            className="text-sm text-muted hover:underline"
-                          >
-                            編集
-                          </Link>
-                        </div>
+                        <Link
+                          href={`/admin/products/${p.id}/edit`}
+                          className="text-sm text-muted hover:underline"
+                        >
+                          編集
+                        </Link>
                       </td>
                     </tr>
-                    );
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>

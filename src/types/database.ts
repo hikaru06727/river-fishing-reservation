@@ -7,6 +7,7 @@ import type {
   ProductStatus,
   ReservationStatus,
   SlotStatus,
+  StaffStatus,
   UserRole,
 } from "@/types/domain";
 
@@ -946,6 +947,45 @@ export interface Database {
         };
         Relationships: [];
       };
+      staff_members: {
+        Row: {
+          id: string;
+          business_id: string;
+          user_id: string | null;
+          email: string;
+          name: string | null;
+          role: string;
+          status: StaffStatus;
+          invited_at: string | null;
+          joined_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          user_id?: string | null;
+          email: string;
+          name?: string | null;
+          role?: string;
+          status?: StaffStatus;
+          invited_at?: string | null;
+          joined_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          user_id?: string | null;
+          email?: string;
+          name?: string | null;
+          role?: string;
+          status?: StaffStatus;
+          invited_at?: string | null;
+          joined_at?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1026,6 +1066,7 @@ export type Product = Database["public"]["Tables"]["products"]["Row"];
 export type ProductSale = Database["public"]["Tables"]["product_sales"]["Row"];
 export type SaleSession = Database["public"]["Tables"]["sale_sessions"]["Row"];
 export type SaleSessionItem = Database["public"]["Tables"]["sale_session_items"]["Row"];
+export type StaffMemberRow = Database["public"]["Tables"]["staff_members"]["Row"];
 export type SaleSessionDiscount = Database["public"]["Tables"]["sale_session_discounts"]["Row"];
 export type PosPaymentMethod = SaleSession["payment_method"];
 export type CatchReport = Database["public"]["Tables"]["catch_reports"]["Row"];

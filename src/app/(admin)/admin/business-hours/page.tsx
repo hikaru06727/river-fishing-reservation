@@ -1,9 +1,12 @@
+import { redirect } from "next/navigation";
 import { BusinessDayExceptionsPanel } from "@/components/admin/BusinessDayExceptionsPanel";
 import { BusinessExceptionBreaksSection } from "@/components/admin/BusinessExceptionBreaksSection";
 import { BusinessHoursSpotFilters } from "@/components/admin/BusinessHoursSpotFilters";
 import { BusinessHoursWeeklyForm } from "@/components/admin/BusinessHoursWeeklyForm";
 import { BusinessWeeklyBreaksSection } from "@/components/admin/BusinessWeeklyBreaksSection";
 import { getManagementScope } from "@/lib/auth/management-access";
+import { getAuthenticatedManagement } from "@/lib/auth/get-user";
+import { hasPermission } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth/role";
 import {
   getBusinessHoursDataForSpot,
@@ -29,6 +32,10 @@ interface AdminBusinessHoursPageProps {
 export default async function AdminBusinessHoursPage({
   searchParams,
 }: AdminBusinessHoursPageProps) {
+  const session = await getAuthenticatedManagement();
+  if (!session) redirect("/admin/login?next=/admin/business-hours");
+  if (!hasPermission(session.profile.role, "BUSINESS_SETTINGS")) redirect("/admin");
+
   const params = await searchParams;
   const filters = parseAdminBusinessHoursFilters(params);
 

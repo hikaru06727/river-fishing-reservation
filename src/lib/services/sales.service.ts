@@ -1,14 +1,20 @@
 import { unstable_noStore as noStore } from "next/cache";
 import { getProfile, getUser } from "@/lib/auth/get-user";
-import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
+import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
-import { findProductSalesTotalYen, findSalesReservationRows } from "@/lib/repositories/sales.repository";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
+import { findProductSalesTotalYen, findSalesReservationRows, findTodaySalesRows } from "@/lib/repositories/sales.repository";
 import { aggregateSalesReport } from "@/lib/sales/sales-aggregation";
 import { filterSalesRowsForProfile } from "@/lib/sales/sales-access";
 import { computeSalesInsights, type SalesInsights } from "@/lib/sales/sales-insights";
 import { resolveBusinessDayCountForSales } from "@/lib/sales/sales-insights-context";
 import { parseSalesDateRange } from "@/lib/sales/sales-period";
-import type { SalesDateRange, SalesReport } from "@/lib/sales/sales-types";
+import { aggregateTodaySummary } from "@/lib/sales/today-summary";
+import type { SalesDateRange, SalesReport, TodaySalesSummary } from "@/lib/sales/sales-types";
+
+function getTodayJst(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}
 
 export type SalesDashboardResult = {
   report: SalesReport;
@@ -16,6 +22,7 @@ export type SalesDashboardResult = {
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
   productSalesYen: number;
+  todaySummary: TodaySalesSummary;
 };
 
 export async function getSalesDashboard(
@@ -26,17 +33,24 @@ export async function getSalesDashboard(
   const user = await getUser();
   const profile = await getProfile();
 
-  if (!user || !profile || (!isAdminRole(profile.role) && !isBusinessAdminRole(profile.role))) {
+  const isAdmin = isAdminRole(profile?.role);
+  const isBusinessAdmin = isBusinessAdminRole(profile?.role);
+  const isStaff = isStaffRole(profile?.role);
+
+  if (!user || !profile || (!isAdmin && !isBusinessAdmin && !isStaff)) {
     return null;
   }
 
   const range = parseSalesDateRange(searchParams);
-  const isAdmin = isAdminRole(profile.role);
 
   let assignedBusinessIds: string[] = [];
   if (!isAdmin) {
     try {
-      assignedBusinessIds = await findAssignedBusinessIdsByUserId(user.id);
+      if (isStaff) {
+        assignedBusinessIds = await findAssignedBusinessIdsByStaffUserId(user.id);
+      } else {
+        assignedBusinessIds = await findAssignedBusinessIdsByUserId(user.id);
+      }
     } catch (error) {
       console.error(
         "[getSalesDashboard] assigned businesses",
@@ -46,13 +60,19 @@ export async function getSalesDashboard(
     }
   }
 
+  const todayJst = getTodayJst();
   let rows;
   let productSalesYen = 0;
+  let todaySummary: TodaySalesSummary;
   try {
-    [rows, productSalesYen] = await Promise.all([
+    const [reservationRows, productYen, todayRaw] = await Promise.all([
       findSalesReservationRows(range),
       findProductSalesTotalYen(range).catch(() => 0),
+      findTodaySalesRows(todayJst).catch(() => []),
     ]);
+    rows = reservationRows;
+    productSalesYen = productYen;
+    todaySummary = aggregateTodaySummary(todayRaw, todayJst);
   } catch (error) {
     console.error("[getSalesDashboard]", error instanceof Error ? error.message : error);
     throw new Error("売上データの取得に失敗しました。");
@@ -62,6 +82,7 @@ export async function getSalesDashboard(
   const report = aggregateSalesReport(scopedRows, range);
 
   const businessDayCount = await resolveBusinessDayCountForSales(range, isAdmin, assignedBusinessIds);
+
   const insights = computeSalesInsights(report, businessDayCount);
 
   let scopedBusinessNames: string[] | null = null;
@@ -81,6 +102,7 @@ export async function getSalesDashboard(
     isAdmin,
     scopedBusinessNames,
     productSalesYen,
+    todaySummary,
   };
 }
 
