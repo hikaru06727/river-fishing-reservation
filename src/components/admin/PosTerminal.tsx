@@ -510,9 +510,18 @@ export function PosTerminal({
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex-1 min-w-0">
                         <p className="truncate font-medium text-foreground">{product.name}</p>
-                        <p className="text-xs text-muted">
-                          ¥{product.price_excluding_tax.toLocaleString()} × {quantity}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="text-xs text-muted">
+                            ¥{product.price_excluding_tax.toLocaleString()} × {quantity}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => setShowItemModal(product.id)}
+                            className="text-xs text-primary hover:underline"
+                          >
+                            編集
+                          </button>
+                        </div>
                         {settings?.taxRate !== undefined && settings.taxRate !== (product.default_tax_rate ?? 10) && (
                           <p className="text-xs text-amber-600">税率 {settings.taxRate}%</p>
                         )}
@@ -522,9 +531,29 @@ export function PosTerminal({
                           </p>
                         )}
                       </div>
-                      <p className="shrink-0 font-medium text-foreground">
-                        ¥{(gross - itemDiscountAmount).toLocaleString()}
-                      </p>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <p className="font-medium text-foreground">
+                          ¥{(gross - itemDiscountAmount).toLocaleString()}
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(product.id, quantity - 1, product.stock_quantity)}
+                            className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:bg-slate-50"
+                          >
+                            −
+                          </button>
+                          <span className="w-5 text-center text-xs">{quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => setQuantity(product.id, quantity + 1, product.stock_quantity)}
+                            disabled={product.stock_quantity !== null && quantity >= product.stock_quantity}
+                            className="flex h-5 w-5 items-center justify-center rounded border border-border text-xs hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+                          >
+                            ＋
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </li>
                 );
@@ -728,6 +757,49 @@ export function PosTerminal({
           <p className="mt-1 text-xs text-muted">
             単価: ¥{modalProduct.price_excluding_tax.toLocaleString()}（税抜）
           </p>
+
+          {/* 数量編集 */}
+          <div className="mt-4">
+            <p className="text-xs font-medium text-foreground">数量</p>
+            <div className="mt-1.5 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setQuantity(modalProduct.id, (cart.get(modalProduct.id) ?? 0) - 1, modalProduct.stock_quantity)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-base font-bold hover:bg-slate-50"
+              >
+                −
+              </button>
+              <input
+                type="number"
+                min={0}
+                max={modalProduct.stock_quantity ?? undefined}
+                value={cart.get(modalProduct.id) ?? 0}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setQuantity(modalProduct.id, isNaN(n) ? 0 : n, modalProduct.stock_quantity);
+                }}
+                className="w-16 rounded-lg border border-border px-2 py-1.5 text-center text-sm outline-none focus:border-primary [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <button
+                type="button"
+                onClick={() => setQuantity(modalProduct.id, (cart.get(modalProduct.id) ?? 0) + 1, modalProduct.stock_quantity)}
+                disabled={modalProduct.stock_quantity !== null && (cart.get(modalProduct.id) ?? 0) >= modalProduct.stock_quantity}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-base font-bold hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
+              >
+                ＋
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setQuantity(modalProduct.id, 0, null);
+                  setShowItemModal(null);
+                }}
+                className="ml-auto text-xs text-red-500 hover:text-red-700 hover:underline"
+              >
+                削除
+              </button>
+            </div>
+          </div>
 
           {/* 税率選択 */}
           <div className="mt-4">
