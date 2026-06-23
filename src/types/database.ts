@@ -3,6 +3,8 @@ import type {
   ContentStatus,
   PaymentMethod,
   PaymentStatus,
+  ProductSaleStatus,
+  ProductStatus,
   ReservationStatus,
   SlotStatus,
   UserRole,
@@ -21,6 +23,8 @@ export type {
   ContentStatus,
   PaymentMethod,
   PaymentStatus,
+  ProductSaleStatus,
+  ProductStatus,
   ReservationStatus,
   SlotStatus,
   UserRole,
@@ -639,6 +643,90 @@ export interface Database {
         };
         Relationships: [];
       };
+      products: {
+        Row: {
+          id: string;
+          business_id: string;
+          name: string;
+          description: string | null;
+          price_excluding_tax: number;
+          stock_quantity: number | null;
+          image_url: string | null;
+          status: ProductStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          name: string;
+          description?: string | null;
+          price_excluding_tax: number;
+          stock_quantity?: number | null;
+          image_url?: string | null;
+          status?: ProductStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          name?: string;
+          description?: string | null;
+          price_excluding_tax?: number;
+          stock_quantity?: number | null;
+          image_url?: string | null;
+          status?: ProductStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      product_sales: {
+        Row: {
+          id: string;
+          business_id: string;
+          product_id: string;
+          quantity: number;
+          unit_price_excluding_tax: number;
+          tax_rate_percent: number;
+          payment_method: "stripe" | "cash";
+          status: ProductSaleStatus;
+          recorded_by: string;
+          purchased_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          product_id: string;
+          quantity: number;
+          unit_price_excluding_tax: number;
+          tax_rate_percent: number;
+          payment_method: "stripe" | "cash";
+          status?: ProductSaleStatus;
+          recorded_by: string;
+          purchased_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          product_id?: string;
+          quantity?: number;
+          unit_price_excluding_tax?: number;
+          tax_rate_percent?: number;
+          payment_method?: "stripe" | "cash";
+          status?: ProductSaleStatus;
+          recorded_by?: string;
+          purchased_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       catch_reports: {
         Row: {
           id: string;
@@ -808,5 +896,7 @@ export type Payment = Database["public"]["Tables"]["payments"]["Row"];
 export type TaxRate = Database["public"]["Tables"]["tax_rates"]["Row"];
 export type Refund = Database["public"]["Tables"]["refunds"]["Row"];
 export type ManualSale = Database["public"]["Tables"]["manual_sales"]["Row"];
+export type Product = Database["public"]["Tables"]["products"]["Row"];
+export type ProductSale = Database["public"]["Tables"]["product_sales"]["Row"];
 export type CatchReport = Database["public"]["Tables"]["catch_reports"]["Row"];
 export type BlogPost = Database["public"]["Tables"]["blog_posts"]["Row"];

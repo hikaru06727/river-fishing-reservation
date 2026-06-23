@@ -19,6 +19,8 @@ export type PaymentStatus =
   | "disputed";
 export type ContentStatus = "draft" | "published";
 export type SlotStatus = "open" | "closed";
+export type ProductStatus = "on_sale" | "off_sale" | "archived";
+export type ProductSaleStatus = "pending" | "completed" | "refunded";
 
 /** 認証済みユーザーのアプリ内表現（Supabase User 型に非依存） */
 export type AuthUser = {
