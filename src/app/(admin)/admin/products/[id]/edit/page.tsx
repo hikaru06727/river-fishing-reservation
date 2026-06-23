@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ProductForm } from "@/components/admin/ProductForm";
+import { DeleteConfirmButton } from "@/components/admin/DeleteConfirmButton";
 import { deleteProductAction, updateProductAction } from "../../actions";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
@@ -63,15 +64,7 @@ export default async function AdminProductsEditPage({ params }: PageProps) {
         <form action={deleteProductAction}>
           <input type="hidden" name="id" value={product.id} />
           <input type="hidden" name="businessId" value={product.business_id} />
-          <button
-            type="submit"
-            className="rounded-xl border border-red-200 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-            onClick={(e) => {
-              if (!confirm("この商品を削除してよろしいですか？")) e.preventDefault();
-            }}
-          >
-            削除する
-          </button>
+          <DeleteConfirmButton message="この商品を削除してよろしいですか？" />
         </form>
       </div>
     </div>

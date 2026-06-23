@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DeleteConfirmButton } from "@/components/admin/DeleteConfirmButton";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import { findProductsByBusinessId } from "@/lib/repositories/products.repository";
@@ -205,16 +206,11 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
                         <form action={deleteProductSaleAction}>
                           <input type="hidden" name="id" value={s.id} />
                           <input type="hidden" name="businessId" value={businessId} />
-                          <button
-                            type="submit"
+                          <DeleteConfirmButton
+                            message="この販売記録を削除してよろしいですか？"
+                            label="削除"
                             className="text-xs text-red-500 hover:underline"
-                            onClick={(e) => {
-                              if (!confirm("この販売記録を削除してよろしいですか？"))
-                                e.preventDefault();
-                            }}
-                          >
-                            削除
-                          </button>
+                          />
                         </form>
                       </td>
                     </tr>
