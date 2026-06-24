@@ -8,7 +8,8 @@ import { findProductSalesCountsByBusinessId, findProductsByBusinessId } from "@/
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
-import { isAdminRole } from "@/lib/auth/role";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
+import { isAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { Product } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -39,9 +40,12 @@ export default async function AdminPosPage({ searchParams }: PageProps) {
   let taxRatePercent = 10;
 
   if (businessId) {
+    const isStaff = isStaffRole(session.profile.role);
     const assignedIds = isAdmin
       ? []
-      : await findAssignedBusinessIdsByUserId(session.profile.id);
+      : isStaff
+        ? await findAssignedBusinessIdsByStaffUserId(session.profile.id)
+        : await findAssignedBusinessIdsByUserId(session.profile.id);
 
     if (!canManageBusinessForProfile(session.profile, businessId, assignedIds)) {
       accessError = "この事業へのアクセス権限がありません。";
