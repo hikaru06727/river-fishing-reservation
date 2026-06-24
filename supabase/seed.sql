@@ -36,6 +36,11 @@ INSERT INTO locations (name, slug, description, address, prefecture, capacity) V
   )
 ON CONFLICT (slug) DO NOTHING;
 
+-- migration 006 はマイグレーション段階で実行されるため seed 時点では locations が空。
+-- seed.sql 内で改めて business_id を紐づける。
+UPDATE locations l SET business_id = b.id FROM businesses b WHERE l.slug = 'seiryu-keikoku' AND b.slug = 'biz-seiryu-keikoku';
+UPDATE locations l SET business_id = b.id FROM businesses b WHERE l.slug = 'okutama' AND b.slug = 'biz-okutama';
+
 -- ------------------------------------------------------------
 -- 釣り場別プラン（Phase 8 検証用: 1h / 2h）
 -- ------------------------------------------------------------
