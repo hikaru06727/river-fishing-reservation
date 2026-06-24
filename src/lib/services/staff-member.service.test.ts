@@ -4,6 +4,7 @@ const {
   insertStaffMemberMock,
   findStaffMembersByBusinessIdMock,
   findStaffMemberByIdMock,
+  findStaffMemberByIdAdminMock,
   disableStaffMemberMock,
   enableStaffMemberMock,
   acceptStaffInvitationMock,
@@ -14,6 +15,7 @@ const {
   insertStaffMemberMock: vi.fn(),
   findStaffMembersByBusinessIdMock: vi.fn(),
   findStaffMemberByIdMock: vi.fn(),
+  findStaffMemberByIdAdminMock: vi.fn(),
   disableStaffMemberMock: vi.fn(),
   enableStaffMemberMock: vi.fn(),
   acceptStaffInvitationMock: vi.fn(),
@@ -26,6 +28,7 @@ vi.mock("@/lib/repositories/staff-members.repository", () => ({
   insertStaffMember: insertStaffMemberMock,
   findStaffMembersByBusinessId: findStaffMembersByBusinessIdMock,
   findStaffMemberById: findStaffMemberByIdMock,
+  findStaffMemberByIdAdmin: findStaffMemberByIdAdminMock,
   disableStaffMember: disableStaffMemberMock,
   enableStaffMember: enableStaffMemberMock,
   acceptStaffInvitation: acceptStaffInvitationMock,
@@ -89,6 +92,13 @@ const SAMPLE_STAFF = {
   invited_at: "2026-06-24T00:00:00Z",
   joined_at: null,
   created_at: "2026-06-24T00:00:00Z",
+};
+
+const SAMPLE_STAFF_ACTIVE = {
+  ...SAMPLE_STAFF,
+  user_id: "user-staff-1",
+  status: "active" as const,
+  joined_at: "2026-06-25T00:00:00Z",
 };
 
 describe("getStaffMembers", () => {
@@ -158,6 +168,17 @@ describe("disableStaff", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("business_admin はスタッフを無効化できる", async () => {
+    findStaffMemberByIdAdminMock.mockResolvedValue(SAMPLE_STAFF_ACTIVE);
+    disableStaffMemberMock.mockResolvedValue(undefined);
+    updateProfileRoleMock.mockResolvedValue({ error: null });
+
+    const result = await disableStaff(BUSINESS_ADMIN_PROFILE, "staff-1");
+    expect(result.ok).toBe(true);
+    expect(disableStaffMemberMock).toHaveBeenCalledWith("staff-1");
+  });
+
+  it("user_id が null のスタッフ（招待中）も無効化できる", async () => {
+    findStaffMemberByIdAdminMock.mockResolvedValue(SAMPLE_STAFF);
     disableStaffMemberMock.mockResolvedValue(undefined);
 
     const result = await disableStaff(BUSINESS_ADMIN_PROFILE, "staff-1");
@@ -169,17 +190,35 @@ describe("disableStaff", () => {
     const result = await disableStaff(STAFF_PROFILE, "staff-1");
     expect(result.ok).toBe(false);
   });
+
+  it("スタッフが見つからない場合はエラー", async () => {
+    findStaffMemberByIdAdminMock.mockResolvedValue(null);
+
+    const result = await disableStaff(BUSINESS_ADMIN_PROFILE, "staff-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("見つかりません");
+  });
 });
 
 describe("enableStaff", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("business_admin はスタッフを再有効化できる", async () => {
+    findStaffMemberByIdAdminMock.mockResolvedValue(SAMPLE_STAFF_ACTIVE);
     enableStaffMemberMock.mockResolvedValue(undefined);
+    updateProfileRoleMock.mockResolvedValue({ error: null });
 
     const result = await enableStaff(BUSINESS_ADMIN_PROFILE, "staff-1");
     expect(result.ok).toBe(true);
     expect(enableStaffMemberMock).toHaveBeenCalledWith("staff-1");
+  });
+
+  it("招待未受諾（user_id が null）のスタッフは再有効化できない", async () => {
+    findStaffMemberByIdAdminMock.mockResolvedValue(SAMPLE_STAFF);
+
+    const result = await enableStaff(BUSINESS_ADMIN_PROFILE, "staff-1");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("招待未受諾");
   });
 });
 

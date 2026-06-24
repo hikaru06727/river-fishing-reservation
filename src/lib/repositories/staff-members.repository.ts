@@ -183,11 +183,30 @@ export async function acceptStaffInvitation(
   return data;
 }
 
-/** スタッフを無効化 */
-export async function disableStaffMember(id: string): Promise<void> {
-  const supabase = await createClient();
+/** service_role でスタッフレコードを取得（disable/enable フローで権限問わず読む） */
+export async function findStaffMemberByIdAdmin(
+  id: string,
+): Promise<StaffMemberRow | null> {
+  const admin = createAdminClient();
 
-  const { error } = await supabase
+  const { data, error } = await admin
+    .from("staff_members")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
+/** スタッフを無効化（service_role 使用: business_admin の RLS を回避） */
+export async function disableStaffMember(id: string): Promise<void> {
+  const admin = createAdminClient();
+
+  const { error } = await admin
     .from("staff_members")
     .update({ status: "disabled" })
     .eq("id", id);
@@ -197,11 +216,11 @@ export async function disableStaffMember(id: string): Promise<void> {
   }
 }
 
-/** スタッフを再有効化 */
+/** スタッフを再有効化（service_role 使用: business_admin の RLS を回避） */
 export async function enableStaffMember(id: string): Promise<void> {
-  const supabase = await createClient();
+  const admin = createAdminClient();
 
-  const { error } = await supabase
+  const { error } = await admin
     .from("staff_members")
     .update({ status: "active" })
     .eq("id", id);

@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { inviteStaffMember, disableStaff, enableStaff } from "@/lib/services/staff-member.service";
@@ -60,6 +61,7 @@ export async function disableStaffAction(
   const result = await disableStaff(session.profile, staffMemberId);
   if (!result.ok) return { error: result.error };
 
+  revalidatePath("/admin/staff");
   return { success: "スタッフを無効化しました。" };
 }
 
@@ -76,5 +78,6 @@ export async function enableStaffAction(
   const result = await enableStaff(session.profile, staffMemberId);
   if (!result.ok) return { error: result.error };
 
+  revalidatePath("/admin/staff");
   return { success: "スタッフを再有効化しました。" };
 }

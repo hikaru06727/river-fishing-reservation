@@ -5,6 +5,7 @@ import {
   insertStaffMember,
   findStaffMembersByBusinessId,
   findStaffMemberById,
+  findStaffMemberByIdAdmin,
   disableStaffMember,
   enableStaffMember,
   acceptStaffInvitation,
@@ -84,7 +85,7 @@ export async function inviteStaffMember(
   return { ok: true, data: member };
 }
 
-/** スタッフを無効化 */
+/** スタッフを無効化（profiles.role を 'user' に戻してログイン不可にする） */
 export async function disableStaff(
   profile: Pick<Profile, "id" | "role">,
   staffMemberId: string,
@@ -93,18 +94,46 @@ export async function disableStaff(
     return { ok: false, error: "スタッフ管理の権限がありません。" };
   }
 
+  let member: import("@/types/database").StaffMemberRow | null;
+  try {
+    member = await findStaffMemberByIdAdmin(staffMemberId);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "スタッフ情報の取得に失敗しました。",
+    };
+  }
+
+  if (!member) {
+    return { ok: false, error: "スタッフが見つかりません。" };
+  }
+
   try {
     await disableStaffMember(staffMemberId);
-    return { ok: true, data: undefined };
   } catch (err) {
     return {
       ok: false,
       error: err instanceof Error ? err.message : "スタッフの無効化に失敗しました。",
     };
   }
+
+  if (member.user_id) {
+    try {
+      const admin = createAdminClient();
+      const { error } = await admin
+        .from("profiles")
+        .update({ role: "user" })
+        .eq("id", member.user_id);
+      if (error) throw new Error(error.message);
+    } catch (err) {
+      console.error("[disableStaff] profile role downgrade failed:", err);
+    }
+  }
+
+  return { ok: true, data: undefined };
 }
 
-/** スタッフを再有効化 */
+/** スタッフを再有効化（profiles.role を 'staff' に戻してアクセスを回復） */
 export async function enableStaff(
   profile: Pick<Profile, "id" | "role">,
   staffMemberId: string,
@@ -113,15 +142,44 @@ export async function enableStaff(
     return { ok: false, error: "スタッフ管理の権限がありません。" };
   }
 
+  let member: import("@/types/database").StaffMemberRow | null;
+  try {
+    member = await findStaffMemberByIdAdmin(staffMemberId);
+  } catch (err) {
+    return {
+      ok: false,
+      error: err instanceof Error ? err.message : "スタッフ情報の取得に失敗しました。",
+    };
+  }
+
+  if (!member) {
+    return { ok: false, error: "スタッフが見つかりません。" };
+  }
+  if (!member.user_id) {
+    return { ok: false, error: "招待未受諾のスタッフは再有効化できません。" };
+  }
+
   try {
     await enableStaffMember(staffMemberId);
-    return { ok: true, data: undefined };
   } catch (err) {
     return {
       ok: false,
       error: err instanceof Error ? err.message : "スタッフの再有効化に失敗しました。",
     };
   }
+
+  try {
+    const admin = createAdminClient();
+    const { error } = await admin
+      .from("profiles")
+      .update({ role: "staff" })
+      .eq("id", member.user_id);
+    if (error) throw new Error(error.message);
+  } catch (err) {
+    console.error("[enableStaff] profile role restore failed:", err);
+  }
+
+  return { ok: true, data: undefined };
 }
 
 /** 招待受諾処理（staff join ページから呼ぶ） */
