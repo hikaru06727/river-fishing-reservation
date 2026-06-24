@@ -27,5 +27,6 @@ export const PERMISSIONS = {
 export type PermissionKey = keyof typeof PERMISSIONS;
 
 export function hasPermission(role: string, permission: PermissionKey): boolean {
+  if (role === "admin") return true;
   return (PERMISSIONS[permission] as readonly string[]).includes(role);
 }

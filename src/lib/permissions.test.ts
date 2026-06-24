@@ -68,9 +68,14 @@ describe("hasPermission", () => {
     expect(hasPermission("user", "PRODUCT_MANAGE")).toBe(false);
   });
 
-  it("admin は PERMISSIONS に存在しないロールなので false", () => {
-    expect(hasPermission("admin", "POS_OPERATE")).toBe(false);
-    expect(hasPermission("admin", "PRODUCT_MANAGE")).toBe(false);
+  it("admin は全パーミッションを持つ（スーパー管理者）", () => {
+    expect(hasPermission("admin", "POS_OPERATE")).toBe(true);
+    expect(hasPermission("admin", "PRODUCT_MANAGE")).toBe(true);
+    expect(hasPermission("admin", "STAFF_MANAGE")).toBe(true);
+    expect(hasPermission("admin", "BUSINESS_SETTINGS")).toBe(true);
+    expect(hasPermission("admin", "TAX_SETTINGS")).toBe(true);
+    expect(hasPermission("admin", "SALES_VIEW")).toBe(true);
+    expect(hasPermission("admin", "CLOSE_CORRECTION_APPROVE")).toBe(true);
   });
 
   it("空文字・null 相当の文字列は false", () => {
