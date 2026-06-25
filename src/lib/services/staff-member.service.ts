@@ -10,13 +10,25 @@ import {
   acceptStaffInvitation,
 } from "@/lib/repositories/staff-members.repository";
 import { sendStaffInvitationEmail } from "@/lib/email/staff-invitation-email";
-import { findBusinessNamesByIds } from "@/lib/repositories/businesses.repository";
+import {
+  findBusinessNamesByIds,
+  findAssignedBusinessIdsByUserId,
+} from "@/lib/repositories/businesses.repository";
+import { canManageBusinessForProfile } from "@/lib/auth/management-access";
+import { isAdminRole } from "@/lib/auth/role";
 import type { StaffMemberRow } from "@/types/database";
 import type { Profile } from "@/types/database";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string };
+
+async function resolveAssignedBusinessIds(
+  profile: Pick<Profile, "id" | "role">,
+): Promise<string[]> {
+  if (isAdminRole(profile.role)) return [];
+  return findAssignedBusinessIdsByUserId(profile.id);
+}
 
 /** スタッフ一覧取得 */
 export async function getStaffMembers(
@@ -49,6 +61,11 @@ export async function inviteStaffMember(
 ): Promise<ServiceResult<StaffMemberRow>> {
   if (!hasPermission(profile.role, "STAFF_MANAGE")) {
     return { ok: false, error: "スタッフ招待の権限がありません。" };
+  }
+
+  const assignedIdsForInvite = await resolveAssignedBusinessIds(profile);
+  if (!canManageBusinessForProfile(profile, params.businessId, assignedIdsForInvite)) {
+    return { ok: false, error: "この事業にスタッフを招待する権限がありません。" };
   }
 
   let member: StaffMemberRow;
@@ -93,6 +110,15 @@ export async function disableStaff(
     return { ok: false, error: "スタッフ管理の権限がありません。" };
   }
 
+  const member = await findStaffMemberById(staffMemberId);
+  if (!member) {
+    return { ok: false, error: "スタッフが見つかりません。" };
+  }
+  const assignedIds = await resolveAssignedBusinessIds(profile);
+  if (!canManageBusinessForProfile(profile, member.business_id, assignedIds)) {
+    return { ok: false, error: "この事業のスタッフを操作する権限がありません。" };
+  }
+
   try {
     await disableStaffMember(staffMemberId);
     return { ok: true, data: undefined };
@@ -111,6 +137,15 @@ export async function enableStaff(
 ): Promise<ServiceResult<void>> {
   if (!hasPermission(profile.role, "STAFF_MANAGE")) {
     return { ok: false, error: "スタッフ管理の権限がありません。" };
+  }
+
+  const member = await findStaffMemberById(staffMemberId);
+  if (!member) {
+    return { ok: false, error: "スタッフが見つかりません。" };
+  }
+  const assignedIds = await resolveAssignedBusinessIds(profile);
+  if (!canManageBusinessForProfile(profile, member.business_id, assignedIds)) {
+    return { ok: false, error: "この事業のスタッフを操作する権限がありません。" };
   }
 
   try {

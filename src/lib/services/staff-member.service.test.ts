@@ -8,6 +8,7 @@ const {
   enableStaffMemberMock,
   acceptStaffInvitationMock,
   findBusinessNamesByIdsMock,
+  findAssignedBusinessIdsByUserIdMock,
   sendStaffInvitationEmailMock,
   updateProfileRoleMock,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   enableStaffMemberMock: vi.fn(),
   acceptStaffInvitationMock: vi.fn(),
   findBusinessNamesByIdsMock: vi.fn(),
+  findAssignedBusinessIdsByUserIdMock: vi.fn(),
   sendStaffInvitationEmailMock: vi.fn(),
   updateProfileRoleMock: vi.fn(),
 }));
@@ -29,10 +31,14 @@ vi.mock("@/lib/repositories/staff-members.repository", () => ({
   disableStaffMember: disableStaffMemberMock,
   enableStaffMember: enableStaffMemberMock,
   acceptStaffInvitation: acceptStaffInvitationMock,
+  findAssignedBusinessIdsByStaffUserId: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/repositories/businesses.repository", () => ({
   findBusinessNamesByIds: findBusinessNamesByIdsMock,
+  findAssignedBusinessIdsByUserId: findAssignedBusinessIdsByUserIdMock,
+  findReservationSpotIdByReservationId: vi.fn(),
+  findSpotBusinessIdBySpotId: vi.fn(),
 }));
 
 vi.mock("@/lib/email/staff-invitation-email", () => ({
@@ -58,6 +64,15 @@ vi.mock("@/lib/supabase/server", () => ({
   ),
 }));
 
+vi.mock("@/lib/repositories/plans.repository", () => ({
+  findPlanSpotIdByPlanId: vi.fn(),
+}));
+
+vi.mock("@/lib/auth/get-user", () => ({
+  getUser: vi.fn().mockResolvedValue(null),
+  getProfile: vi.fn().mockResolvedValue(null),
+}));
+
 import {
   inviteStaffMember,
   disableStaff,
@@ -65,6 +80,12 @@ import {
   getStaffMembers,
   acceptInvitation,
 } from "./staff-member.service";
+
+const ADMIN_PROFILE = {
+  id: "super-admin",
+  role: "admin" as const,
+  full_name: "管理者",
+};
 
 const BUSINESS_ADMIN_PROFILE = {
   id: "admin-user",
@@ -91,7 +112,6 @@ const SAMPLE_STAFF = {
   created_at: "2026-06-24T00:00:00Z",
 };
 
-
 describe("getStaffMembers", () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -113,7 +133,8 @@ describe("getStaffMembers", () => {
 describe("inviteStaffMember", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("business_admin はスタッフを招待できる", async () => {
+  it("business_admin は自事業にスタッフを招待できる", async () => {
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["biz-1"]);
     insertStaffMemberMock.mockResolvedValue(SAMPLE_STAFF);
     findBusinessNamesByIdsMock.mockResolvedValue(["テスト事業"]);
     sendStaffInvitationEmailMock.mockResolvedValue(undefined);
@@ -133,6 +154,33 @@ describe("inviteStaffMember", () => {
     expect(sendStaffInvitationEmailMock).toHaveBeenCalled();
   });
 
+  it("business_admin は他事業にスタッフを招待できない（IDOR ブロック）", async () => {
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["biz-1"]);
+
+    const result = await inviteStaffMember(BUSINESS_ADMIN_PROFILE, {
+      businessId: "biz-other",
+      email: "staff@test.com",
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("権限");
+    expect(insertStaffMemberMock).not.toHaveBeenCalled();
+  });
+
+  it("admin は任意の事業にスタッフを招待できる", async () => {
+    insertStaffMemberMock.mockResolvedValue({ ...SAMPLE_STAFF, business_id: "biz-other" });
+    findBusinessNamesByIdsMock.mockResolvedValue(["他事業"]);
+    sendStaffInvitationEmailMock.mockResolvedValue(undefined);
+
+    const result = await inviteStaffMember(ADMIN_PROFILE, {
+      businessId: "biz-other",
+      email: "staff@test.com",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(findAssignedBusinessIdsByUserIdMock).not.toHaveBeenCalled();
+  });
+
   it("staff ロールは招待できない", async () => {
     const result = await inviteStaffMember(STAFF_PROFILE, {
       businessId: "biz-1",
@@ -143,6 +191,7 @@ describe("inviteStaffMember", () => {
   });
 
   it("重複メールの場合はエラーメッセージを返す", async () => {
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["biz-1"]);
     insertStaffMemberMock.mockRejectedValue(new Error("unique constraint violation"));
 
     const result = await inviteStaffMember(BUSINESS_ADMIN_PROFILE, {
@@ -158,12 +207,42 @@ describe("inviteStaffMember", () => {
 describe("disableStaff", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("business_admin はスタッフを無効化できる", async () => {
+  it("business_admin は自事業のスタッフを無効化できる", async () => {
+    findStaffMemberByIdMock.mockResolvedValue(SAMPLE_STAFF);
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["biz-1"]);
     disableStaffMemberMock.mockResolvedValue(undefined);
 
     const result = await disableStaff(BUSINESS_ADMIN_PROFILE, "staff-1");
     expect(result.ok).toBe(true);
     expect(disableStaffMemberMock).toHaveBeenCalledWith("staff-1");
+  });
+
+  it("business_admin は他事業のスタッフを無効化できない（IDOR ブロック）", async () => {
+    findStaffMemberByIdMock.mockResolvedValue({ ...SAMPLE_STAFF, business_id: "biz-other" });
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["biz-1"]);
+
+    const result = await disableStaff(BUSINESS_ADMIN_PROFILE, "staff-from-other-biz");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("権限");
+    expect(disableStaffMemberMock).not.toHaveBeenCalled();
+  });
+
+  it("admin は任意事業のスタッフを無効化できる", async () => {
+    findStaffMemberByIdMock.mockResolvedValue({ ...SAMPLE_STAFF, business_id: "biz-other" });
+    disableStaffMemberMock.mockResolvedValue(undefined);
+
+    const result = await disableStaff(ADMIN_PROFILE, "staff-1");
+    expect(result.ok).toBe(true);
+    expect(findAssignedBusinessIdsByUserIdMock).not.toHaveBeenCalled();
+  });
+
+  it("存在しない staffMemberId の場合は not found を返す", async () => {
+    findStaffMemberByIdMock.mockResolvedValue(null);
+
+    const result = await disableStaff(BUSINESS_ADMIN_PROFILE, "nonexistent");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("見つかりません");
+    expect(disableStaffMemberMock).not.toHaveBeenCalled();
   });
 
   it("staff ロールは無効化できない", async () => {
@@ -175,12 +254,42 @@ describe("disableStaff", () => {
 describe("enableStaff", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("business_admin はスタッフを再有効化できる", async () => {
+  it("business_admin は自事業のスタッフを再有効化できる", async () => {
+    findStaffMemberByIdMock.mockResolvedValue(SAMPLE_STAFF);
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["biz-1"]);
     enableStaffMemberMock.mockResolvedValue(undefined);
 
     const result = await enableStaff(BUSINESS_ADMIN_PROFILE, "staff-1");
     expect(result.ok).toBe(true);
     expect(enableStaffMemberMock).toHaveBeenCalledWith("staff-1");
+  });
+
+  it("business_admin は他事業のスタッフを再有効化できない（IDOR ブロック）", async () => {
+    findStaffMemberByIdMock.mockResolvedValue({ ...SAMPLE_STAFF, business_id: "biz-other" });
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["biz-1"]);
+
+    const result = await enableStaff(BUSINESS_ADMIN_PROFILE, "staff-from-other-biz");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("権限");
+    expect(enableStaffMemberMock).not.toHaveBeenCalled();
+  });
+
+  it("admin は任意事業のスタッフを再有効化できる", async () => {
+    findStaffMemberByIdMock.mockResolvedValue({ ...SAMPLE_STAFF, business_id: "biz-other" });
+    enableStaffMemberMock.mockResolvedValue(undefined);
+
+    const result = await enableStaff(ADMIN_PROFILE, "staff-1");
+    expect(result.ok).toBe(true);
+    expect(findAssignedBusinessIdsByUserIdMock).not.toHaveBeenCalled();
+  });
+
+  it("存在しない staffMemberId の場合は not found を返す", async () => {
+    findStaffMemberByIdMock.mockResolvedValue(null);
+
+    const result = await enableStaff(BUSINESS_ADMIN_PROFILE, "nonexistent");
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("見つかりません");
+    expect(enableStaffMemberMock).not.toHaveBeenCalled();
   });
 });
 
