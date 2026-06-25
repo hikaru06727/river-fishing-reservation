@@ -183,25 +183,6 @@ export async function acceptStaffInvitation(
   return data;
 }
 
-/** service_role でスタッフレコードを取得（disable/enable フローで権限問わず読む） */
-export async function findStaffMemberByIdAdmin(
-  id: string,
-): Promise<StaffMemberRow | null> {
-  const admin = createAdminClient();
-
-  const { data, error } = await admin
-    .from("staff_members")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return data;
-}
-
 /** スタッフを無効化（service_role 使用: business_admin の RLS を回避） */
 export async function disableStaffMember(id: string): Promise<void> {
   const admin = createAdminClient();
