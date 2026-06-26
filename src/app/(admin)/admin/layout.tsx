@@ -14,6 +14,7 @@ function getNavLinks(role: string): NavLink[] {
   }
   if (hasPermission(role, "POS_OPERATE")) {
     links.push({ href: "/admin/pos", label: "レジ" });
+    links.push({ href: "/admin/products/sales", label: "販売履歴" });
   }
   if (hasPermission(role, "POS_CLOSE")) {
     links.push({ href: "/admin/register-closing", label: "レジ締め" });
@@ -43,6 +44,7 @@ function getNavLinks(role: string): NavLink[] {
       { href: "/admin", label: "トップ" },
       { href: "/admin/sales", label: "売上" },
       { href: "/admin/pos", label: "レジ" },
+      { href: "/admin/products/sales", label: "販売履歴" },
       { href: "/admin/register-closing", label: "レジ締め" },
       { href: "/admin/reservations", label: "予約管理" },
       { href: "/admin/refunds", label: "返金" },
