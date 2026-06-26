@@ -84,6 +84,7 @@ export type RefundCashParams = {
   amount: number;
   reason: string;
   refundedBy: string;
+  note?: string;
 };
 
 /** 現金返金（即時完了） */
@@ -115,6 +116,7 @@ export async function refundCash(
       reason: params.reason,
       refunded_by: params.refundedBy,
       status: "completed",
+      note: params.note ?? null,
     });
     revalidatePath("/admin/refunds");
     return { ok: true, data: refund };
@@ -131,6 +133,7 @@ export type RefundCardParams = {
   amount: number;
   reason: string;
   refundedBy: string;
+  note?: string;
 };
 
 /** カード返金（Stripe API 経由） */
@@ -197,7 +200,7 @@ export async function refundCard(
       reason: params.reason,
       refunded_by: params.refundedBy,
       status: refundStatus,
-      note: failureNote,
+      note: failureNote ?? params.note ?? null,
     });
     revalidatePath("/admin/refunds");
 

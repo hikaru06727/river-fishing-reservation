@@ -13,13 +13,13 @@ export const metadata = { title: "返金一覧" };
 
 const STATUS_LABELS: Record<SaleRefundStatus, string> = {
   pending: "処理中",
-  completed: "完了",
+  completed: "返金済み",
   failed: "失敗",
 };
 
 const STATUS_STYLES: Record<SaleRefundStatus, string> = {
   pending: "bg-slate-100 text-slate-700",
-  completed: "bg-green-100 text-green-700",
+  completed: "bg-blue-100 text-blue-700",
   failed: "bg-red-100 text-red-700",
 };
 

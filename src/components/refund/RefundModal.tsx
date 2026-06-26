@@ -16,9 +16,10 @@ interface RefundModalProps {
   target: RefundTarget;
   maxAmount: number;
   onClose: () => void;
+  closingWarning?: string;
 }
 
-export function RefundModal({ businessId, target, maxAmount, onClose }: RefundModalProps) {
+export function RefundModal({ businessId, target, maxAmount, onClose, closingWarning }: RefundModalProps) {
   const [amount, setAmount] = useState(String(maxAmount));
   const [reason, setReason] = useState("");
   const [method, setMethod] = useState<"cash" | "card">("cash");
@@ -79,6 +80,17 @@ export function RefundModal({ businessId, target, maxAmount, onClose }: RefundMo
                 />
               )}
             </>
+          )}
+          {closingWarning && (
+            <input type="hidden" name="closingNote" value="締め後返金" />
+          )}
+
+          {/* 締め済み警告 */}
+          {closingWarning && (
+            <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+              <span className="mt-0.5 shrink-0">⚠️</span>
+              <p>{closingWarning}</p>
+            </div>
           )}
 
           {/* 返金方法 */}

@@ -7,9 +7,10 @@ interface RefundButtonProps {
   businessId: string;
   target: RefundTarget;
   maxAmount: number;
+  closingWarning?: string;
 }
 
-export function RefundButton({ businessId, target, maxAmount }: RefundButtonProps) {
+export function RefundButton({ businessId, target, maxAmount, closingWarning }: RefundButtonProps) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -26,6 +27,7 @@ export function RefundButton({ businessId, target, maxAmount }: RefundButtonProp
           businessId={businessId}
           target={target}
           maxAmount={maxAmount}
+          closingWarning={closingWarning}
           onClose={() => setOpen(false)}
         />
       )}

@@ -39,6 +39,8 @@ export async function refundCashAction(
     return { error: "対象の売上IDが指定されていません。" };
   }
 
+  const closingNote = (formData.get("closingNote") as string | null) || undefined;
+
   const result = await refundCash(session.profile, {
     businessId,
     saleSessionId: saleSessionId ?? undefined,
@@ -46,6 +48,7 @@ export async function refundCashAction(
     amount,
     reason,
     refundedBy: session.profile.id,
+    note: closingNote,
   });
 
   if (!result.ok) {
@@ -86,6 +89,8 @@ export async function refundCardAction(
     return { error: "対象の売上IDが指定されていません。" };
   }
 
+  const closingNote = (formData.get("closingNote") as string | null) || undefined;
+
   const result = await refundCard(session.profile, {
     businessId,
     saleSessionId: saleSessionId ?? undefined,
@@ -94,6 +99,7 @@ export async function refundCardAction(
     amount,
     reason,
     refundedBy: session.profile.id,
+    note: closingNote,
   });
 
   if (!result.ok) {

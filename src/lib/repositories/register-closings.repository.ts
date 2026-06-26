@@ -245,6 +245,34 @@ export async function findCorrectionById(
   return data as RegisterClosingCorrectionRow | null;
 }
 
+/**
+ * 指定された sold_at が含まれる締め済み期間を返す。
+ * status が closed / correction_requested / approved のいずれかなら「締め済み」とみなす。
+ */
+export async function findClosingContainingSoldAt(
+  businessId: string,
+  soldAt: string,
+): Promise<RegisterClosingRow | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("register_closings")
+    .select("*")
+    .eq("business_id", businessId)
+    .lte("period_start", soldAt)
+    .gte("period_end", soldAt)
+    .in("status", ["closed", "correction_requested", "approved"])
+    .order("closed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data as RegisterClosingRow | null;
+}
+
 /** 期間内の売上集計に使う生データを取得（締め処理用） */
 export type ClosingSalesRawRow = {
   amountYen: number;

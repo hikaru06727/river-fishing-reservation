@@ -67,6 +67,26 @@ export async function updateSaleRefundStatus(
   }
 }
 
+/** 特定の売上セッションに対する返金一覧（新しい順） */
+export async function findRefundsBySaleSessionId(
+  saleSessionId: string,
+): Promise<SaleRefundRow[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("sale_refunds")
+    .select("*")
+    .eq("sale_session_id", saleSessionId)
+    .in("status", ["pending", "completed"])
+    .order("refunded_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as SaleRefundRow[];
+}
+
 /** 事業の返金一覧（新しい順） */
 export async function findRefundsByBusinessId(
   businessId: string,
