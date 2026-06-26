@@ -14,6 +14,8 @@ export const PERMISSIONS = {
   RESERVATION_CASH_COMPLETE: ["business_admin", "staff"],
   /** 売上閲覧 */
   SALES_VIEW: ["business_admin", "staff"],
+  /** 返金操作 */
+  REFUND_MANAGE: ["business_admin", "staff"],
   /** 商品管理 */
   PRODUCT_MANAGE: ["business_admin"],
   /** スタッフ管理 */

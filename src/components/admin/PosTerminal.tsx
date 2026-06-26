@@ -309,6 +309,7 @@ export function PosTerminal({
     setItemSettings(new Map());
     setSessionDiscount(null);
     setNote("");
+    try { localStorage.removeItem(STORAGE_KEY(businessId)); } catch {}
   };
 
   // ── Derived data ──
@@ -728,6 +729,9 @@ export function PosTerminal({
                   <button
                     type="submit"
                     disabled={pending}
+                    onClick={() => {
+                      try { localStorage.removeItem(STORAGE_KEY(businessId)); } catch {}
+                    }}
                     className="flex-1 rounded-xl bg-primary py-2.5 text-sm font-medium text-white hover:bg-primary/90 disabled:opacity-50"
                   >
                     {pending ? "処理中..." : "確定する"}

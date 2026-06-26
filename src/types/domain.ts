@@ -9,6 +9,12 @@ export type AppUserRole = UserRole;
 
 export type StaffStatus = "invited" | "active" | "disabled";
 
+export type RegisterClosingStatus = "closed" | "correction_requested" | "approved";
+export type ClosingCorrectionStatus = "pending" | "approved" | "rejected";
+
+export type SaleRefundStatus = "pending" | "completed" | "failed";
+export type SaleRefundPaymentMethod = "cash" | "card" | "other";
+
 export type StaffMember = {
   id: string;
   business_id: string;

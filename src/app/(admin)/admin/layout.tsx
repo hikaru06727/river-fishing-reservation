@@ -15,8 +15,14 @@ function getNavLinks(role: string): NavLink[] {
   if (hasPermission(role, "POS_OPERATE")) {
     links.push({ href: "/admin/pos", label: "レジ" });
   }
+  if (hasPermission(role, "POS_CLOSE")) {
+    links.push({ href: "/admin/register-closing", label: "レジ締め" });
+  }
   if (hasPermission(role, "RESERVATION_VIEW")) {
     links.push({ href: "/admin/reservations", label: "予約管理" });
+  }
+  if (hasPermission(role, "REFUND_MANAGE")) {
+    links.push({ href: "/admin/refunds", label: "返金" });
   }
   if (hasPermission(role, "PRODUCT_MANAGE")) {
     links.push({ href: "/admin/plans", label: "プラン管理" });
@@ -37,7 +43,9 @@ function getNavLinks(role: string): NavLink[] {
       { href: "/admin", label: "トップ" },
       { href: "/admin/sales", label: "売上" },
       { href: "/admin/pos", label: "レジ" },
+      { href: "/admin/register-closing", label: "レジ締め" },
       { href: "/admin/reservations", label: "予約管理" },
+      { href: "/admin/refunds", label: "返金" },
       { href: "/admin/plans", label: "プラン管理" },
       { href: "/admin/products", label: "商品管理" },
       { href: "/admin/business-hours", label: "営業時間設定" },

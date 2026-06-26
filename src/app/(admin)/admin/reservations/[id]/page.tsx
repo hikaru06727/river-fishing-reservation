@@ -15,6 +15,9 @@ import { getLatestReservationPayment } from "@/lib/reservations/payment-status-d
 import { getAdminReservationById } from "@/lib/reservations/get-admin-reservations";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { formatDate, formatDateTime, formatTime, formatYen } from "@/lib/utils/format";
+import { getAuthenticatedManagement } from "@/lib/auth/get-user";
+import { hasPermission } from "@/lib/permissions";
+import { RefundButton } from "@/components/refund/RefundButton";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -44,6 +47,8 @@ export default async function AdminReservationDetailPage({
   if (!canManage) {
     redirect("/admin/reservations");
   }
+
+  const session = await getAuthenticatedManagement();
 
   const cancelPolicy = canCancelReservation({
     status: reservation.status,
@@ -169,6 +174,23 @@ export default async function AdminReservationDetailPage({
               />
             </div>
           )}
+          {reservation.payment_status === "succeeded" &&
+            reservation.locations?.business_id &&
+            session &&
+            hasPermission(session.profile.role, "REFUND_MANAGE") && (
+              <div className="mt-4 border-t border-border pt-4">
+                <RefundButton
+                  businessId={reservation.locations.business_id}
+                  target={{
+                    type: "reservation",
+                    id: reservation.id,
+                    stripePaymentIntentId:
+                      latestPayment?.stripe_payment_intent_id ?? null,
+                  }}
+                  maxAmount={reservation.total_amount_yen}
+                />
+              </div>
+            )}
           {cashPaymentUi.showAlreadyPaid && (
             <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
               現地精算済

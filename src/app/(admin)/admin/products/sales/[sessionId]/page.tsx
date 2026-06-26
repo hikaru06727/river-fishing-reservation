@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
+import { hasPermission } from "@/lib/permissions";
 import { getSaleSessionDetail } from "@/lib/services/sale-session.service";
 import { POS_PAYMENT_METHODS } from "@/validations/pos";
 import { PrintButton } from "@/components/admin/PrintButton";
+import { RefundButton } from "@/components/refund/RefundButton";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -44,7 +46,16 @@ export default async function AdminSaleSessionDetailPage({ params }: PageProps) 
         <Link href={returnPath} className="text-sm text-primary hover:underline">
           ← 販売履歴
         </Link>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          {hasPermission(session.profile.role, "REFUND_MANAGE") && (
+            <RefundButton
+              businessId={detail.business_id}
+              target={{ type: "saleSession", id: sessionId }}
+              maxAmount={detail.total_amount}
+            />
+          )}
+          <PrintButton />
+        </div>
       </div>
 
       <h2 className="mt-4 text-lg font-semibold text-foreground print:mt-0">販売詳細</h2>

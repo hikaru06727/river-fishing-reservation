@@ -1,11 +1,15 @@
 import type {
   AppUserRole,
+  ClosingCorrectionStatus,
   ContentStatus,
   PaymentMethod,
   PaymentStatus,
   ProductSaleStatus,
   ProductStatus,
+  RegisterClosingStatus,
   ReservationStatus,
+  SaleRefundPaymentMethod,
+  SaleRefundStatus,
   SlotStatus,
   StaffStatus,
   UserRole,
@@ -21,12 +25,16 @@ export type Json =
 
 export type {
   AppUserRole,
+  ClosingCorrectionStatus,
   ContentStatus,
   PaymentMethod,
   PaymentStatus,
   ProductSaleStatus,
   ProductStatus,
+  RegisterClosingStatus,
   ReservationStatus,
+  SaleRefundPaymentMethod,
+  SaleRefundStatus,
   SlotStatus,
   UserRole,
 };
@@ -986,6 +994,144 @@ export interface Database {
         };
         Relationships: [];
       };
+      register_closings: {
+        Row: {
+          id: string;
+          business_id: string;
+          location_id: string | null;
+          closed_by: string;
+          closed_at: string;
+          period_start: string;
+          period_end: string;
+          total_cash: number;
+          total_card: number;
+          total_other: number;
+          total_amount: number;
+          note: string | null;
+          status: RegisterClosingStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          location_id?: string | null;
+          closed_by: string;
+          closed_at?: string;
+          period_start: string;
+          period_end: string;
+          total_cash?: number;
+          total_card?: number;
+          total_other?: number;
+          total_amount?: number;
+          note?: string | null;
+          status?: RegisterClosingStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          location_id?: string | null;
+          closed_by?: string;
+          closed_at?: string;
+          period_start?: string;
+          period_end?: string;
+          total_cash?: number;
+          total_card?: number;
+          total_other?: number;
+          total_amount?: number;
+          note?: string | null;
+          status?: RegisterClosingStatus;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      sale_refunds: {
+        Row: {
+          id: string;
+          business_id: string;
+          sale_session_id: string | null;
+          reservation_id: string | null;
+          stripe_refund_id: string | null;
+          stripe_payment_intent_id: string | null;
+          amount: number;
+          payment_method: SaleRefundPaymentMethod;
+          reason: string | null;
+          refunded_by: string;
+          refunded_at: string;
+          status: SaleRefundStatus;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          sale_session_id?: string | null;
+          reservation_id?: string | null;
+          stripe_refund_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          amount: number;
+          payment_method: SaleRefundPaymentMethod;
+          reason?: string | null;
+          refunded_by: string;
+          refunded_at?: string;
+          status?: SaleRefundStatus;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          sale_session_id?: string | null;
+          reservation_id?: string | null;
+          stripe_refund_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          amount?: number;
+          payment_method?: SaleRefundPaymentMethod;
+          reason?: string | null;
+          refunded_by?: string;
+          refunded_at?: string;
+          status?: SaleRefundStatus;
+          note?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      register_closing_corrections: {
+        Row: {
+          id: string;
+          closing_id: string;
+          requested_by: string;
+          requested_at: string;
+          reason: string;
+          approved_by: string | null;
+          approved_at: string | null;
+          status: ClosingCorrectionStatus;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          closing_id: string;
+          requested_by: string;
+          requested_at?: string;
+          reason: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          status?: ClosingCorrectionStatus;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          closing_id?: string;
+          requested_by?: string;
+          requested_at?: string;
+          reason?: string;
+          approved_by?: string | null;
+          approved_at?: string | null;
+          status?: ClosingCorrectionStatus;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1071,3 +1217,6 @@ export type SaleSessionDiscount = Database["public"]["Tables"]["sale_session_dis
 export type PosPaymentMethod = SaleSession["payment_method"];
 export type CatchReport = Database["public"]["Tables"]["catch_reports"]["Row"];
 export type BlogPost = Database["public"]["Tables"]["blog_posts"]["Row"];
+export type RegisterClosingRow = Database["public"]["Tables"]["register_closings"]["Row"];
+export type RegisterClosingCorrectionRow = Database["public"]["Tables"]["register_closing_corrections"]["Row"];
+export type SaleRefundRow = Database["public"]["Tables"]["sale_refunds"]["Row"];

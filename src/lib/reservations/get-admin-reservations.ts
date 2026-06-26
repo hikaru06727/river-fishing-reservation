@@ -46,6 +46,7 @@ export type AdminReservationRow = {
     amount_yen: number;
     paid_at: string | null;
     created_at: string;
+    stripe_payment_intent_id: string | null;
   }> | null;
   payment_status: PaymentStatus | null;
 };
