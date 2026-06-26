@@ -9,7 +9,13 @@ import {
   findSaleSessionAmountById,
   findReservationAmountById,
   findTotalRefundedAmount,
+  findSaleSessionSoldAtById,
+  findReservationDateById,
 } from "@/lib/repositories/sale-refunds.repository";
+import {
+  findClosingContainingSoldAt,
+  updatePostCloseRefund,
+} from "@/lib/repositories/register-closings.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { hasPermission } from "@/lib/permissions";
 import { isAdminRole, isStaffRole } from "@/lib/auth/role";
@@ -23,6 +29,38 @@ export type ServiceResult<T> =
 type OperatorProfile = Pick<Profile, "id" | "role">;
 
 export type RefundWithDetails = SaleRefundRow;
+
+async function recordPostCloseRefundIfNeeded(params: {
+  businessId: string;
+  saleSessionId?: string | null;
+  reservationId?: string | null;
+  paymentMethod: "cash" | "card" | "other";
+  amount: number;
+}): Promise<void> {
+  let soldAt: string | null = null;
+  if (params.saleSessionId) {
+    soldAt = await findSaleSessionSoldAtById(params.saleSessionId).catch(() => null);
+  } else if (params.reservationId) {
+    const date = await findReservationDateById(params.reservationId).catch(() => null);
+    soldAt = date ? `${date}T00:00:00Z` : null;
+  }
+  if (!soldAt) return;
+
+  const matchedClosing = await findClosingContainingSoldAt(params.businessId, soldAt).catch(
+    () => null,
+  );
+  if (!matchedClosing) return;
+
+  // 返金日時が締め日時より前の場合は締め前返金 → 差分記録しない
+  const now = new Date().toISOString();
+  if (now < matchedClosing.closed_at) return;
+
+  await updatePostCloseRefund({
+    closingId: matchedClosing.id,
+    paymentMethod: params.paymentMethod,
+    amount: params.amount,
+  });
+}
 
 async function resolveAssignedIds(profile: OperatorProfile): Promise<string[]> {
   if (isAdminRole(profile.role)) return [];
@@ -118,6 +156,15 @@ export async function refundCash(
       status: "completed",
       note: params.note ?? null,
     });
+
+    await recordPostCloseRefundIfNeeded({
+      businessId: params.businessId,
+      saleSessionId: params.saleSessionId,
+      reservationId: params.reservationId,
+      paymentMethod: "cash",
+      amount: params.amount,
+    }).catch(() => undefined);
+
     revalidatePath("/admin/refunds");
     return { ok: true, data: refund };
   } catch {
@@ -202,6 +249,17 @@ export async function refundCard(
       status: refundStatus,
       note: failureNote ?? params.note ?? null,
     });
+
+    if (refundStatus !== "failed") {
+      await recordPostCloseRefundIfNeeded({
+        businessId: params.businessId,
+        saleSessionId: params.saleSessionId,
+        reservationId: params.reservationId,
+        paymentMethod: "card",
+        amount: params.amount,
+      }).catch(() => undefined);
+    }
+
     revalidatePath("/admin/refunds");
 
     if (refundStatus === "failed") {

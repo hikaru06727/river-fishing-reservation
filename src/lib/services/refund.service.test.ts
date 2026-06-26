@@ -10,7 +10,11 @@ const {
   findReservationAmountByIdMock,
   findTotalRefundedAmountMock,
   findStripePaymentIntentByReservationIdMock,
+  findSaleSessionSoldAtByIdMock,
+  findReservationDateByIdMock,
   stripeRefundsCreateMock,
+  findClosingContainingSoldAtMock,
+  updatePostCloseRefundMock,
 } = vi.hoisted(() => ({
   findAssignedBusinessIdsByUserIdMock: vi.fn(),
   findAssignedBusinessIdsByStaffUserIdMock: vi.fn(),
@@ -20,7 +24,11 @@ const {
   findReservationAmountByIdMock: vi.fn(),
   findTotalRefundedAmountMock: vi.fn(),
   findStripePaymentIntentByReservationIdMock: vi.fn(),
+  findSaleSessionSoldAtByIdMock: vi.fn(),
+  findReservationDateByIdMock: vi.fn(),
   stripeRefundsCreateMock: vi.fn(),
+  findClosingContainingSoldAtMock: vi.fn(),
+  updatePostCloseRefundMock: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -41,6 +49,13 @@ vi.mock("@/lib/repositories/sale-refunds.repository", () => ({
   findSaleSessionAmountById: findSaleSessionAmountByIdMock,
   findReservationAmountById: findReservationAmountByIdMock,
   findTotalRefundedAmount: findTotalRefundedAmountMock,
+  findSaleSessionSoldAtById: findSaleSessionSoldAtByIdMock,
+  findReservationDateById: findReservationDateByIdMock,
+}));
+
+vi.mock("@/lib/repositories/register-closings.repository", () => ({
+  findClosingContainingSoldAt: findClosingContainingSoldAtMock,
+  updatePostCloseRefund: updatePostCloseRefundMock,
 }));
 
 vi.mock("@/lib/stripe/server", () => ({
@@ -74,11 +89,36 @@ const SAMPLE_REFUND = {
   created_at: new Date().toISOString(),
 };
 
+const SAMPLE_CLOSING = {
+  id: "closing-1",
+  business_id: BIZ_A,
+  location_id: null,
+  closed_by: "ba-user-id",
+  closed_at: "2026-06-25T18:00:00Z",
+  period_start: "2026-06-25T00:00:00Z",
+  period_end: "2026-06-25T18:00:00Z",
+  total_cash: 5000,
+  total_card: 3000,
+  total_other: 1000,
+  total_amount: 9000,
+  post_close_refund_cash: 0,
+  post_close_refund_card: 0,
+  post_close_refund_other: 0,
+  post_close_refund_total: 0,
+  note: null,
+  status: "closed" as const,
+  created_at: "2026-06-25T18:00:00Z",
+};
+
 beforeEach(() => {
   vi.clearAllMocks();
   findAssignedBusinessIdsByUserIdMock.mockResolvedValue([BIZ_A]);
   findAssignedBusinessIdsByStaffUserIdMock.mockResolvedValue([BIZ_A]);
   findTotalRefundedAmountMock.mockResolvedValue(0);
+  findSaleSessionSoldAtByIdMock.mockResolvedValue(null);
+  findReservationDateByIdMock.mockResolvedValue(null);
+  findClosingContainingSoldAtMock.mockResolvedValue(null);
+  updatePostCloseRefundMock.mockResolvedValue(undefined);
 });
 
 // ============================================================
@@ -268,6 +308,158 @@ describe("refundCard", () => {
 });
 
 // ============================================================
+// 締め後返金差分記録
+// ============================================================
+describe("refundCash — post_close_refund", () => {
+  it("締め済み期間内のセッション返金で updatePostCloseRefund が呼ばれる", async () => {
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue(SAMPLE_REFUND);
+    findSaleSessionSoldAtByIdMock.mockResolvedValue("2026-06-25T10:00:00Z");
+    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+
+    const result = await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      saleSessionId: SESSION_ID,
+      amount: 1000,
+      reason: "締め後返金テスト",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updatePostCloseRefundMock).toHaveBeenCalledWith({
+      closingId: SAMPLE_CLOSING.id,
+      paymentMethod: "cash",
+      amount: 1000,
+    });
+  });
+
+  it("締め済み期間外のセッション返金では updatePostCloseRefund が呼ばれない", async () => {
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue(SAMPLE_REFUND);
+    findSaleSessionSoldAtByIdMock.mockResolvedValue("2026-06-25T10:00:00Z");
+    findClosingContainingSoldAtMock.mockResolvedValue(null);
+
+    const result = await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      saleSessionId: SESSION_ID,
+      amount: 1000,
+      reason: "未締め返金",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updatePostCloseRefundMock).not.toHaveBeenCalled();
+  });
+
+  it("sold_at が取得できない場合も返金は成功し updatePostCloseRefund は呼ばれない", async () => {
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue(SAMPLE_REFUND);
+    findSaleSessionSoldAtByIdMock.mockResolvedValue(null);
+
+    const result = await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      saleSessionId: SESSION_ID,
+      amount: 1000,
+      reason: "soldAt なし",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updatePostCloseRefundMock).not.toHaveBeenCalled();
+  });
+
+  it("予約返金で reservation_date を元に締め記録を検索する", async () => {
+    findReservationAmountByIdMock.mockResolvedValue(10000);
+    insertSaleRefundMock.mockResolvedValue({ ...SAMPLE_REFUND, reservation_id: RES_ID });
+    findReservationDateByIdMock.mockResolvedValue("2026-06-25");
+    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+
+    const result = await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      reservationId: RES_ID,
+      amount: 3000,
+      reason: "予約締め後返金",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(findClosingContainingSoldAtMock).toHaveBeenCalledWith(
+      BIZ_A,
+      "2026-06-25T00:00:00Z",
+    );
+    expect(updatePostCloseRefundMock).toHaveBeenCalledWith({
+      closingId: SAMPLE_CLOSING.id,
+      paymentMethod: "cash",
+      amount: 3000,
+    });
+  });
+
+  it("updatePostCloseRefund が失敗しても返金自体は成功する", async () => {
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue(SAMPLE_REFUND);
+    findSaleSessionSoldAtByIdMock.mockResolvedValue("2026-06-25T10:00:00Z");
+    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+    updatePostCloseRefundMock.mockRejectedValue(new Error("DB エラー"));
+
+    const result = await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      saleSessionId: SESSION_ID,
+      amount: 1000,
+      reason: "更新失敗テスト",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe("refundCard — post_close_refund", () => {
+  it("カード返金成功時に締め記録が更新される", async () => {
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue({ ...SAMPLE_REFUND, payment_method: "card" });
+    findSaleSessionSoldAtByIdMock.mockResolvedValue("2026-06-25T10:00:00Z");
+    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+
+    const result = await refundCard(PROFILE_BA, {
+      businessId: BIZ_A,
+      saleSessionId: SESSION_ID,
+      amount: 2000,
+      reason: "カード締め後返金",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updatePostCloseRefundMock).toHaveBeenCalledWith({
+      closingId: SAMPLE_CLOSING.id,
+      paymentMethod: "card",
+      amount: 2000,
+    });
+  });
+
+  it("Stripe 返金失敗時は updatePostCloseRefund が呼ばれない", async () => {
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    stripeRefundsCreateMock.mockRejectedValue(new Error("Stripe error"));
+    insertSaleRefundMock.mockResolvedValue({
+      ...SAMPLE_REFUND,
+      payment_method: "card",
+      status: "failed",
+    });
+
+    const result = await refundCard(PROFILE_BA, {
+      businessId: BIZ_A,
+      saleSessionId: SESSION_ID,
+      stripePaymentIntentId: "pi_test_fail",
+      amount: 2000,
+      reason: "失敗テスト",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(updatePostCloseRefundMock).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
 // listRefunds
 // ============================================================
 describe("listRefunds", () => {
@@ -287,5 +479,83 @@ describe("listRefunds", () => {
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(403);
+  });
+});
+
+// ============================================================
+// 締め前後判定（recordPostCloseRefundIfNeeded）
+// ============================================================
+describe("recordPostCloseRefundIfNeeded — 締め前後タイミング判定", () => {
+  it("返金日時が closed_at より後なら updatePostCloseRefund が呼ばれる（締め後）", async () => {
+    // SAMPLE_CLOSING.closed_at = "2026-06-25T18:00:00Z"（過去）
+    // 現在 (vi のデフォルト = システム時刻 ≈ 2026-06-27) > closed_at → 締め後
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue(SAMPLE_REFUND);
+    findSaleSessionSoldAtByIdMock.mockResolvedValue("2026-06-25T10:00:00Z");
+    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+
+    const result = await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      saleSessionId: SESSION_ID,
+      amount: 1000,
+      reason: "締め後確認テスト",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(updatePostCloseRefundMock).toHaveBeenCalled();
+  });
+
+  it("返金日時が closed_at より前なら updatePostCloseRefund が呼ばれない（締め前）", async () => {
+    // 現在時刻を closed_at より前に固定
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-25T17:00:00Z")); // closed_at = 18:00 より前
+
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue(SAMPLE_REFUND);
+    findSaleSessionSoldAtByIdMock.mockResolvedValue("2026-06-25T10:00:00Z");
+    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+
+    try {
+      const result = await refundCash(PROFILE_BA, {
+        businessId: BIZ_A,
+        saleSessionId: SESSION_ID,
+        amount: 1000,
+        reason: "締め前テスト",
+        refundedBy: PROFILE_BA.id,
+      });
+
+      expect(result.ok).toBe(true);
+      expect(updatePostCloseRefundMock).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("closed_at の 1 秒後は締め後扱いになる", async () => {
+    vi.useFakeTimers();
+    // closed_at = "2026-06-25T18:00:00.000Z" → その 1 秒後を現在時刻に設定
+    vi.setSystemTime(new Date("2026-06-25T18:00:01Z"));
+
+    findSaleSessionAmountByIdMock.mockResolvedValue(5000);
+    insertSaleRefundMock.mockResolvedValue(SAMPLE_REFUND);
+    findSaleSessionSoldAtByIdMock.mockResolvedValue("2026-06-25T10:00:00Z");
+    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+
+    try {
+      const result = await refundCash(PROFILE_BA, {
+        businessId: BIZ_A,
+        saleSessionId: SESSION_ID,
+        amount: 1000,
+        reason: "締め直後テスト",
+        refundedBy: PROFILE_BA.id,
+      });
+
+      // now (18:00:01) > closed_at (18:00:00) → 締め後 → updatePostCloseRefund が呼ばれる
+      expect(result.ok).toBe(true);
+      expect(updatePostCloseRefundMock).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

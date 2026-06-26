@@ -273,6 +273,50 @@ export async function findClosingContainingSoldAt(
   return data as RegisterClosingRow | null;
 }
 
+/** 締め後返金差分カラムを加算更新 */
+export async function updatePostCloseRefund(params: {
+  closingId: string;
+  paymentMethod: "cash" | "card" | "other";
+  amount: number;
+}): Promise<void> {
+  const supabase = await createClient();
+  const { closingId, paymentMethod, amount } = params;
+
+  const { data: current, error: fetchErr } = await supabase
+    .from("register_closings")
+    .select(
+      "post_close_refund_cash, post_close_refund_card, post_close_refund_other, post_close_refund_total",
+    )
+    .eq("id", closingId)
+    .single();
+
+  if (fetchErr) throw new Error(fetchErr.message);
+
+  const patch: {
+    post_close_refund_cash?: number;
+    post_close_refund_card?: number;
+    post_close_refund_other?: number;
+    post_close_refund_total: number;
+  } = {
+    post_close_refund_total: Number(current.post_close_refund_total) + amount,
+  };
+
+  if (paymentMethod === "cash") {
+    patch.post_close_refund_cash = Number(current.post_close_refund_cash) + amount;
+  } else if (paymentMethod === "card") {
+    patch.post_close_refund_card = Number(current.post_close_refund_card) + amount;
+  } else {
+    patch.post_close_refund_other = Number(current.post_close_refund_other) + amount;
+  }
+
+  const { error } = await supabase
+    .from("register_closings")
+    .update(patch)
+    .eq("id", closingId);
+
+  if (error) throw new Error(error.message);
+}
+
 /** 期間内の売上集計に使う生データを取得（締め処理用） */
 export type ClosingSalesRawRow = {
   amountYen: number;
@@ -290,10 +334,16 @@ export async function findSalesRowsForClosing(params: {
   const periodStartDate = periodStartIso.split("T")[0]!;
   const periodEndDate = periodEndIso.split("T")[0]!;
 
-  const [resResult, manualResult, productResult, posResult] = await Promise.all([
+  const [refundsResult, resResult, manualResult, productResult, posResult] = await Promise.all([
+    // 返金済み sale_session_id / reservation_id を取得（締め集計から除外するため）
+    supabase
+      .from("sale_refunds")
+      .select("sale_session_id, reservation_id")
+      .eq("business_id", businessId)
+      .in("status", ["pending", "completed"]),
     supabase
       .from("reservations")
-      .select("total_amount_yen, reserved_unit_price_yen, guest_count, payment_method, locations!inner(business_id)")
+      .select("id, total_amount_yen, reserved_unit_price_yen, guest_count, payment_method, locations!inner(business_id)")
       .eq("status", "confirmed")
       .gte("reservation_date", periodStartDate)
       .lte("reservation_date", periodEndDate),
@@ -313,20 +363,33 @@ export async function findSalesRowsForClosing(params: {
       .lte("purchased_at", periodEndIso),
     supabase
       .from("sale_sessions")
-      .select("total_amount, payment_method")
+      .select("id, total_amount, payment_method")
       .eq("business_id", businessId)
       .gte("sold_at", periodStartIso)
       .lte("sold_at", periodEndIso),
   ]);
 
+  if (refundsResult.error) throw new Error(refundsResult.error.message);
   if (resResult.error) throw new Error(resResult.error.message);
   if (manualResult.error) throw new Error(manualResult.error.message);
   if (productResult.error) throw new Error(productResult.error.message);
   if (posResult.error) throw new Error(posResult.error.message);
 
+  const refundedSessionIds = new Set(
+    (refundsResult.data ?? [])
+      .map((r) => r.sale_session_id)
+      .filter((v): v is string => !!v),
+  );
+  const refundedReservationIds = new Set(
+    (refundsResult.data ?? [])
+      .map((r) => r.reservation_id)
+      .filter((v): v is string => !!v),
+  );
+
   const rows: ClosingSalesRawRow[] = [];
 
   for (const r of resResult.data ?? []) {
+    if (refundedReservationIds.has(r.id)) continue; // 返金済み予約は除外
     const loc = Array.isArray(r.locations) ? r.locations[0] : r.locations;
     if (!loc || (loc as { business_id: string | null }).business_id !== businessId) continue;
     const amount =
@@ -348,6 +411,7 @@ export async function findSalesRowsForClosing(params: {
   }
 
   for (const r of posResult.data ?? []) {
+    if (refundedSessionIds.has(r.id)) continue; // 返金済みセッションは除外
     rows.push({ amountYen: r.total_amount, paymentMethod: r.payment_method });
   }
 
