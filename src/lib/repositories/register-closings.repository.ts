@@ -343,7 +343,7 @@ export async function findSalesRowsForClosing(params: {
       .in("status", ["pending", "completed"]),
     supabase
       .from("reservations")
-      .select("id, total_amount_yen, reserved_unit_price_yen, guest_count, payment_method, locations!inner(business_id)")
+      .select("id, total_amount_yen, reserved_unit_price_yen, guest_count, payment_method, locations!inner(business_id), payments(status)")
       .eq("status", "confirmed")
       .gte("reservation_date", periodStartDate)
       .lte("reservation_date", periodEndDate),
@@ -392,6 +392,9 @@ export async function findSalesRowsForClosing(params: {
     if (refundedReservationIds.has(r.id)) continue; // 返金済み予約は除外
     const loc = Array.isArray(r.locations) ? r.locations[0] : r.locations;
     if (!loc || (loc as { business_id: string | null }).business_id !== businessId) continue;
+    // 決済未完了（payments に "succeeded" がない）の予約は締め集計から除外
+    const pmts = Array.isArray(r.payments) ? r.payments : r.payments ? [r.payments] : [];
+    if (!(pmts as { status: string }[]).some((p) => p.status === "succeeded")) continue;
     const amount =
       r.reserved_unit_price_yen != null
         ? r.reserved_unit_price_yen * r.guest_count
