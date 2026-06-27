@@ -2,6 +2,9 @@ import type {
   AppUserRole,
   ClosingCorrectionStatus,
   ContentStatus,
+  PaymentLedgerPaymentMethod,
+  PaymentLedgerSourceType,
+  PaymentLedgerStatus,
   PaymentMethod,
   PaymentStatus,
   ProductSaleStatus,
@@ -1007,6 +1010,10 @@ export interface Database {
           total_card: number;
           total_other: number;
           total_amount: number;
+          post_close_refund_cash: number;
+          post_close_refund_card: number;
+          post_close_refund_other: number;
+          post_close_refund_total: number;
           note: string | null;
           status: RegisterClosingStatus;
           created_at: string;
@@ -1023,6 +1030,10 @@ export interface Database {
           total_card?: number;
           total_other?: number;
           total_amount?: number;
+          post_close_refund_cash?: number;
+          post_close_refund_card?: number;
+          post_close_refund_other?: number;
+          post_close_refund_total?: number;
           note?: string | null;
           status?: RegisterClosingStatus;
           created_at?: string;
@@ -1039,6 +1050,10 @@ export interface Database {
           total_card?: number;
           total_other?: number;
           total_amount?: number;
+          post_close_refund_cash?: number;
+          post_close_refund_card?: number;
+          post_close_refund_other?: number;
+          post_close_refund_total?: number;
           note?: string | null;
           status?: RegisterClosingStatus;
           created_at?: string;
@@ -1132,6 +1147,45 @@ export interface Database {
         };
         Relationships: [];
       };
+      payment_ledger: {
+        Row: {
+          id: string;
+          business_id: string;
+          source_type: PaymentLedgerSourceType;
+          source_id: string;
+          amount: number;
+          payment_method: PaymentLedgerPaymentMethod;
+          status: PaymentLedgerStatus;
+          paid_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          source_type: PaymentLedgerSourceType;
+          source_id: string;
+          amount: number;
+          payment_method: PaymentLedgerPaymentMethod;
+          status?: PaymentLedgerStatus;
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          source_type?: PaymentLedgerSourceType;
+          source_id?: string;
+          amount?: number;
+          payment_method?: PaymentLedgerPaymentMethod;
+          status?: PaymentLedgerStatus;
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1220,3 +1274,4 @@ export type BlogPost = Database["public"]["Tables"]["blog_posts"]["Row"];
 export type RegisterClosingRow = Database["public"]["Tables"]["register_closings"]["Row"];
 export type RegisterClosingCorrectionRow = Database["public"]["Tables"]["register_closing_corrections"]["Row"];
 export type SaleRefundRow = Database["public"]["Tables"]["sale_refunds"]["Row"];
+export type PaymentLedgerRow = Database["public"]["Tables"]["payment_ledger"]["Row"];

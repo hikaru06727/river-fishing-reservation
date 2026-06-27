@@ -19,6 +19,7 @@ const {
   updateClosingStatusMock,
   findCorrectionByIdMock,
   updateCorrectionStatusMock,
+  checkUnsettledBeforeCloseMock,
 } = vi.hoisted(() => ({
   findAssignedBusinessIdsByUserIdMock: vi.fn(),
   findAssignedBusinessIdsByStaffUserIdMock: vi.fn(),
@@ -32,6 +33,7 @@ const {
   updateClosingStatusMock: vi.fn(),
   findCorrectionByIdMock: vi.fn(),
   updateCorrectionStatusMock: vi.fn(),
+  checkUnsettledBeforeCloseMock: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -55,6 +57,10 @@ vi.mock("@/lib/repositories/register-closings.repository", () => ({
   updateClosingStatus: updateClosingStatusMock,
   findCorrectionById: findCorrectionByIdMock,
   updateCorrectionStatus: updateCorrectionStatusMock,
+}));
+
+vi.mock("@/lib/services/payment-ledger.service", () => ({
+  checkUnsettledBeforeClose: checkUnsettledBeforeCloseMock,
 }));
 
 const BIZ_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -103,6 +109,12 @@ beforeEach(() => {
   vi.clearAllMocks();
   findAssignedBusinessIdsByUserIdMock.mockResolvedValue([BIZ_A]);
   findAssignedBusinessIdsByStaffUserIdMock.mockResolvedValue([BIZ_A]);
+  // デフォルト: 未精算なし（締めをブロックしない）
+  checkUnsettledBeforeCloseMock.mockResolvedValue({
+    total: 0,
+    bySourceType: { pos: 0, reservation: 0, manual: 0 },
+    entries: [],
+  });
 });
 
 // ============================================================
@@ -210,6 +222,53 @@ describe("closeRegister", () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+
+  it("未精算エントリがある場合は締めがブロックされる", async () => {
+    checkUnsettledBeforeCloseMock.mockResolvedValue({
+      total: 2,
+      bySourceType: { pos: 1, reservation: 1, manual: 0 },
+      entries: [
+        { id: "e1", source_type: "pos", status: "pending" },
+        { id: "e2", source_type: "reservation", status: "pending" },
+      ],
+    });
+
+    const result = await closeRegister(PROFILE_BA, {
+      businessId: BIZ_A,
+      periodStart: PERIOD_START,
+      periodEnd: PERIOD_END,
+      closedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(409);
+      expect(result.unsettledBlock?.total).toBe(2);
+      expect(result.unsettledBlock?.bySourceType.pos).toBe(1);
+      expect(result.unsettledBlock?.bySourceType.reservation).toBe(1);
+      expect(insertRegisterClosingMock).not.toHaveBeenCalled();
+    }
+  });
+
+  it("未精算が全精算済みなら締めが実行される", async () => {
+    checkUnsettledBeforeCloseMock.mockResolvedValue({
+      total: 0,
+      bySourceType: { pos: 0, reservation: 0, manual: 0 },
+      entries: [],
+    });
+    findSalesRowsForClosingMock.mockResolvedValue([]);
+    insertRegisterClosingMock.mockResolvedValue({ ...SAMPLE_CLOSING, total_amount: 0 });
+
+    const result = await closeRegister(PROFILE_BA, {
+      businessId: BIZ_A,
+      periodStart: PERIOD_START,
+      periodEnd: PERIOD_END,
+      closedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(insertRegisterClosingMock).toHaveBeenCalledTimes(1);
   });
 });
 

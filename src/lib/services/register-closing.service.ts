@@ -15,14 +15,20 @@ import {
   findSalesRowsForClosing,
   type ClosingSalesRawRow,
 } from "@/lib/repositories/register-closings.repository";
+import { checkUnsettledBeforeClose } from "@/lib/services/payment-ledger.service";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { hasPermission } from "@/lib/permissions";
 import { isAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { Profile, RegisterClosingCorrectionRow, RegisterClosingRow } from "@/types/database";
 
+export type UnsettledBlockInfo = {
+  total: number;
+  bySourceType: { pos: number; reservation: number; manual: number };
+};
+
 export type ServiceResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: string; status?: number };
+  | { ok: false; error: string; status?: number; unsettledBlock?: UnsettledBlockInfo };
 
 type OperatorProfile = Pick<Profile, "id" | "role">;
 
@@ -95,6 +101,29 @@ export async function closeRegister(
 
   const auth = await assertCanAccessBusiness(profile, params.businessId);
   if (!auth.ok) return auth;
+
+  // 締め前未精算チェック
+  try {
+    const unsettled = await checkUnsettledBeforeClose(
+      params.businessId,
+      params.periodStart.toISOString(),
+      params.periodEnd.toISOString(),
+    );
+    if (unsettled.total > 0) {
+      return {
+        ok: false,
+        error:
+          "未精算の予約・売上があります。精算またはキャンセルしてから締めてください。",
+        status: 409,
+        unsettledBlock: {
+          total: unsettled.total,
+          bySourceType: unsettled.bySourceType,
+        },
+      };
+    }
+  } catch {
+    // チェック失敗は締め操作を止めない（台帳未登録の場合は素通りさせる）
+  }
 
   let rows: ClosingSalesRawRow[];
   try {

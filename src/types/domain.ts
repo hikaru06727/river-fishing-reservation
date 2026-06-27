@@ -15,6 +15,15 @@ export type ClosingCorrectionStatus = "pending" | "approved" | "rejected";
 export type SaleRefundStatus = "pending" | "completed" | "failed";
 export type SaleRefundPaymentMethod = "cash" | "card" | "other";
 
+export type PaymentLedgerSourceType = "pos" | "reservation" | "manual";
+export type PaymentLedgerPaymentMethod = "cash" | "card" | "other";
+export type PaymentLedgerStatus =
+  | "pending"
+  | "succeeded"
+  | "refunded"
+  | "partially_refunded"
+  | "cancelled";
+
 export type StaffMember = {
   id: string;
   business_id: string;

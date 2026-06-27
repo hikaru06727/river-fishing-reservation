@@ -49,7 +49,10 @@ export async function closeRegisterAction(
   });
 
   if (!result.ok) {
-    return { error: result.error };
+    return {
+      error: result.error,
+      ...(result.unsettledBlock ? { unsettledBlock: result.unsettledBlock } : {}),
+    };
   }
 
   redirect("/admin/register-closing?businessId=" + businessId);

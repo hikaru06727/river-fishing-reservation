@@ -63,9 +63,22 @@ export function RegisterCloseButton({
         </button>
       </form>
       {state.error && (
-        <p className="mt-2 text-sm text-red-600" role="alert">
-          {state.error}
-        </p>
+        <div className="mt-2" role="alert">
+          <p className="text-sm text-red-600">{state.error}</p>
+          {state.unsettledBlock && state.unsettledBlock.total > 0 && (
+            <ul className="mt-1 list-inside list-disc text-sm text-red-600">
+              {state.unsettledBlock.bySourceType.pos > 0 && (
+                <li>POS売上: {state.unsettledBlock.bySourceType.pos}件</li>
+              )}
+              {state.unsettledBlock.bySourceType.reservation > 0 && (
+                <li>予約: {state.unsettledBlock.bySourceType.reservation}件</li>
+              )}
+              {state.unsettledBlock.bySourceType.manual > 0 && (
+                <li>手動売上: {state.unsettledBlock.bySourceType.manual}件</li>
+              )}
+            </ul>
+          )}
+        </div>
       )}
       {state.success && (
         <p className="mt-2 text-sm text-green-600" role="status">
