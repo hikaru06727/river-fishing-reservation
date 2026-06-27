@@ -14,6 +14,7 @@ const {
   findReservationDateByIdMock,
   stripeRefundsCreateMock,
   findClosingContainingSoldAtMock,
+  findClosingContainingReservationDateMock,
   updatePostCloseRefundMock,
 } = vi.hoisted(() => ({
   findAssignedBusinessIdsByUserIdMock: vi.fn(),
@@ -28,6 +29,7 @@ const {
   findReservationDateByIdMock: vi.fn(),
   stripeRefundsCreateMock: vi.fn(),
   findClosingContainingSoldAtMock: vi.fn(),
+  findClosingContainingReservationDateMock: vi.fn(),
   updatePostCloseRefundMock: vi.fn(),
 }));
 
@@ -55,6 +57,7 @@ vi.mock("@/lib/repositories/sale-refunds.repository", () => ({
 
 vi.mock("@/lib/repositories/register-closings.repository", () => ({
   findClosingContainingSoldAt: findClosingContainingSoldAtMock,
+  findClosingContainingReservationDate: findClosingContainingReservationDateMock,
   updatePostCloseRefund: updatePostCloseRefundMock,
 }));
 
@@ -118,6 +121,7 @@ beforeEach(() => {
   findSaleSessionSoldAtByIdMock.mockResolvedValue(null);
   findReservationDateByIdMock.mockResolvedValue(null);
   findClosingContainingSoldAtMock.mockResolvedValue(null);
+  findClosingContainingReservationDateMock.mockResolvedValue(null);
   updatePostCloseRefundMock.mockResolvedValue(undefined);
 });
 
@@ -368,11 +372,11 @@ describe("refundCash — post_close_refund", () => {
     expect(updatePostCloseRefundMock).not.toHaveBeenCalled();
   });
 
-  it("予約返金で reservation_date を元に締め記録を検索する", async () => {
+  it("予約返金で reservation_date を元に findClosingContainingReservationDate が呼ばれる", async () => {
     findReservationAmountByIdMock.mockResolvedValue(10000);
     insertSaleRefundMock.mockResolvedValue({ ...SAMPLE_REFUND, reservation_id: RES_ID });
     findReservationDateByIdMock.mockResolvedValue("2026-06-25");
-    findClosingContainingSoldAtMock.mockResolvedValue(SAMPLE_CLOSING);
+    findClosingContainingReservationDateMock.mockResolvedValue(SAMPLE_CLOSING);
 
     const result = await refundCash(PROFILE_BA, {
       businessId: BIZ_A,
@@ -383,9 +387,10 @@ describe("refundCash — post_close_refund", () => {
     });
 
     expect(result.ok).toBe(true);
-    expect(findClosingContainingSoldAtMock).toHaveBeenCalledWith(
+    expect(findClosingContainingSoldAtMock).not.toHaveBeenCalled();
+    expect(findClosingContainingReservationDateMock).toHaveBeenCalledWith(
       BIZ_A,
-      "2026-06-25T00:00:00Z",
+      "2026-06-25",
     );
     expect(updatePostCloseRefundMock).toHaveBeenCalledWith({
       closingId: SAMPLE_CLOSING.id,

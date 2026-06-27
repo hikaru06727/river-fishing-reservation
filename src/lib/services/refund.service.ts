@@ -14,6 +14,7 @@ import {
 } from "@/lib/repositories/sale-refunds.repository";
 import {
   findClosingContainingSoldAt,
+  findClosingContainingReservationDate,
   updatePostCloseRefund,
 } from "@/lib/repositories/register-closings.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
@@ -37,18 +38,20 @@ async function recordPostCloseRefundIfNeeded(params: {
   paymentMethod: "cash" | "card" | "other";
   amount: number;
 }): Promise<void> {
-  let soldAt: string | null = null;
+  let matchedClosing = null;
+
   if (params.saleSessionId) {
-    soldAt = await findSaleSessionSoldAtById(params.saleSessionId).catch(() => null);
+    const soldAt = await findSaleSessionSoldAtById(params.saleSessionId).catch(() => null);
+    if (!soldAt) return;
+    matchedClosing = await findClosingContainingSoldAt(params.businessId, soldAt).catch(() => null);
   } else if (params.reservationId) {
     const date = await findReservationDateById(params.reservationId).catch(() => null);
-    soldAt = date ? `${date}T00:00:00Z` : null;
+    if (!date) return;
+    matchedClosing = await findClosingContainingReservationDate(params.businessId, date).catch(
+      () => null,
+    );
   }
-  if (!soldAt) return;
 
-  const matchedClosing = await findClosingContainingSoldAt(params.businessId, soldAt).catch(
-    () => null,
-  );
   if (!matchedClosing) return;
 
   // 返金日時が締め日時より前の場合は締め前返金 → 差分記録しない
