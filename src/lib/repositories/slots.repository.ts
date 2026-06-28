@@ -109,3 +109,25 @@ export async function findSlotByIdAdmin(slotId: string): Promise<SlotRow | null>
 
   return data as SlotRow | null;
 }
+
+export async function generateSlotsFromWeeklyHours(
+  spotId: string,
+  fromDate: string,
+  toDate: string,
+  stepMinutes: number = 15,
+): Promise<number> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin.rpc("generate_slots_from_weekly_hours", {
+    p_spot_id: spotId,
+    p_from_date: fromDate,
+    p_to_date: toDate,
+    p_step_minutes: stepMinutes,
+  });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data as number) ?? 0;
+}

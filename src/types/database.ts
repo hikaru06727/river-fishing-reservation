@@ -1231,6 +1231,15 @@ export interface Database {
           reservation_ids: string[];
         }[];
       };
+      generate_slots_from_weekly_hours: {
+        Args: {
+          p_spot_id: string;
+          p_from_date: string;
+          p_to_date: string;
+          p_step_minutes?: number;
+        };
+        Returns: number;
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
