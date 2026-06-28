@@ -113,6 +113,15 @@ export async function updateProductSale(
   return data as ProductSale;
 }
 
+export async function deleteProductSalesBySessionId(sessionId: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("product_sales")
+    .delete()
+    .eq("sale_session_id", sessionId);
+  if (error) throw new Error(error.message);
+}
+
 export async function deleteProductSale(id: string): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.from("product_sales").delete().eq("id", id);

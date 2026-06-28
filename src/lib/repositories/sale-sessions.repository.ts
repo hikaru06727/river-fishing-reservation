@@ -192,6 +192,12 @@ export async function insertSaleSessionItems(
   return (data ?? []) as SaleSessionItem[];
 }
 
+export async function deleteSaleSessionById(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("sale_sessions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function insertSaleSessionDiscounts(
   discounts: InsertSaleSessionDiscountInput[],
 ): Promise<SaleSessionDiscount[]> {

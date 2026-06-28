@@ -13,6 +13,7 @@ import {
   findReservationPaymentEmailMetaById,
   findReservationStatusForStripeWebhook,
 } from "@/lib/repositories/reservations.repository";
+import { upsertPaymentLedger } from "@/lib/repositories/payment-ledger.repository";
 import { getStripe } from "@/lib/stripe/server";
 import type { ReservationStatus } from "@/types/database";
 
@@ -145,6 +146,23 @@ export async function POST(request: Request) {
     }
 
     const emailMeta = await findReservationPaymentEmailMetaById(reservationId, userId);
+
+    if (emailMeta?.businessId) {
+      try {
+        await upsertPaymentLedger({
+          business_id: emailMeta.businessId,
+          source_type: "reservation",
+          source_id: reservationId,
+          amount: session.amount_total ?? emailMeta.totalAmountYen,
+          payment_method: "card",
+          status: "succeeded",
+          paid_at: new Date().toISOString(),
+        });
+      } catch (ledgerError) {
+        console.error("[stripe webhook] payment_ledger upsert failed:", ledgerError);
+      }
+    }
+
     if (emailMeta) {
       void sendPaymentConfirmedEmails({
         reservationId: emailMeta.reservationId,

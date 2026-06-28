@@ -7,6 +7,7 @@ import {
   canMarkCashPaymentReceived,
   isCashPaymentAlreadyReceived,
 } from "@/lib/reservations/mark-cash-payment-received";
+import { recordPaymentLedger } from "@/lib/services/payment-ledger.service";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
@@ -76,6 +77,22 @@ export async function markCashPaymentReceived(
   try {
     const paidAt = new Date().toISOString();
     const outcome = await markCashPaymentSucceededByReservationId(reservationId, paidAt);
+
+    if (outcome === "updated" && meta.business_id) {
+      try {
+        await recordPaymentLedger({
+          business_id: meta.business_id,
+          source_type: "reservation",
+          source_id: reservationId,
+          amount: meta.total_amount_yen,
+          payment_method: "cash",
+          status: "succeeded",
+          paid_at: paidAt,
+        });
+      } catch (e) {
+        console.error("[markCashPaymentReceived] payment_ledger write failed:", e);
+      }
+    }
 
     revalidateAdminReservationPaths(reservationId);
 

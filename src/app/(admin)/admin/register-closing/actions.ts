@@ -39,14 +39,19 @@ export async function closeRegisterAction(
     return { error: "期間の開始が終了以降になっています。" };
   }
 
-  const result = await closeRegister(session.profile, {
-    businessId,
-    locationId: locationId || null,
-    periodStart,
-    periodEnd,
-    note: note || null,
-    closedBy: session.profile.id,
-  });
+  let result;
+  try {
+    result = await closeRegister(session.profile, {
+      businessId,
+      locationId: locationId || null,
+      periodStart,
+      periodEnd,
+      note: note || null,
+      closedBy: session.profile.id,
+    });
+  } catch {
+    return { error: "締め処理中にエラーが発生しました。もう一度お試しください。" };
+  }
 
   if (!result.ok) {
     return {

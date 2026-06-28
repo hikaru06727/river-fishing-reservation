@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { inferPaymentMethod } from "@/lib/reservations/payment-method";
 import type { PaymentMethod } from "@/lib/reservations/payment-method";
 import type { PaymentStatus, ReservationStatus } from "@/types/database";
-import type { SalesDateRange, SalesReservationRow } from "@/lib/sales/sales-types";
+import type { SalesDateRange, SalesReservationRow, TodaySalesRawRow } from "@/lib/sales/sales-types";
 
 const SALES_RESERVATION_SELECT = `
   id,
@@ -94,26 +94,48 @@ function mapSalesReservationRow(
 }
 
 /**
- * 期間内の確定済み商品売上合計（税抜き）を取得
- * product_sales テーブルを直接クエリし、RLS でアクセス制御する
+ * 期間内の POS 販売合計（税込み）を取得
+ * payment_ledger の source_type='pos' エントリを集計し、RLS でアクセス制御する
  */
 export async function findProductSalesTotalYen(range: SalesDateRange): Promise<number> {
   const supabase = await createClient();
   const { data, error } = await supabase
-    .from("product_sales")
-    .select("quantity, unit_price_excluding_tax")
-    .eq("status", "completed")
-    .gte("purchased_at", range.dateFrom)
-    .lte("purchased_at", range.dateTo + "T23:59:59.999Z");
+    .from("payment_ledger")
+    .select("amount")
+    .eq("source_type", "pos")
+    .eq("status", "succeeded")
+    .gte("paid_at", range.dateFrom + "T00:00:00+09:00")
+    .lte("paid_at", range.dateTo + "T23:59:59+09:00");
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return (data ?? []).reduce(
-    (sum, row) => sum + row.quantity * row.unit_price_excluding_tax,
-    0,
-  );
+  return (data ?? []).reduce((sum, row) => sum + row.amount, 0);
+}
+
+/**
+ * 指定 JST 日付の精算済み売上行を取得（payment_ledger から集計）
+ * payment_method は payment_ledger でバケット済み: cash / card / other
+ */
+export async function findTodaySalesRows(dateJst: string): Promise<TodaySalesRawRow[]> {
+  const supabase = await createClient();
+  const jstStart = `${dateJst}T00:00:00+09:00`;
+  const jstEnd = `${dateJst}T23:59:59+09:00`;
+
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("amount, payment_method")
+    .eq("status", "succeeded")
+    .gte("paid_at", jstStart)
+    .lte("paid_at", jstEnd);
+
+  if (error) throw new Error(error.message);
+
+  return (data ?? []).map((row) => ({
+    amountYen: row.amount,
+    paymentMethod: row.payment_method,
+  }));
 }
 
 /** 期間内の予約行を取得（管理画面・RLS 下） */

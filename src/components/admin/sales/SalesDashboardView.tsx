@@ -11,8 +11,9 @@ import { SalesInsightsPanel } from "@/components/admin/sales/SalesInsightsPanel"
 import { SalesPaymentMethodBreakdown } from "@/components/admin/sales/SalesPaymentMethodBreakdown";
 import { SalesPeriodFilters } from "@/components/admin/sales/SalesPeriodFilters";
 import { SalesSummaryCards } from "@/components/admin/sales/SalesSummaryCards";
+import { TodaySalesSummaryCard } from "@/components/admin/sales/TodaySalesSummaryCard";
 import type { SalesInsights } from "@/lib/sales/sales-insights";
-import type { SalesReport } from "@/lib/sales/sales-types";
+import type { SalesReport, TodaySalesSummary } from "@/lib/sales/sales-types";
 
 type Tab = "overview" | "reservations" | "products" | "insights";
 
@@ -29,6 +30,7 @@ interface SalesDashboardViewProps {
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
   productSalesYen: number;
+  todaySummary: TodaySalesSummary;
 }
 
 export function SalesDashboardView({
@@ -37,6 +39,7 @@ export function SalesDashboardView({
   isAdmin,
   scopedBusinessNames,
   productSalesYen,
+  todaySummary,
 }: SalesDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
 
@@ -88,6 +91,7 @@ export function SalesDashboardView({
       {activeTab === "overview" && (
         <div className="space-y-6">
           <SalesPeriodFilters dateFrom={report.dateFrom} dateTo={report.dateTo} />
+          <TodaySalesSummaryCard summary={todaySummary} />
         </div>
       )}
 
@@ -119,9 +123,9 @@ export function SalesDashboardView({
       {activeTab === "products" && (
         <div className="space-y-6">
           <div className="rounded-xl border border-border bg-card p-4">
-            <p className="text-sm text-muted">商品売上（期間合計・税抜き）</p>
+            <p className="text-sm text-muted">POS 販売合計（税込み）</p>
             <p className="mt-1 text-2xl font-bold text-foreground">{formatYen(productSalesYen)}</p>
-            <p className="mt-1 text-xs text-muted">確定済み商品販売の合計。予約売上とは別集計です。</p>
+            <p className="mt-1 text-xs text-muted">レジ販売セッションの合計金額（税込）。予約売上・手動売上とは別集計です。</p>
           </div>
           <SalesPaymentMethodBreakdown
             breakdown={report.paymentMethodBreakdown}

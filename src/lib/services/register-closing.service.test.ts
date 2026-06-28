@@ -229,8 +229,8 @@ describe("closeRegister", () => {
       total: 2,
       bySourceType: { pos: 1, reservation: 1, manual: 0 },
       entries: [
-        { id: "e1", source_type: "pos", status: "pending" },
-        { id: "e2", source_type: "reservation", status: "pending" },
+        { id: "e1", source_type: "pos", source_id: "session-uuid-1", status: "pending" },
+        { id: "e2", source_type: "reservation", source_id: "reservation-uuid-1", status: "pending" },
       ],
     });
 
@@ -247,6 +247,15 @@ describe("closeRegister", () => {
       expect(result.unsettledBlock?.total).toBe(2);
       expect(result.unsettledBlock?.bySourceType.pos).toBe(1);
       expect(result.unsettledBlock?.bySourceType.reservation).toBe(1);
+      expect(result.unsettledBlock?.entries).toHaveLength(2);
+      expect(result.unsettledBlock?.entries[0]).toEqual({
+        source_type: "pos",
+        source_id: "session-uuid-1",
+      });
+      expect(result.unsettledBlock?.entries[1]).toEqual({
+        source_type: "reservation",
+        source_id: "reservation-uuid-1",
+      });
       expect(insertRegisterClosingMock).not.toHaveBeenCalled();
     }
   });
@@ -269,6 +278,21 @@ describe("closeRegister", () => {
 
     expect(result.ok).toBe(true);
     expect(insertRegisterClosingMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("未精算チェックがDBエラーをスローした場合は締めも失敗する（素通りしない）", async () => {
+    checkUnsettledBeforeCloseMock.mockRejectedValue(new Error("DB connection error"));
+
+    await expect(
+      closeRegister(PROFILE_BA, {
+        businessId: BIZ_A,
+        periodStart: PERIOD_START,
+        periodEnd: PERIOD_END,
+        closedBy: PROFILE_BA.id,
+      }),
+    ).rejects.toThrow("DB connection error");
+
+    expect(insertRegisterClosingMock).not.toHaveBeenCalled();
   });
 });
 

@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSalesDashboard } from "@/lib/services/sales.service";
 import type { SalesReservationRow } from "@/lib/sales/sales-types";
 
-const { getUserMock, getProfileMock, findAssignedBusinessIdsByUserIdMock, findSalesReservationRowsMock, findProductSalesTotalYenMock, resolveBusinessDayCountForSalesMock } =
+const { getUserMock, getProfileMock, findAssignedBusinessIdsByUserIdMock, findSalesReservationRowsMock, findProductSalesTotalYenMock, findTodaySalesRowsMock, resolveBusinessDayCountForSalesMock } =
   vi.hoisted(() => ({
     getUserMock: vi.fn(),
     getProfileMock: vi.fn(),
     findAssignedBusinessIdsByUserIdMock: vi.fn(),
     findSalesReservationRowsMock: vi.fn(),
     findProductSalesTotalYenMock: vi.fn(),
+    findTodaySalesRowsMock: vi.fn(),
     resolveBusinessDayCountForSalesMock: vi.fn(),
   }));
 
@@ -28,6 +29,7 @@ vi.mock("@/lib/repositories/businesses.repository", () => ({
 vi.mock("@/lib/repositories/sales.repository", () => ({
   findSalesReservationRows: findSalesReservationRowsMock,
   findProductSalesTotalYen: findProductSalesTotalYenMock,
+  findTodaySalesRows: findTodaySalesRowsMock,
 }));
 
 vi.mock("@/lib/sales/sales-insights-context", () => ({
@@ -61,6 +63,8 @@ describe("getSalesDashboard", () => {
     findSalesReservationRowsMock.mockReset();
     findProductSalesTotalYenMock.mockReset();
     findProductSalesTotalYenMock.mockResolvedValue(0);
+    findTodaySalesRowsMock.mockReset();
+    findTodaySalesRowsMock.mockResolvedValue([]);
     resolveBusinessDayCountForSalesMock.mockReset();
     resolveBusinessDayCountForSalesMock.mockResolvedValue(1);
   });

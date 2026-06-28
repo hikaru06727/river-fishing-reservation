@@ -6,7 +6,7 @@ import {
   findManageableSpots,
 } from "@/lib/repositories/businesses.repository";
 import { getManualSalesForBusiness } from "@/lib/services/manual-sales.service";
-import { isAdminRole } from "@/lib/auth/role";
+import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
 import type { ManualSale } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +37,10 @@ interface PageProps {
 export default async function AdminManualSalesPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/admin/login?next=/admin/manual-sales");
+
+  if (!isAdminRole(session.profile.role) && !isBusinessAdminRole(session.profile.role)) {
+    redirect("/admin");
+  }
 
   const { businessId } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);

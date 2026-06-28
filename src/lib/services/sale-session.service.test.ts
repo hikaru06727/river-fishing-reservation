@@ -13,23 +13,35 @@ vi.mock("@/lib/repositories/products.repository", () => ({
 
 vi.mock("@/lib/repositories/product-sales.repository", () => ({
   insertProductSale: vi.fn(),
+  deleteProductSalesBySessionId: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/repositories/sale-sessions.repository", () => ({
   insertSaleSession: vi.fn(),
   insertSaleSessionItems: vi.fn(),
   insertSaleSessionDiscounts: vi.fn(),
+  deleteSaleSessionById: vi.fn().mockResolvedValue(undefined),
 }));
 
 vi.mock("@/lib/repositories/tax-rates.repository", () => ({
   getCurrentTaxRate: vi.fn(),
 }));
 
+vi.mock("@/lib/services/payment-ledger.service", () => ({
+  recordPaymentLedger: vi.fn().mockResolvedValue({}),
+  toLedgerPaymentMethod: vi.fn((m: string | null) => {
+    if (m === "cash" || m === "cash_at_venue") return "cash";
+    if (m === "card" || m === "stripe" || m === "credit_card" || m === "online") return "card";
+    return "other";
+  }),
+}));
+
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
 import { findProductById, updateProduct } from "@/lib/repositories/products.repository";
-import { insertProductSale } from "@/lib/repositories/product-sales.repository";
-import { insertSaleSession, insertSaleSessionDiscounts, insertSaleSessionItems } from "@/lib/repositories/sale-sessions.repository";
+import { deleteProductSalesBySessionId, insertProductSale } from "@/lib/repositories/product-sales.repository";
+import { deleteSaleSessionById, insertSaleSession, insertSaleSessionDiscounts, insertSaleSessionItems } from "@/lib/repositories/sale-sessions.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
+import { recordPaymentLedger } from "@/lib/services/payment-ledger.service";
 import { createSaleSession } from "./sale-session.service";
 
 const bizA = "11111111-1111-4111-8111-111111111111";
@@ -278,5 +290,57 @@ describe("createSaleSession", () => {
 
     expect(result.ok).toBe(true);
     expect(updateProduct).not.toHaveBeenCalled();
+  });
+
+  it("成功時に payment_ledger へ pos エントリを記録する", async () => {
+    const result = await createSaleSession(baProfile, {
+      business_id: bizA,
+      payment_method: "cash",
+      items: [{ product_id: prodId1, quantity: 2 }],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(recordPaymentLedger).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business_id: bizA,
+        source_type: "pos",
+        source_id: sessionId,
+        amount: 1100,
+        payment_method: "cash",
+        status: "succeeded",
+      }),
+    );
+  });
+
+  it("qr 支払いは payment_ledger に other として記録される", async () => {
+    vi.mocked(insertSaleSession).mockResolvedValue({ ...fakeSession, payment_method: "qr" });
+
+    await createSaleSession(baProfile, {
+      business_id: bizA,
+      payment_method: "qr",
+      items: [{ product_id: prodId1, quantity: 1 }],
+    });
+
+    expect(recordPaymentLedger).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_method: "other" }),
+    );
+  });
+
+  it("payment_ledger 書き込みが失敗するとセッション作成も失敗し、ロールバックを試みる", async () => {
+    vi.mocked(recordPaymentLedger).mockRejectedValueOnce(new Error("ledger error"));
+
+    const result = await createSaleSession(baProfile, {
+      business_id: bizA,
+      payment_method: "cash",
+      items: [{ product_id: prodId1, quantity: 1 }],
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(500);
+
+    // ロールバック: product_sales 削除 → 在庫復元 → session 削除
+    expect(deleteProductSalesBySessionId).toHaveBeenCalledWith(sessionId);
+    expect(updateProduct).toHaveBeenCalledWith(prodId1, { stock_quantity: 10 });
+    expect(deleteSaleSessionById).toHaveBeenCalledWith(sessionId);
   });
 });

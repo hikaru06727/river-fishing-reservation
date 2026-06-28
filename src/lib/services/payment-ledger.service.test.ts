@@ -3,19 +3,23 @@ import {
   checkUnsettledBeforeClose,
   getPaymentLedgerBySource,
   getPaymentLedgerByPeriod,
+  getLedgerRowsForClosing,
   recordPaymentLedger,
+  toLedgerPaymentMethod,
   updatePaymentStatus,
 } from "@/lib/services/payment-ledger.service";
 
 const {
   findBySourceMock,
   findByBusinessAndPeriodMock,
+  findSucceededInPeriodMock,
   findUnsettledInPeriodMock,
   upsertPaymentLedgerMock,
   updatePaymentLedgerStatusMock,
 } = vi.hoisted(() => ({
   findBySourceMock: vi.fn(),
   findByBusinessAndPeriodMock: vi.fn(),
+  findSucceededInPeriodMock: vi.fn(),
   findUnsettledInPeriodMock: vi.fn(),
   upsertPaymentLedgerMock: vi.fn(),
   updatePaymentLedgerStatusMock: vi.fn(),
@@ -24,6 +28,7 @@ const {
 vi.mock("@/lib/repositories/payment-ledger.repository", () => ({
   findBySource: findBySourceMock,
   findByBusinessAndPeriod: findByBusinessAndPeriodMock,
+  findSucceededInPeriod: findSucceededInPeriodMock,
   findUnsettledInPeriod: findUnsettledInPeriodMock,
   upsertPaymentLedger: upsertPaymentLedgerMock,
   updatePaymentLedgerStatus: updatePaymentLedgerStatusMock,
@@ -146,6 +151,42 @@ describe("checkUnsettledBeforeClose", () => {
     expect(result.bySourceType.pos).toBe(0);
     expect(result.bySourceType.reservation).toBe(0);
   });
+
+  it("refunded / partially_refunded も未精算としてカウントされる", async () => {
+    const refundedEntry = {
+      ...SAMPLE_POS_ENTRY,
+      id: "ledger-5",
+      status: "refunded" as const,
+      paid_at: null,
+    };
+    const partialEntry = {
+      ...SAMPLE_POS_ENTRY,
+      id: "ledger-6",
+      source_id: "session-6",
+      status: "partially_refunded" as const,
+    };
+    findUnsettledInPeriodMock.mockResolvedValue([refundedEntry, partialEntry]);
+
+    const result = await checkUnsettledBeforeClose(BIZ_A, PERIOD_START, PERIOD_END);
+
+    expect(result.total).toBe(2);
+    expect(result.bySourceType.pos).toBe(2);
+  });
+
+  it("paid_at が NULL でも entries に含まれる（created_at で絞り込みを期待する）", async () => {
+    const nullPaidAt = {
+      ...SAMPLE_POS_ENTRY,
+      id: "ledger-7",
+      status: "pending" as const,
+      paid_at: null,
+    };
+    findUnsettledInPeriodMock.mockResolvedValue([nullPaidAt]);
+
+    const result = await checkUnsettledBeforeClose(BIZ_A, PERIOD_START, PERIOD_END);
+
+    expect(result.total).toBe(1);
+    expect(result.entries[0]?.paid_at).toBeNull();
+  });
 });
 
 // ============================================================
@@ -169,6 +210,54 @@ describe("recordPaymentLedger", () => {
 
     expect(upsertPaymentLedgerMock).toHaveBeenCalledWith(input);
     expect(result).toEqual(SAMPLE_POS_ENTRY);
+  });
+});
+
+// ============================================================
+// toLedgerPaymentMethod
+// ============================================================
+describe("toLedgerPaymentMethod", () => {
+  it.each([
+    ["cash", "cash"],
+    ["cash_at_venue", "cash"],
+    ["card", "card"],
+    ["stripe", "card"],
+    ["credit_card", "card"],
+    ["online", "card"],
+    ["qr", "other"],
+    ["e_money", "other"],
+    ["other", "other"],
+    [null, "other"],
+  ] as const)("'%s' → '%s'", (input, expected) => {
+    expect(toLedgerPaymentMethod(input)).toBe(expected);
+  });
+});
+
+// ============================================================
+// getLedgerRowsForClosing
+// ============================================================
+describe("getLedgerRowsForClosing", () => {
+  it("succeeded エントリを amountYen / paymentMethod にマップして返す", async () => {
+    findSucceededInPeriodMock.mockResolvedValue([
+      { id: "e1", amount: 5000, payment_method: "cash", status: "succeeded" },
+      { id: "e2", amount: 3000, payment_method: "card", status: "succeeded" },
+    ]);
+
+    const rows = await getLedgerRowsForClosing(BIZ_A, PERIOD_START, PERIOD_END);
+
+    expect(findSucceededInPeriodMock).toHaveBeenCalledWith(BIZ_A, PERIOD_START, PERIOD_END);
+    expect(rows).toEqual([
+      { amountYen: 5000, paymentMethod: "cash" },
+      { amountYen: 3000, paymentMethod: "card" },
+    ]);
+  });
+
+  it("エントリがない場合は空配列を返す", async () => {
+    findSucceededInPeriodMock.mockResolvedValue([]);
+
+    const rows = await getLedgerRowsForClosing(BIZ_A, PERIOD_START, PERIOD_END);
+
+    expect(rows).toEqual([]);
   });
 });
 

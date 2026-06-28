@@ -164,6 +164,7 @@ export function ClosingListView({
               <th className="px-4 py-3 text-right font-medium">その他</th>
               <th className="px-4 py-3 text-right font-medium">合計</th>
               <th className="px-4 py-3 text-center font-medium">ステータス</th>
+              <th className="px-4 py-3 text-right font-medium">締め後返金</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
@@ -197,6 +198,13 @@ export function ClosingListView({
                     <td className="px-4 py-3 text-center">
                       <StatusBadge status={closing.status} />
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      {Number(closing.post_close_refund_total) > 0 && (
+                        <span className="font-semibold text-red-600">
+                          -¥{Number(closing.post_close_refund_total).toLocaleString()}
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-3">
                       {closing.status === "closed" && (
                         <CorrectionRequestForm
@@ -216,9 +224,64 @@ export function ClosingListView({
                         ))}
                     </td>
                   </tr>
+                  {Number(closing.post_close_refund_total) > 0 && (
+                    <tr
+                      key={`${closing.id}-postrefund`}
+                      className="border-b border-border bg-red-50/40 last:border-0"
+                    >
+                      <td colSpan={9} className="px-6 py-2 text-xs">
+                        <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-red-700">
+                          <span>
+                            締め時売上：
+                            <span className="font-medium">
+                              ¥{closing.total_amount.toLocaleString()}
+                            </span>
+                          </span>
+                          <span>
+                            締め後返金：
+                            <span className="font-medium">
+                              ¥{Number(closing.post_close_refund_total).toLocaleString()}
+                            </span>
+                            {Number(closing.post_close_refund_cash) > 0 && (
+                              <span className="ml-1 text-red-500">
+                                （現金 ¥{Number(closing.post_close_refund_cash).toLocaleString()}
+                                {Number(closing.post_close_refund_card) > 0 &&
+                                  ` / カード ¥${Number(closing.post_close_refund_card).toLocaleString()}`}
+                                {Number(closing.post_close_refund_other) > 0 &&
+                                  ` / その他 ¥${Number(closing.post_close_refund_other).toLocaleString()}`}
+                                ）
+                              </span>
+                            )}
+                            {Number(closing.post_close_refund_cash) === 0 &&
+                              Number(closing.post_close_refund_card) > 0 && (
+                                <span className="ml-1 text-red-500">
+                                  （カード ¥{Number(closing.post_close_refund_card).toLocaleString()}
+                                  {Number(closing.post_close_refund_other) > 0 &&
+                                    ` / その他 ¥${Number(closing.post_close_refund_other).toLocaleString()}`}
+                                  ）
+                                </span>
+                              )}
+                            {Number(closing.post_close_refund_cash) === 0 &&
+                              Number(closing.post_close_refund_card) === 0 &&
+                              Number(closing.post_close_refund_other) > 0 && (
+                                <span className="ml-1 text-red-500">
+                                  （その他 ¥{Number(closing.post_close_refund_other).toLocaleString()}）
+                                </span>
+                              )}
+                          </span>
+                          <span className="font-semibold">
+                            実質売上：¥
+                            {(
+                              closing.total_amount - Number(closing.post_close_refund_total)
+                            ).toLocaleString()}
+                          </span>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {closing.note && (
                     <tr key={`${closing.id}-note`} className="border-b border-border bg-slate-50/50 last:border-0">
-                      <td colSpan={8} className="px-4 py-1.5 text-xs text-muted">
+                      <td colSpan={9} className="px-4 py-1.5 text-xs text-muted">
                         メモ: {closing.note}
                       </td>
                     </tr>

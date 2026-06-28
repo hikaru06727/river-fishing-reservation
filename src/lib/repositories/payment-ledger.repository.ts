@@ -54,11 +54,8 @@ export async function findByBusinessAndPeriod(
   return (data ?? []) as PaymentLedgerRow[];
 }
 
-/**
- * 期間内の未精算エントリ（status != 'succeeded' && status != 'cancelled'）を取得。
- * 締め前チェックに使用する。
- */
-export async function findUnsettledInPeriod(
+/** 締め集計用: 期間内の精算済みエントリを取得（status = 'succeeded', paid_at でフィルタ） */
+export async function findSucceededInPeriod(
   businessId: string,
   periodStartIso: string,
   periodEndIso: string,
@@ -69,10 +66,39 @@ export async function findUnsettledInPeriod(
     .from("payment_ledger")
     .select("*")
     .eq("business_id", businessId)
+    .eq("status", "succeeded")
     .gte("paid_at", periodStartIso)
     .lte("paid_at", periodEndIso)
-    .not("status", "in", '("succeeded","cancelled")')
     .order("paid_at", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PaymentLedgerRow[];
+}
+
+/**
+ * periodStart 以降に作成された未精算エントリを取得する。
+ *
+ * 上限を periodEnd（ページロード時刻）にしない理由:
+ *   periodEnd は Server Component のレンダリング時刻で固定される。
+ *   ページロード後に挿入された pending レコードは created_at > periodEnd となり
+ *   上限フィルタで除外されてしまう。
+ *   締め前チェックの目的は「現在時点で未精算のものを全て検出すること」なので
+ *   上限は実行時の now() とし、periodEnd に縛られない。
+ */
+export async function findUnsettledInPeriod(
+  businessId: string,
+  periodStartIso: string,
+  _periodEndIso: string,
+): Promise<PaymentLedgerRow[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("*")
+    .eq("business_id", businessId)
+    .gte("created_at", periodStartIso)
+    .in("status", ["pending", "refunded", "partially_refunded"])
+    .order("created_at", { ascending: true });
 
   if (error) throw new Error(error.message);
   return (data ?? []) as PaymentLedgerRow[];
