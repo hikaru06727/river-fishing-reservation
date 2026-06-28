@@ -1,11 +1,11 @@
 export type UnsettledEntryInfo = {
-  source_type: "pos" | "reservation" | "manual";
+  source_type: "pos" | "reservation" | "manual" | "booth";
   source_id: string;
 };
 
 export type UnsettledBlockInfo = {
   total: number;
-  bySourceType: { pos: number; reservation: number; manual: number };
+  bySourceType: { pos: number; reservation: number; manual: number; booth: number };
   entries: UnsettledEntryInfo[];
 };
 

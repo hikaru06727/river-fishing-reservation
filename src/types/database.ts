@@ -1,5 +1,10 @@
 import type {
   AppUserRole,
+  BoothBookingPaymentStatus,
+  BoothBookingSource,
+  BoothSlotStatus,
+  BoothStatus,
+  BoothTaxCategory,
   ClosingCorrectionStatus,
   ContentStatus,
   PaymentLedgerPaymentMethod,
@@ -28,6 +33,11 @@ export type Json =
 
 export type {
   AppUserRole,
+  BoothBookingPaymentStatus,
+  BoothBookingSource,
+  BoothSlotStatus,
+  BoothStatus,
+  BoothTaxCategory,
   ClosingCorrectionStatus,
   ContentStatus,
   PaymentMethod,
@@ -1186,6 +1196,141 @@ export interface Database {
         };
         Relationships: [];
       };
+      booths: {
+        Row: {
+          id: string;
+          business_id: string;
+          location_id: string | null;
+          name: string;
+          description: string | null;
+          capacity: number;
+          price: number;
+          tax_category: BoothTaxCategory;
+          status: BoothStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          location_id?: string | null;
+          name: string;
+          description?: string | null;
+          capacity?: number;
+          price?: number;
+          tax_category?: BoothTaxCategory;
+          status?: BoothStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          location_id?: string | null;
+          name?: string;
+          description?: string | null;
+          capacity?: number;
+          price?: number;
+          tax_category?: BoothTaxCategory;
+          status?: BoothStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      booth_slots: {
+        Row: {
+          id: string;
+          business_id: string;
+          booth_id: string;
+          date: string;
+          start_time: string;
+          end_time: string;
+          max_bookings: number;
+          status: BoothSlotStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          booth_id: string;
+          date: string;
+          start_time: string;
+          end_time: string;
+          max_bookings?: number;
+          status?: BoothSlotStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          booth_id?: string;
+          date?: string;
+          start_time?: string;
+          end_time?: string;
+          max_bookings?: number;
+          status?: BoothSlotStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      booth_bookings: {
+        Row: {
+          id: string;
+          business_id: string;
+          booth_slot_id: string;
+          customer_name: string;
+          customer_email: string | null;
+          customer_phone: string | null;
+          quantity: number;
+          unit_price: number;
+          tax_rate: number;
+          total_amount: number;
+          payment_status: BoothBookingPaymentStatus;
+          source: BoothBookingSource;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          booth_slot_id: string;
+          customer_name: string;
+          customer_email?: string | null;
+          customer_phone?: string | null;
+          quantity?: number;
+          unit_price: number;
+          tax_rate: number;
+          total_amount: number;
+          payment_status?: BoothBookingPaymentStatus;
+          source?: BoothBookingSource;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          booth_slot_id?: string;
+          customer_name?: string;
+          customer_email?: string | null;
+          customer_phone?: string | null;
+          quantity?: number;
+          unit_price?: number;
+          tax_rate?: number;
+          total_amount?: number;
+          payment_status?: BoothBookingPaymentStatus;
+          source?: BoothBookingSource;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1284,3 +1429,6 @@ export type RegisterClosingRow = Database["public"]["Tables"]["register_closings
 export type RegisterClosingCorrectionRow = Database["public"]["Tables"]["register_closing_corrections"]["Row"];
 export type SaleRefundRow = Database["public"]["Tables"]["sale_refunds"]["Row"];
 export type PaymentLedgerRow = Database["public"]["Tables"]["payment_ledger"]["Row"];
+export type BoothRow = Database["public"]["Tables"]["booths"]["Row"];
+export type BoothSlotRow = Database["public"]["Tables"]["booth_slots"]["Row"];
+export type BoothBookingRow = Database["public"]["Tables"]["booth_bookings"]["Row"];
