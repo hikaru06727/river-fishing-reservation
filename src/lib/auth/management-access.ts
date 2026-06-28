@@ -4,9 +4,10 @@ import {
   findReservationSpotIdByReservationId,
   findSpotBusinessIdBySpotId,
 } from "@/lib/repositories/businesses.repository";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { findPlanSpotIdByPlanId } from "@/lib/repositories/plans.repository";
 import { getProfile, getUser } from "@/lib/auth/get-user";
-import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
+import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { Profile, UserRole } from "@/types/database";
 
 export type ManagementScope = {
@@ -27,10 +28,10 @@ export function canManageBusinessForProfile(
   if (isAdminRole(profile.role)) {
     return true;
   }
-  if (!isBusinessAdminRole(profile.role)) {
-    return false;
+  if (isBusinessAdminRole(profile.role) || isStaffRole(profile.role)) {
+    return assignedBusinessIds.includes(businessId);
   }
-  return assignedBusinessIds.includes(businessId);
+  return false;
 }
 
 /** 純粋関数: spot の business_id 経由で spot 操作可否 */
@@ -124,8 +125,11 @@ export async function canCurrentUserManagePlan(
   return canManagePlanForProfile(profile, spotId, spotBusinessId, assignedIds);
 }
 
-async function getAssignedBusinessIds(userId: string): Promise<string[]> {
+async function getAssignedBusinessIds(userId: string, role?: string): Promise<string[]> {
   try {
+    if (role && isStaffRole(role)) {
+      return await findAssignedBusinessIdsByStaffUserId(userId);
+    }
     return await findAssignedBusinessIdsByUserId(userId);
   } catch (error) {
     console.error(
@@ -180,7 +184,7 @@ export async function canCurrentUserManageSpot(
   if (isAdminRole(profile.role)) {
     return true;
   }
-  if (!isBusinessAdminRole(profile.role)) {
+  if (!isBusinessAdminRole(profile.role) && !isStaffRole(profile.role)) {
     return false;
   }
 
@@ -195,7 +199,7 @@ export async function canCurrentUserManageSpot(
     return false;
   }
 
-  const assignedIds = await getAssignedBusinessIds(profile.id);
+  const assignedIds = await getAssignedBusinessIds(profile.id, profile.role);
   return canManageSpotForProfile(profile, spotBusinessId, assignedIds);
 }
 
@@ -213,7 +217,7 @@ export async function canCurrentUserManageReservation(
   if (isAdminRole(profile.role)) {
     return true;
   }
-  if (!isBusinessAdminRole(profile.role)) {
+  if (!isBusinessAdminRole(profile.role) && !isStaffRole(profile.role)) {
     return false;
   }
 

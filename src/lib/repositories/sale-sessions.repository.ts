@@ -44,8 +44,10 @@ const SALE_SESSION_LIST_SELECT = `
   business_id,
   sold_at,
   payment_method,
+  payment_other_label,
   tax_rate_percent,
   subtotal_amount,
+  discount_amount,
   tax_amount,
   total_amount,
   note,
@@ -225,11 +227,11 @@ export async function listByBusiness(
     .eq("business_id", businessId)
     .order("sold_at", { ascending: false });
 
-  if (filters.dateFrom) query = query.gte("sold_at", filters.dateFrom);
+  if (filters.dateFrom) {
+    query = query.gte("sold_at", filters.dateFrom + "T00:00:00+09:00");
+  }
   if (filters.dateTo) {
-    // dateTo is a date string like "2024-01-31"; include up to end of that day
-    const endOfDay = filters.dateTo + "T23:59:59.999Z";
-    query = query.lte("sold_at", endOfDay);
+    query = query.lte("sold_at", filters.dateTo + "T23:59:59+09:00");
   }
   if (filters.paymentMethod)
     query = query.eq("payment_method", filters.paymentMethod as SaleSession["payment_method"]);

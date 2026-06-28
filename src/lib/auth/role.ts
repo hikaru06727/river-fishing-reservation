@@ -1,10 +1,10 @@
 import type { Profile, AppUserRole, UserRole } from "@/types/database";
 
-/** DB / RLS と一致させるロール定数（将来 business_admin を DB に追加予定） */
-export const APP_USER_ROLES = ["user", "admin", "business_admin"] as const satisfies readonly AppUserRole[];
+/** DB / RLS と一致させるロール定数 */
+export const APP_USER_ROLES = ["user", "admin", "business_admin", "staff"] as const satisfies readonly AppUserRole[];
 
 /** DB profiles.role CHECK 制約と一致 */
-export const DB_USER_ROLES = ["user", "admin", "business_admin"] as const satisfies readonly UserRole[];
+export const DB_USER_ROLES = ["user", "admin", "business_admin", "staff"] as const satisfies readonly UserRole[];
 
 export function getRoleFromProfile(
   profile: Pick<Profile, "role"> | null | undefined,
@@ -20,13 +20,17 @@ export function isBusinessAdminRole(role: AppUserRole | string | null | undefine
   return role === "business_admin";
 }
 
+export function isStaffRole(role: AppUserRole | string | null | undefined): boolean {
+  return role === "staff";
+}
+
 export function isAdminProfile(profile: Pick<Profile, "role"> | null | undefined): boolean {
   return isAdminRole(profile?.role);
 }
 
-/** 管理画面に入れるロール（将来 business_admin をここに追加） */
+/** 管理画面に入れるロール */
 export function isManagementRole(role: AppUserRole | string | null | undefined): boolean {
-  return isAdminRole(role) || isBusinessAdminRole(role);
+  return isAdminRole(role) || isBusinessAdminRole(role) || isStaffRole(role);
 }
 
 export function isManagementProfile(

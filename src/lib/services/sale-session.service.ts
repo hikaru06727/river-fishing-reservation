@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { findProductById, updateProduct } from "@/lib/repositories/products.repository";
 import { insertProductSale } from "@/lib/repositories/product-sales.repository";
 import {
@@ -9,7 +10,7 @@ import {
 } from "@/lib/repositories/sale-sessions.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
-import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
+import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { PosPaymentMethod, Product, Profile, SaleSession } from "@/types/database";
 
 export type ServiceResult<T> =
@@ -24,7 +25,9 @@ async function assertCanManageBusiness(
 ): Promise<ServiceResult<null>> {
   let assignedIds: readonly string[] = [];
   if (!isAdminRole(profile.role)) {
-    assignedIds = await findAssignedBusinessIdsByUserId(profile.id);
+    assignedIds = isStaffRole(profile.role)
+      ? await findAssignedBusinessIdsByStaffUserId(profile.id)
+      : await findAssignedBusinessIdsByUserId(profile.id);
   }
   if (!canManageBusinessForProfile(profile, businessId, assignedIds)) {
     return { ok: false, error: "この事業への操作権限がありません。", status: 403 };
@@ -74,7 +77,7 @@ export async function createSaleSession(
   profile: SaleProfile,
   input: CreateSaleSessionInput,
 ): Promise<ServiceResult<SaleSession>> {
-  if (!isAdminRole(profile.role) && !isBusinessAdminRole(profile.role)) {
+  if (!isAdminRole(profile.role) && !isBusinessAdminRole(profile.role) && !isStaffRole(profile.role)) {
     return { ok: false, error: "販売を登録する権限がありません。", status: 403 };
   }
 

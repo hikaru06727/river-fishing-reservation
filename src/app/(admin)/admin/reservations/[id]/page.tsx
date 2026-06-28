@@ -15,6 +15,10 @@ import { getLatestReservationPayment } from "@/lib/reservations/payment-status-d
 import { getAdminReservationById } from "@/lib/reservations/get-admin-reservations";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { formatDate, formatDateTime, formatTime, formatYen } from "@/lib/utils/format";
+import { getAuthenticatedManagement } from "@/lib/auth/get-user";
+import { hasPermission } from "@/lib/permissions";
+import { RefundButton } from "@/components/refund/RefundButton";
+import { findClosingContainingReservationDate } from "@/lib/repositories/register-closings.repository";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -45,6 +49,8 @@ export default async function AdminReservationDetailPage({
     redirect("/admin/reservations");
   }
 
+  const session = await getAuthenticatedManagement();
+
   const cancelPolicy = canCancelReservation({
     status: reservation.status,
     reservationDate: reservation.reservation_date,
@@ -63,6 +69,23 @@ export default async function AdminReservationDetailPage({
   });
 
   const planDisplay = getReservationPlanDisplay(reservation);
+
+  const canRefund =
+    reservation.payment_status === "succeeded" &&
+    !!reservation.locations?.business_id &&
+    !!session &&
+    hasPermission(session.profile.role, "REFUND_MANAGE");
+
+  const closingRecord = canRefund
+    ? await findClosingContainingReservationDate(
+        reservation.locations!.business_id!,
+        reservation.reservation_date,
+      ).catch(() => null)
+    : null;
+
+  const closingWarning = closingRecord
+    ? `この予約は締め済み期間（${formatDateTime(closingRecord.closed_at)} 締め）に含まれています。返金すると締め記録との差異が生じます。続行しますか？`
+    : undefined;
 
   return (
     <div className="space-y-6">
@@ -169,6 +192,21 @@ export default async function AdminReservationDetailPage({
               />
             </div>
           )}
+          {canRefund && (
+              <div className="mt-4 border-t border-border pt-4">
+                <RefundButton
+                  businessId={reservation.locations!.business_id!}
+                  target={{
+                    type: "reservation",
+                    id: reservation.id,
+                    stripePaymentIntentId:
+                      latestPayment?.stripe_payment_intent_id ?? null,
+                  }}
+                  maxAmount={reservation.total_amount_yen}
+                  closingWarning={closingWarning}
+                />
+              </div>
+            )}
           {cashPaymentUi.showAlreadyPaid && (
             <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800">
               現地精算済

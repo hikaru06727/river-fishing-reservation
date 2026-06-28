@@ -3,9 +3,39 @@
  * UI・Service・Auth 層はこちらを参照し、Repository 層のみ database.ts の Row 型を使う。
  */
 
-export type UserRole = "user" | "admin" | "business_admin";
+export type UserRole = "user" | "admin" | "business_admin" | "staff";
 /** @deprecated UserRole と同一。後方互換用 */
 export type AppUserRole = UserRole;
+
+export type StaffStatus = "invited" | "active" | "disabled";
+
+export type RegisterClosingStatus = "closed" | "correction_requested" | "approved";
+export type ClosingCorrectionStatus = "pending" | "approved" | "rejected";
+
+export type SaleRefundStatus = "pending" | "completed" | "failed";
+export type SaleRefundPaymentMethod = "cash" | "card" | "other";
+
+export type PaymentLedgerSourceType = "pos" | "reservation" | "manual";
+export type PaymentLedgerPaymentMethod = "cash" | "card" | "other";
+export type PaymentLedgerStatus =
+  | "pending"
+  | "succeeded"
+  | "refunded"
+  | "partially_refunded"
+  | "cancelled";
+
+export type StaffMember = {
+  id: string;
+  business_id: string;
+  user_id: string | null;
+  email: string;
+  name: string | null;
+  role: string;
+  status: StaffStatus;
+  invited_at: string | null;
+  joined_at: string | null;
+  created_at: string;
+};
 
 export type ReservationStatus = "pending" | "confirmed" | "cancelled" | "expired";
 export type PaymentMethod = "online" | "cash_at_venue";

@@ -2,14 +2,35 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
+import { hasPermission } from "@/lib/permissions";
 import { getSaleSessionDetail } from "@/lib/services/sale-session.service";
+import { findRefundsBySaleSessionId } from "@/lib/repositories/sale-refunds.repository";
+import { findClosingContainingSoldAt } from "@/lib/repositories/register-closings.repository";
 import { POS_PAYMENT_METHODS } from "@/validations/pos";
 import { PrintButton } from "@/components/admin/PrintButton";
+import { RefundButton } from "@/components/refund/RefundButton";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = { title: "販売詳細" };
+
+const METHOD_LABELS: Record<string, string> = {
+  cash: "現金",
+  card: "カード",
+  other: "その他",
+};
+
+function formatJst(iso: string) {
+  return new Date(iso).toLocaleString("ja-JP", {
+    timeZone: "Asia/Tokyo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 interface PageProps {
   params: Promise<{ sessionId: string }>;
@@ -37,6 +58,23 @@ export default async function AdminSaleSessionDetailPage({ params }: PageProps) 
   const itemDiscounts = detail.discounts.filter((d) => d.target === "item");
   const sessionDiscounts = detail.discounts.filter((d) => d.target === "session");
 
+  const canRefund = hasPermission(session.profile.role, "REFUND_MANAGE");
+
+  // 返金履歴・締め警告を並列取得
+  const [refunds, closingRecord] = await Promise.all([
+    findRefundsBySaleSessionId(sessionId).catch(() => []),
+    canRefund
+      ? findClosingContainingSoldAt(detail.business_id, detail.sold_at).catch(() => null)
+      : Promise.resolve(null),
+  ]);
+
+  const totalRefunded = refunds.reduce((sum, r) => sum + Number(r.amount), 0);
+  const isFullyRefunded = totalRefunded >= detail.total_amount;
+
+  const closingWarning = closingRecord
+    ? `この売上は締め済み期間（${formatJst(closingRecord.closed_at)} 締め）に含まれています。返金すると締め記録との差異が生じます。続行しますか？`
+    : undefined;
+
   return (
     <div>
       {/* 印刷時非表示 */}
@@ -44,10 +82,27 @@ export default async function AdminSaleSessionDetailPage({ params }: PageProps) 
         <Link href={returnPath} className="text-sm text-primary hover:underline">
           ← 販売履歴
         </Link>
-        <PrintButton />
+        <div className="flex items-center gap-2">
+          {canRefund && !isFullyRefunded && (
+            <RefundButton
+              businessId={detail.business_id}
+              target={{ type: "saleSession", id: sessionId }}
+              maxAmount={detail.total_amount - totalRefunded}
+              closingWarning={closingWarning}
+            />
+          )}
+          <PrintButton />
+        </div>
       </div>
 
-      <h2 className="mt-4 text-lg font-semibold text-foreground print:mt-0">販売詳細</h2>
+      <div className="mt-4 flex items-center gap-3">
+        <h2 className="text-lg font-semibold text-foreground print:mt-0">販売詳細</h2>
+        {isFullyRefunded && (
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-700">
+            返金済み
+          </span>
+        )}
+      </div>
 
       {/* ヘッダー情報 */}
       <div className="mt-4 rounded-xl border border-border bg-slate-50 p-4 print:border-none print:bg-white print:p-0">
@@ -55,13 +110,7 @@ export default async function AdminSaleSessionDetailPage({ params }: PageProps) 
           <div>
             <dt className="text-muted">販売日時</dt>
             <dd className="mt-0.5 font-medium text-foreground">
-              {new Date(detail.sold_at).toLocaleString("ja-JP", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatJst(detail.sold_at)}
             </dd>
           </div>
           <div>
@@ -175,8 +224,59 @@ export default async function AdminSaleSessionDetailPage({ params }: PageProps) 
             <dt>税込合計</dt>
             <dd>¥{detail.total_amount.toLocaleString()}</dd>
           </div>
+          {totalRefunded > 0 && (
+            <div className="flex justify-between text-blue-700">
+              <dt>返金済み合計</dt>
+              <dd>−¥{totalRefunded.toLocaleString()}</dd>
+            </div>
+          )}
+          {totalRefunded > 0 && (
+            <div className="flex justify-between border-t border-border pt-2 font-semibold text-foreground">
+              <dt>実質請求額</dt>
+              <dd>¥{(detail.total_amount - totalRefunded).toLocaleString()}</dd>
+            </div>
+          )}
         </dl>
       </div>
+
+      {/* 返金履歴 */}
+      {refunds.length > 0 && (
+        <div className="mt-6 print:hidden">
+          <h3 className="mb-3 text-sm font-semibold text-foreground">返金履歴</h3>
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border bg-slate-50">
+                  <th className="px-4 py-3 text-left font-medium">返金日時</th>
+                  <th className="px-4 py-3 text-right font-medium">返金額</th>
+                  <th className="px-4 py-3 text-left font-medium">方法</th>
+                  <th className="px-4 py-3 text-left font-medium">理由</th>
+                  <th className="px-4 py-3 text-left font-medium">備考</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refunds.map((r) => (
+                  <tr key={r.id} className="border-b border-border last:border-0">
+                    <td className="px-4 py-3 text-muted">{formatJst(r.refunded_at)}</td>
+                    <td className="px-4 py-3 text-right font-semibold text-blue-700">
+                      −¥{Number(r.amount).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      {METHOD_LABELS[r.payment_method] ?? r.payment_method}
+                    </td>
+                    <td className="max-w-[160px] truncate px-4 py-3 text-muted">
+                      {r.reason ?? "—"}
+                    </td>
+                    <td className="max-w-[160px] truncate px-4 py-3 text-muted">
+                      {r.note ?? "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -5,7 +5,8 @@ import {
   findProfileByUserIdMaybe,
   findProfileEmailAndRoleByUserId,
 } from "@/lib/repositories/profiles.repository";
-import { isManagementProfile } from "@/lib/auth/role";
+import { findStaffMemberByUserId } from "@/lib/repositories/staff-members.repository";
+import { isManagementProfile, isStaffRole } from "@/lib/auth/role";
 import type { Profile } from "@/types/database";
 
 export type AuthNavState = {
@@ -81,6 +82,12 @@ export async function getAuthenticatedManagement(): Promise<{
 
     if (!profile || !isManagementProfile(profile)) {
       return null;
+    }
+
+    // staff は staff_members.status = 'active' の場合のみ許可
+    if (isStaffRole(profile.role)) {
+      const staffMember = await findStaffMemberByUserId(user.id);
+      if (!staffMember) return null;
     }
 
     return { user, profile };
