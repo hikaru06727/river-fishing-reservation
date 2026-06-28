@@ -6,6 +6,7 @@ import {
   upsertPaymentLedger,
   updatePaymentLedgerStatus,
   type UpsertPaymentLedgerInput,
+  type UnsettledItem,
 } from "@/lib/repositories/payment-ledger.repository";
 import type { PaymentLedgerRow } from "@/types/database";
 import type {
@@ -21,7 +22,7 @@ export type UnsettledSummary = {
     reservation: number;
     manual: number;
   };
-  entries: PaymentLedgerRow[];
+  entries: UnsettledItem[];
 };
 
 /** 特定売上レコードの台帳エントリを取得 */

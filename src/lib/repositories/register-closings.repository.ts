@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   RegisterClosingCorrectionRow,
   RegisterClosingRow,
@@ -302,13 +303,13 @@ export async function findClosingContainingReservationDate(
   return data as RegisterClosingRow | null;
 }
 
-/** 締め後返金差分カラムを加算更新 */
+/** 締め後返金差分カラムを加算更新（service_role で RLS をバイパス） */
 export async function updatePostCloseRefund(params: {
   closingId: string;
   paymentMethod: "cash" | "card" | "other";
   amount: number;
 }): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { closingId, paymentMethod, amount } = params;
 
   const { data: current, error: fetchErr } = await supabase
@@ -344,6 +345,27 @@ export async function updatePostCloseRefund(params: {
     .eq("id", closingId);
 
   if (error) throw new Error(error.message);
+}
+
+export type ClosedPeriod = {
+  period_start: string;
+  period_end: string;
+};
+
+/** 締め済み期間の一覧を取得（販売履歴の未締めフィルタ・バッジ表示用） */
+export async function findClosedPeriodsByBusinessId(
+  businessId: string,
+): Promise<ClosedPeriod[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("register_closings")
+    .select("period_start, period_end")
+    .eq("business_id", businessId)
+    .in("status", ["closed", "correction_requested", "approved"]);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClosedPeriod[];
 }
 
 /** 期間内の売上集計に使う生データを取得（締め処理用） */

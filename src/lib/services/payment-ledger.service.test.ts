@@ -51,14 +51,8 @@ const SAMPLE_POS_ENTRY = {
   updated_at: "2026-06-25T10:00:00.000Z",
 };
 
-const SAMPLE_PENDING_POS = { ...SAMPLE_POS_ENTRY, id: "ledger-2", status: "pending" as const };
-const SAMPLE_PENDING_RES = {
-  ...SAMPLE_POS_ENTRY,
-  id: "ledger-3",
-  source_type: "reservation" as const,
-  source_id: "reservation-1",
-  status: "pending" as const,
-};
+const SAMPLE_PENDING_POS = { source_type: "pos" as const, source_id: "session-1" };
+const SAMPLE_PENDING_RES = { source_type: "reservation" as const, source_id: "reservation-1" };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -135,13 +129,7 @@ describe("checkUnsettledBeforeClose", () => {
   });
 
   it("manual 種別も正しくカウントされる", async () => {
-    const manualEntry = {
-      ...SAMPLE_POS_ENTRY,
-      id: "ledger-4",
-      source_type: "manual" as const,
-      source_id: "manual-1",
-      status: "pending" as const,
-    };
+    const manualEntry = { source_type: "manual" as const, source_id: "manual-1" };
     findUnsettledInPeriodMock.mockResolvedValue([manualEntry]);
 
     const result = await checkUnsettledBeforeClose(BIZ_A, PERIOD_START, PERIOD_END);
@@ -153,18 +141,8 @@ describe("checkUnsettledBeforeClose", () => {
   });
 
   it("refunded / partially_refunded も未精算としてカウントされる", async () => {
-    const refundedEntry = {
-      ...SAMPLE_POS_ENTRY,
-      id: "ledger-5",
-      status: "refunded" as const,
-      paid_at: null,
-    };
-    const partialEntry = {
-      ...SAMPLE_POS_ENTRY,
-      id: "ledger-6",
-      source_id: "session-6",
-      status: "partially_refunded" as const,
-    };
+    const refundedEntry = { source_type: "pos" as const, source_id: "session-5" };
+    const partialEntry = { source_type: "pos" as const, source_id: "session-6" };
     findUnsettledInPeriodMock.mockResolvedValue([refundedEntry, partialEntry]);
 
     const result = await checkUnsettledBeforeClose(BIZ_A, PERIOD_START, PERIOD_END);
@@ -173,19 +151,14 @@ describe("checkUnsettledBeforeClose", () => {
     expect(result.bySourceType.pos).toBe(2);
   });
 
-  it("paid_at が NULL でも entries に含まれる（created_at で絞り込みを期待する）", async () => {
-    const nullPaidAt = {
-      ...SAMPLE_POS_ENTRY,
-      id: "ledger-7",
-      status: "pending" as const,
-      paid_at: null,
-    };
-    findUnsettledInPeriodMock.mockResolvedValue([nullPaidAt]);
+  it("返された entries はそのまま summary に含まれる", async () => {
+    const item = { source_type: "pos" as const, source_id: "session-7" };
+    findUnsettledInPeriodMock.mockResolvedValue([item]);
 
     const result = await checkUnsettledBeforeClose(BIZ_A, PERIOD_START, PERIOD_END);
 
     expect(result.total).toBe(1);
-    expect(result.entries[0]?.paid_at).toBeNull();
+    expect(result.entries[0]).toEqual(item);
   });
 });
 

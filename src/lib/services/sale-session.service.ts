@@ -299,7 +299,10 @@ export async function getSaleSessionsForBusiness(
 
   try {
     const { listByBusiness } = await import("@/lib/repositories/sale-sessions.repository");
-    const sessions = await listByBusiness(businessId, filters);
+    const sessions = await listByBusiness(businessId, {
+      ...filters,
+      onlyUnsettled: filters.onlyUnsettled ?? true,
+    });
     return { ok: true, data: sessions };
   } catch {
     return { ok: false, error: "販売履歴の取得に失敗しました。", status: 500 };

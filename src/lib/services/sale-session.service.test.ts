@@ -21,6 +21,7 @@ vi.mock("@/lib/repositories/sale-sessions.repository", () => ({
   insertSaleSessionItems: vi.fn(),
   insertSaleSessionDiscounts: vi.fn(),
   deleteSaleSessionById: vi.fn().mockResolvedValue(undefined),
+  listByBusiness: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock("@/lib/repositories/tax-rates.repository", () => ({
@@ -39,10 +40,10 @@ vi.mock("@/lib/services/payment-ledger.service", () => ({
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
 import { findProductById, updateProduct } from "@/lib/repositories/products.repository";
 import { deleteProductSalesBySessionId, insertProductSale } from "@/lib/repositories/product-sales.repository";
-import { deleteSaleSessionById, insertSaleSession, insertSaleSessionDiscounts, insertSaleSessionItems } from "@/lib/repositories/sale-sessions.repository";
+import { deleteSaleSessionById, insertSaleSession, insertSaleSessionDiscounts, insertSaleSessionItems, listByBusiness } from "@/lib/repositories/sale-sessions.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
 import { recordPaymentLedger } from "@/lib/services/payment-ledger.service";
-import { createSaleSession } from "./sale-session.service";
+import { createSaleSession, getSaleSessionsForBusiness } from "./sale-session.service";
 
 const bizA = "11111111-1111-4111-8111-111111111111";
 const bizB = "22222222-2222-4222-8222-222222222222";
@@ -342,5 +343,83 @@ describe("createSaleSession", () => {
     expect(deleteProductSalesBySessionId).toHaveBeenCalledWith(sessionId);
     expect(updateProduct).toHaveBeenCalledWith(prodId1, { stock_quantity: 10 });
     expect(deleteSaleSessionById).toHaveBeenCalledWith(sessionId);
+  });
+});
+
+describe("getSaleSessionsForBusiness", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(findAssignedBusinessIdsByUserId).mockResolvedValue([bizA]);
+    vi.mocked(listByBusiness).mockResolvedValue([]);
+  });
+
+  it("business_admin は担当事業の販売一覧を取得できる", async () => {
+    const result = await getSaleSessionsForBusiness(baProfile, bizA, {});
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data).toEqual([]);
+    expect(listByBusiness).toHaveBeenCalledWith(
+      bizA,
+      expect.objectContaining({ onlyUnsettled: true }),
+    );
+  });
+
+  it("デフォルトで onlyUnsettled: true が設定される（締め済みを除外）", async () => {
+    await getSaleSessionsForBusiness(baProfile, bizA, {});
+
+    expect(listByBusiness).toHaveBeenCalledWith(
+      bizA,
+      expect.objectContaining({ onlyUnsettled: true }),
+    );
+  });
+
+  it("onlyUnsettled: false を渡すと全件取得になる（締め済みを含む）", async () => {
+    await getSaleSessionsForBusiness(baProfile, bizA, { onlyUnsettled: false });
+
+    expect(listByBusiness).toHaveBeenCalledWith(
+      bizA,
+      expect.objectContaining({ onlyUnsettled: false }),
+    );
+  });
+
+  it("admin は任意の事業の販売一覧を取得できる", async () => {
+    const result = await getSaleSessionsForBusiness(adminProfile, bizB, {});
+
+    expect(result.ok).toBe(true);
+    expect(findAssignedBusinessIdsByUserId).not.toHaveBeenCalled();
+  });
+
+  it("担当外事業には403を返す", async () => {
+    const result = await getSaleSessionsForBusiness(baProfile, bizB, {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(403);
+    expect(listByBusiness).not.toHaveBeenCalled();
+  });
+
+  it("リポジトリがエラーを投げると500を返す", async () => {
+    vi.mocked(listByBusiness).mockRejectedValueOnce(new Error("DB error"));
+
+    const result = await getSaleSessionsForBusiness(baProfile, bizA, {});
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(500);
+  });
+
+  it("日付フィルタとともに onlyUnsettled を渡せる", async () => {
+    await getSaleSessionsForBusiness(baProfile, bizA, {
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-30",
+      onlyUnsettled: false,
+    });
+
+    expect(listByBusiness).toHaveBeenCalledWith(
+      bizA,
+      expect.objectContaining({
+        dateFrom: "2026-06-01",
+        dateTo: "2026-06-30",
+        onlyUnsettled: false,
+      }),
+    );
   });
 });
