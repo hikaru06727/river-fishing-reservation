@@ -37,6 +37,9 @@ function getNavLinks(role: string): NavLink[] {
   if (hasPermission(role, "STAFF_MANAGE")) {
     links.push({ href: "/admin/staff", label: "スタッフ管理" });
   }
+  if (hasPermission(role, "BOOTH_MANAGE")) {
+    links.push({ href: "/admin/booths", label: "ブース管理" });
+  }
 
   // admin は全メニュー表示
   if (role === "admin") {
@@ -56,6 +59,7 @@ function getNavLinks(role: string): NavLink[] {
       { href: "/admin/catches", label: "釣果管理" },
       { href: "/admin/blog", label: "ブログ管理" },
       { href: "/admin/staff", label: "スタッフ管理" },
+      { href: "/admin/booths", label: "ブース管理" },
     ];
   }
 
