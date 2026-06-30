@@ -17,8 +17,9 @@ import {
   type ProductSaleFilters,
 } from "@/lib/repositories/product-sales.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
-import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
+import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { Product, ProductSale, Profile } from "@/types/database";
 
 export type ServiceResult<T> =
@@ -29,6 +30,7 @@ type SaleProfile = Pick<Profile, "id" | "role">;
 
 async function resolveAssignedIds(profile: SaleProfile): Promise<readonly string[]> {
   if (isAdminRole(profile.role)) return [];
+  if (isStaffRole(profile.role)) return findAssignedBusinessIdsByStaffUserId(profile.id);
   return findAssignedBusinessIdsByUserId(profile.id);
 }
 
@@ -70,7 +72,7 @@ export async function createProduct(
   profile: SaleProfile,
   input: CreateProductInput,
 ): Promise<ServiceResult<Product>> {
-  if (!isAdminRole(profile.role) && !isBusinessAdminRole(profile.role)) {
+  if (!isAdminRole(profile.role) && !isBusinessAdminRole(profile.role) && !isStaffRole(profile.role)) {
     return { ok: false, error: "商品を登録する権限がありません。", status: 403 };
   }
 

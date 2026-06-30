@@ -14,6 +14,10 @@ export type InsertProductInput = {
   status?: ProductStatus;
   default_tax_rate?: number;
   category?: string | null;
+  is_published_online?: boolean;
+  track_inventory?: boolean;
+  shippable?: boolean;
+  description_online?: string | null;
 };
 
 export type UpdateProductInput = {
@@ -25,7 +29,29 @@ export type UpdateProductInput = {
   status?: ProductStatus;
   default_tax_rate?: number;
   category?: string | null;
+  is_published_online?: boolean;
+  track_inventory?: boolean;
+  shippable?: boolean;
+  description_online?: string | null;
 };
+
+/** 顧客向け公開商品の表示用カラム */
+export type PublicProductRow = Pick<
+  Product,
+  | "id"
+  | "business_id"
+  | "name"
+  | "price_excluding_tax"
+  | "default_tax_rate"
+  | "image_url"
+  | "track_inventory"
+  | "stock_quantity"
+  | "description_online"
+  | "shippable"
+>;
+
+const PUBLIC_PRODUCT_COLUMNS =
+  "id, business_id, name, price_excluding_tax, default_tax_rate, image_url, track_inventory, stock_quantity, description_online, shippable";
 
 export async function findProductsByBusinessId(businessId: string): Promise<Product[]> {
   const supabase = await createClient();
@@ -82,6 +108,10 @@ export async function insertProduct(input: InsertProductInput): Promise<Product>
       status: input.status ?? "on_sale",
       default_tax_rate: input.default_tax_rate ?? 10,
       category: input.category ?? null,
+      is_published_online: input.is_published_online ?? false,
+      track_inventory: input.track_inventory ?? false,
+      shippable: input.shippable ?? true,
+      description_online: input.description_online ?? null,
     })
     .select()
     .single();
@@ -103,6 +133,10 @@ export async function updateProduct(id: string, input: UpdateProductInput): Prom
   if (input.status !== undefined) patch.status = input.status;
   if (input.default_tax_rate !== undefined) patch.default_tax_rate = input.default_tax_rate;
   if (input.category !== undefined) patch.category = input.category;
+  if (input.is_published_online !== undefined) patch.is_published_online = input.is_published_online;
+  if (input.track_inventory !== undefined) patch.track_inventory = input.track_inventory;
+  if (input.shippable !== undefined) patch.shippable = input.shippable;
+  if (input.description_online !== undefined) patch.description_online = input.description_online;
 
   const { data, error } = await supabase
     .from("products")
@@ -140,4 +174,42 @@ export async function findProductSalesCountsByBusinessId(
     counts[row.product_id] = (counts[row.product_id] ?? 0) + row.quantity;
   }
   return counts;
+}
+
+/** 顧客向け公開商品一覧（is_published_online = true かつ on_sale のみ） */
+export async function findPublishedProductsByBusinessId(
+  businessId: string,
+): Promise<PublicProductRow[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(PUBLIC_PRODUCT_COLUMNS)
+    .eq("business_id", businessId)
+    .eq("is_published_online", true)
+    .eq("status", "on_sale")
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PublicProductRow[];
+}
+
+/** 顧客向け公開商品詳細（business_id 不一致・非公開・非販売中は null） */
+export async function findPublishedProductById(
+  businessId: string,
+  id: string,
+): Promise<PublicProductRow | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(PUBLIC_PRODUCT_COLUMNS)
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .eq("is_published_online", true)
+    .eq("status", "on_sale")
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as PublicProductRow | null;
 }

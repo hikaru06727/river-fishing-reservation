@@ -17,7 +17,7 @@ export const PERMISSIONS = {
   /** 返金操作 */
   REFUND_MANAGE: ["business_admin", "staff"],
   /** 商品管理 */
-  PRODUCT_MANAGE: ["business_admin"],
+  PRODUCT_MANAGE: ["business_admin", "staff"],
   /** スタッフ管理 */
   STAFF_MANAGE: ["business_admin"],
   /** 営業日・料金設定 */

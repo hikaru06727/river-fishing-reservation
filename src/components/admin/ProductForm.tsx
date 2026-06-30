@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { productInitialState, type ProductActionState } from "@/app/(admin)/admin/products/action-state";
 import type { ManageableBusinessRow } from "@/lib/repositories/businesses.repository";
 import type { Product } from "@/types/database";
@@ -27,6 +27,7 @@ export function ProductForm({
   submitLabel,
 }: ProductFormProps) {
   const [state, formAction, pending] = useActionState(action, productInitialState);
+  const [trackInventory, setTrackInventory] = useState(product?.track_inventory ?? false);
 
   const inputClass =
     "mt-1 w-full min-h-12 rounded-xl border border-border px-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary";
@@ -106,21 +107,23 @@ export function ProductForm({
             className={inputClass}
           />
         </div>
-        <div>
-          <label htmlFor="stockQuantity" className="block text-sm font-medium">
-            在庫数
-            <span className="ml-1 text-xs text-muted">（空白 = 無制限）</span>
-          </label>
-          <input
-            id="stockQuantity"
-            name="stockQuantity"
-            type="number"
-            min={0}
-            defaultValue={product?.stock_quantity ?? ""}
-            placeholder="空白で在庫無制限"
-            className={inputClass}
-          />
-        </div>
+        {trackInventory && (
+          <div>
+            <label htmlFor="stockQuantity" className="block text-sm font-medium">
+              在庫数
+              <span className="ml-1 text-xs text-muted">（空白 = 無制限）</span>
+            </label>
+            <input
+              id="stockQuantity"
+              name="stockQuantity"
+              type="number"
+              min={0}
+              defaultValue={product?.stock_quantity ?? ""}
+              placeholder="空白で在庫無制限"
+              className={inputClass}
+            />
+          </div>
+        )}
       </div>
 
       <div>
@@ -186,6 +189,55 @@ export function ProductForm({
           defaultValue={product?.image_url ?? ""}
           className={inputClass}
         />
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-border p-4">
+        <p className="text-sm font-medium text-foreground">ECサイト公開設定</p>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="isPublishedOnline"
+            defaultChecked={product?.is_published_online ?? false}
+            className="h-4 w-4 rounded border-border"
+          />
+          オンライン公開する（顧客向け商品一覧・詳細に表示）
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="trackInventory"
+            checked={trackInventory}
+            onChange={(e) => setTrackInventory(e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          在庫数を管理する（OFFの場合は在庫切れ表示をしない）
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="shippable"
+            defaultChecked={product?.shippable ?? true}
+            className="h-4 w-4 rounded border-border"
+          />
+          配送対象商品
+        </label>
+
+        <div>
+          <label htmlFor="descriptionOnline" className="block text-sm font-medium">
+            オンライン説明文
+            <span className="ml-1 text-xs text-muted">（商品詳細ページに表示・未入力可）</span>
+          </label>
+          <textarea
+            id="descriptionOnline"
+            name="descriptionOnline"
+            rows={4}
+            defaultValue={product?.description_online ?? ""}
+            className="mt-1 w-full rounded-xl border border-border p-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+          />
+        </div>
       </div>
 
       {state.error && (

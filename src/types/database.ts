@@ -667,6 +667,10 @@ export interface Database {
           status: ProductStatus;
           default_tax_rate: number;
           category: string | null;
+          is_published_online: boolean;
+          track_inventory: boolean;
+          shippable: boolean;
+          description_online: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -681,6 +685,10 @@ export interface Database {
           status?: ProductStatus;
           default_tax_rate?: number;
           category?: string | null;
+          is_published_online?: boolean;
+          track_inventory?: boolean;
+          shippable?: boolean;
+          description_online?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -695,6 +703,10 @@ export interface Database {
           status?: ProductStatus;
           default_tax_rate?: number;
           category?: string | null;
+          is_published_online?: boolean;
+          track_inventory?: boolean;
+          shippable?: boolean;
+          description_online?: string | null;
           created_at?: string;
           updated_at?: string;
         };

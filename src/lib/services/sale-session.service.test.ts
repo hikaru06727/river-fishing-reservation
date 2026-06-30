@@ -66,6 +66,10 @@ const fakeProduct1 = {
   status: "on_sale" as const,
   default_tax_rate: 10,
   category: null,
+  is_published_online: false,
+  track_inventory: false,
+  shippable: true,
+  description_online: null,
   created_at: "2026-06-01T00:00:00Z",
   updated_at: "2026-06-01T00:00:00Z",
 };
@@ -81,6 +85,10 @@ const fakeProduct2 = {
   status: "on_sale" as const,
   default_tax_rate: 10,
   category: null,
+  is_published_online: false,
+  track_inventory: false,
+  shippable: true,
+  description_online: null,
   created_at: "2026-06-01T00:00:00Z",
   updated_at: "2026-06-01T00:00:00Z",
 };

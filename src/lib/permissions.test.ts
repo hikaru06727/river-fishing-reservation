@@ -12,8 +12,8 @@ describe("PERMISSIONS", () => {
     expect(PERMISSIONS.STAFF_MANAGE).not.toContain("staff");
   });
 
-  it("staff は PRODUCT_MANAGE を持たない", () => {
-    expect(PERMISSIONS.PRODUCT_MANAGE).not.toContain("staff");
+  it("staff は PRODUCT_MANAGE を持つ（Phase 19A）", () => {
+    expect(PERMISSIONS.PRODUCT_MANAGE).toContain("staff");
   });
 
   it("staff は BUSINESS_SETTINGS を持たない", () => {
@@ -46,16 +46,16 @@ describe("hasPermission", () => {
     expect(hasPermission("business_admin", "SALES_VIEW")).toBe(true);
   });
 
-  it("staff は POS 操作・売上閲覧・予約閲覧ができる", () => {
+  it("staff は POS 操作・売上閲覧・予約閲覧・商品管理ができる", () => {
     expect(hasPermission("staff", "POS_OPERATE")).toBe(true);
     expect(hasPermission("staff", "POS_CLOSE")).toBe(true);
     expect(hasPermission("staff", "SALES_VIEW")).toBe(true);
     expect(hasPermission("staff", "RESERVATION_VIEW")).toBe(true);
     expect(hasPermission("staff", "RESERVATION_CASH_COMPLETE")).toBe(true);
+    expect(hasPermission("staff", "PRODUCT_MANAGE")).toBe(true);
   });
 
-  it("staff は商品管理・スタッフ管理・設定変更ができない", () => {
-    expect(hasPermission("staff", "PRODUCT_MANAGE")).toBe(false);
+  it("staff はスタッフ管理・設定変更ができない", () => {
     expect(hasPermission("staff", "STAFF_MANAGE")).toBe(false);
     expect(hasPermission("staff", "BUSINESS_SETTINGS")).toBe(false);
     expect(hasPermission("staff", "TAX_SETTINGS")).toBe(false);
