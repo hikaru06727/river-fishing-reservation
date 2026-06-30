@@ -112,7 +112,7 @@ describe("checkUnsettledBeforeClose", () => {
     const result = await checkUnsettledBeforeClose(BIZ_A, PERIOD_START, PERIOD_END);
 
     expect(result.total).toBe(0);
-    expect(result.bySourceType).toEqual({ pos: 0, reservation: 0, manual: 0, booth: 0 });
+    expect(result.bySourceType).toEqual({ pos: 0, reservation: 0, manual: 0 });
     expect(result.entries).toEqual([]);
   });
 

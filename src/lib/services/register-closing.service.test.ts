@@ -112,7 +112,7 @@ beforeEach(() => {
   // デフォルト: 未精算なし（締めをブロックしない）
   checkUnsettledBeforeCloseMock.mockResolvedValue({
     total: 0,
-    bySourceType: { pos: 0, reservation: 0, manual: 0, booth: 0 },
+    bySourceType: { pos: 0, reservation: 0, manual: 0 },
     entries: [],
   });
 });
@@ -227,7 +227,7 @@ describe("closeRegister", () => {
   it("未精算エントリがある場合は締めがブロックされる", async () => {
     checkUnsettledBeforeCloseMock.mockResolvedValue({
       total: 2,
-      bySourceType: { pos: 1, reservation: 1, manual: 0, booth: 0 },
+      bySourceType: { pos: 1, reservation: 1, manual: 0 },
       entries: [
         { id: "e1", source_type: "pos", source_id: "session-uuid-1", status: "pending" },
         { id: "e2", source_type: "reservation", source_id: "reservation-uuid-1", status: "pending" },
@@ -263,7 +263,7 @@ describe("closeRegister", () => {
   it("未精算が全精算済みなら締めが実行される", async () => {
     checkUnsettledBeforeCloseMock.mockResolvedValue({
       total: 0,
-      bySourceType: { pos: 0, reservation: 0, manual: 0, booth: 0 },
+      bySourceType: { pos: 0, reservation: 0, manual: 0 },
       entries: [],
     });
     findSalesRowsForClosingMock.mockResolvedValue([]);

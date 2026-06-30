@@ -1,4 +1,4 @@
-import type { BoothSlotStatus } from "@/types/domain";
+export type SlotItemStatus = "open" | "closed" | "full";
 
 export type SlotSummary = {
   id: string;
@@ -6,16 +6,16 @@ export type SlotSummary = {
   end_time: string;
   max_bookings: number;
   booking_count: number;
-  status: BoothSlotStatus;
+  status: SlotItemStatus;
 };
 
-const STATUS_LABEL: Record<BoothSlotStatus, string> = {
+const STATUS_LABEL: Record<SlotItemStatus, string> = {
   open: "受付中",
   full: "満席",
   closed: "クローズ",
 };
 
-const STATUS_STYLE: Record<BoothSlotStatus, string> = {
+const STATUS_STYLE: Record<SlotItemStatus, string> = {
   open: "border-green-200 bg-green-50 text-green-800",
   full: "border-red-200 bg-red-50 text-red-800",
   closed: "border-slate-200 bg-slate-50 text-slate-500",

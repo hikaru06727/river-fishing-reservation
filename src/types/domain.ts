@@ -15,58 +15,7 @@ export type ClosingCorrectionStatus = "pending" | "approved" | "rejected";
 export type SaleRefundStatus = "pending" | "completed" | "failed";
 export type SaleRefundPaymentMethod = "cash" | "card" | "other";
 
-export type PaymentLedgerSourceType = "pos" | "reservation" | "manual" | "booth";
-
-export type BoothStatus = "active" | "inactive";
-export type BoothTaxCategory = "standard" | "reduced";
-export type BoothSlotStatus = "open" | "closed" | "full";
-export type BoothBookingPaymentStatus = "pending" | "paid" | "refunded";
-export type BoothBookingSource = "pos" | "online";
-
-export type Booth = {
-  id: string;
-  business_id: string;
-  location_id: string | null;
-  name: string;
-  description: string | null;
-  capacity: number;
-  price: number;
-  tax_category: BoothTaxCategory;
-  status: BoothStatus;
-  created_at: string;
-  updated_at: string;
-};
-
-export type BoothSlot = {
-  id: string;
-  business_id: string;
-  booth_id: string;
-  date: string;
-  start_time: string;
-  end_time: string;
-  max_bookings: number;
-  status: BoothSlotStatus;
-  created_at: string;
-  updated_at: string;
-};
-
-export type BoothBooking = {
-  id: string;
-  business_id: string;
-  booth_slot_id: string;
-  customer_name: string;
-  customer_email: string | null;
-  customer_phone: string | null;
-  quantity: number;
-  unit_price: number;
-  tax_rate: number;
-  total_amount: number;
-  payment_status: BoothBookingPaymentStatus;
-  source: BoothBookingSource;
-  notes: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type PaymentLedgerSourceType = "pos" | "reservation" | "manual";
 export type PaymentLedgerPaymentMethod = "cash" | "card" | "other";
 export type PaymentLedgerStatus =
   | "pending"

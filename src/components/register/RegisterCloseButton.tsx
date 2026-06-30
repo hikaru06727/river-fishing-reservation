@@ -28,11 +28,6 @@ const ENTRY_CONFIG: Record<
     href: () => "/admin/sales",
     linkLabel: "手動売上へ",
   },
-  booth: {
-    label: (id) => `ブース予約 #${id.slice(0, 8)}`,
-    href: () => "/admin/booths",
-    linkLabel: "ブース管理へ",
-  },
 };
 
 function UnsettledEntryRow({ entry }: { entry: UnsettledEntryInfo }) {
