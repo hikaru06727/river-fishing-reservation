@@ -13,7 +13,8 @@ import { findManualSaleById } from "@/lib/repositories/manual-sales.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
-import { isAdminRole } from "@/lib/auth/role";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
+import { isAdminRole, isStaffRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -41,7 +42,9 @@ export default async function AdminManualSalesEditPage({ params }: PageProps) {
 
   const assignedIds = isAdminRole(session.profile.role)
     ? []
-    : await findAssignedBusinessIdsByUserId(session.profile.id);
+    : isStaffRole(session.profile.role)
+      ? await findAssignedBusinessIdsByStaffUserId(session.profile.id)
+      : await findAssignedBusinessIdsByUserId(session.profile.id);
 
   if (!canManageBusinessForProfile(session.profile, sale.business_id, assignedIds)) {
     redirect("/admin/manual-sales");
