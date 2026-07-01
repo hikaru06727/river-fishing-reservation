@@ -1,13 +1,19 @@
 import {
   findBySource,
   findByBusinessAndPeriod,
+  findSucceededInPeriod,
   findUnsettledInPeriod,
   upsertPaymentLedger,
   updatePaymentLedgerStatus,
   type UpsertPaymentLedgerInput,
+  type UnsettledItem,
 } from "@/lib/repositories/payment-ledger.repository";
 import type { PaymentLedgerRow } from "@/types/database";
-import type { PaymentLedgerSourceType, PaymentLedgerStatus } from "@/types/domain";
+import type {
+  PaymentLedgerPaymentMethod,
+  PaymentLedgerSourceType,
+  PaymentLedgerStatus,
+} from "@/types/domain";
 
 export type UnsettledSummary = {
   total: number;
@@ -16,7 +22,7 @@ export type UnsettledSummary = {
     reservation: number;
     manual: number;
   };
-  entries: PaymentLedgerRow[];
+  entries: UnsettledItem[];
 };
 
 /** 特定売上レコードの台帳エントリを取得 */
@@ -74,4 +80,25 @@ export async function updatePaymentStatus(
   paidAt?: string | null,
 ): Promise<void> {
   return updatePaymentLedgerStatus(id, status, paidAt);
+}
+
+const CASH_PAYMENT_METHODS = new Set(["cash", "cash_at_venue"]);
+const CARD_PAYMENT_METHODS = new Set(["card", "stripe", "credit_card", "online"]);
+
+/** 任意の支払方法文字列を payment_ledger の bucketed 値（cash/card/other）に変換する */
+export function toLedgerPaymentMethod(method: string | null): PaymentLedgerPaymentMethod {
+  if (!method) return "other";
+  if (CASH_PAYMENT_METHODS.has(method)) return "cash";
+  if (CARD_PAYMENT_METHODS.has(method)) return "card";
+  return "other";
+}
+
+/** 締め集計用: 期間内の精算済みエントリを { amountYen, paymentMethod } 形式で返す */
+export async function getLedgerRowsForClosing(
+  businessId: string,
+  periodStartIso: string,
+  periodEndIso: string,
+): Promise<Array<{ amountYen: number; paymentMethod: PaymentLedgerPaymentMethod }>> {
+  const entries = await findSucceededInPeriod(businessId, periodStartIso, periodEndIso);
+  return entries.map((e) => ({ amountYen: e.amount, paymentMethod: e.payment_method }));
 }

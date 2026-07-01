@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type {
   RegisterClosingCorrectionRow,
   RegisterClosingRow,
@@ -302,13 +303,13 @@ export async function findClosingContainingReservationDate(
   return data as RegisterClosingRow | null;
 }
 
-/** 締め後返金差分カラムを加算更新 */
+/** 締め後返金差分カラムを加算更新（service_role で RLS をバイパス） */
 export async function updatePostCloseRefund(params: {
   closingId: string;
   paymentMethod: "cash" | "card" | "other";
   amount: number;
 }): Promise<void> {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
   const { closingId, paymentMethod, amount } = params;
 
   const { data: current, error: fetchErr } = await supabase
@@ -346,12 +347,37 @@ export async function updatePostCloseRefund(params: {
   if (error) throw new Error(error.message);
 }
 
+export type ClosedPeriod = {
+  period_start: string;
+  period_end: string;
+};
+
+/** 締め済み期間の一覧を取得（販売履歴の未締めフィルタ・バッジ表示用） */
+export async function findClosedPeriodsByBusinessId(
+  businessId: string,
+): Promise<ClosedPeriod[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("register_closings")
+    .select("period_start, period_end")
+    .eq("business_id", businessId)
+    .in("status", ["closed", "correction_requested", "approved"]);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as ClosedPeriod[];
+}
+
 /** 期間内の売上集計に使う生データを取得（締め処理用） */
 export type ClosingSalesRawRow = {
   amountYen: number;
   paymentMethod: string | null;
 };
 
+/**
+ * payment_ledger の succeeded エントリを返す（締め集計用）。
+ * payment_method は既に cash/card/other にバケット済み。
+ */
 export async function findSalesRowsForClosing(params: {
   businessId: string;
   periodStartIso: string;
@@ -360,92 +386,18 @@ export async function findSalesRowsForClosing(params: {
   const supabase = await createClient();
   const { businessId, periodStartIso, periodEndIso } = params;
 
-  const periodStartDate = periodStartIso.split("T")[0]!;
-  const periodEndDate = periodEndIso.split("T")[0]!;
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("amount, payment_method")
+    .eq("business_id", businessId)
+    .eq("status", "succeeded")
+    .gte("paid_at", periodStartIso)
+    .lte("paid_at", periodEndIso);
 
-  const [refundsResult, resResult, manualResult, productResult, posResult] = await Promise.all([
-    // 返金済み sale_session_id / reservation_id を取得（締め集計から除外するため）
-    supabase
-      .from("sale_refunds")
-      .select("sale_session_id, reservation_id")
-      .eq("business_id", businessId)
-      .in("status", ["pending", "completed"]),
-    supabase
-      .from("reservations")
-      .select("id, total_amount_yen, reserved_unit_price_yen, guest_count, payment_method, locations!inner(business_id), payments(status)")
-      .eq("status", "confirmed")
-      .gte("reservation_date", periodStartDate)
-      .lte("reservation_date", periodEndDate),
-    supabase
-      .from("manual_sales")
-      .select("amount_yen, payment_method")
-      .eq("business_id", businessId)
-      .gte("sale_date", periodStartDate)
-      .lte("sale_date", periodEndDate),
-    supabase
-      .from("product_sales")
-      .select("quantity, unit_price_excluding_tax, payment_method")
-      .eq("business_id", businessId)
-      .eq("status", "completed")
-      .is("sale_session_id", null)
-      .gte("purchased_at", periodStartIso)
-      .lte("purchased_at", periodEndIso),
-    supabase
-      .from("sale_sessions")
-      .select("id, total_amount, payment_method")
-      .eq("business_id", businessId)
-      .gte("sold_at", periodStartIso)
-      .lte("sold_at", periodEndIso),
-  ]);
+  if (error) throw new Error(error.message);
 
-  if (refundsResult.error) throw new Error(refundsResult.error.message);
-  if (resResult.error) throw new Error(resResult.error.message);
-  if (manualResult.error) throw new Error(manualResult.error.message);
-  if (productResult.error) throw new Error(productResult.error.message);
-  if (posResult.error) throw new Error(posResult.error.message);
-
-  const refundedSessionIds = new Set(
-    (refundsResult.data ?? [])
-      .map((r) => r.sale_session_id)
-      .filter((v): v is string => !!v),
-  );
-  const refundedReservationIds = new Set(
-    (refundsResult.data ?? [])
-      .map((r) => r.reservation_id)
-      .filter((v): v is string => !!v),
-  );
-
-  const rows: ClosingSalesRawRow[] = [];
-
-  for (const r of resResult.data ?? []) {
-    if (refundedReservationIds.has(r.id)) continue; // 返金済み予約は除外
-    const loc = Array.isArray(r.locations) ? r.locations[0] : r.locations;
-    if (!loc || (loc as { business_id: string | null }).business_id !== businessId) continue;
-    // 決済未完了（payments に "succeeded" がない）の予約は締め集計から除外
-    const pmts = Array.isArray(r.payments) ? r.payments : r.payments ? [r.payments] : [];
-    if (!(pmts as { status: string }[]).some((p) => p.status === "succeeded")) continue;
-    const amount =
-      r.reserved_unit_price_yen != null
-        ? r.reserved_unit_price_yen * r.guest_count
-        : r.total_amount_yen;
-    rows.push({ amountYen: amount, paymentMethod: r.payment_method });
-  }
-
-  for (const r of manualResult.data ?? []) {
-    rows.push({ amountYen: r.amount_yen, paymentMethod: r.payment_method });
-  }
-
-  for (const r of productResult.data ?? []) {
-    rows.push({
-      amountYen: r.quantity * r.unit_price_excluding_tax,
-      paymentMethod: r.payment_method,
-    });
-  }
-
-  for (const r of posResult.data ?? []) {
-    if (refundedSessionIds.has(r.id)) continue; // 返金済みセッションは除外
-    rows.push({ amountYen: r.total_amount, paymentMethod: r.payment_method });
-  }
-
-  return rows;
+  return (data ?? []).map((row) => ({
+    amountYen: row.amount,
+    paymentMethod: row.payment_method,
+  }));
 }

@@ -24,8 +24,21 @@ export async function createProductAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, name, description, priceExcludingTax, stockQuantity, imageUrl, status, defaultTaxRate, category } =
-    parsed.data;
+  const {
+    businessId,
+    name,
+    description,
+    priceExcludingTax,
+    stockQuantity,
+    imageUrl,
+    status,
+    defaultTaxRate,
+    category,
+    isPublishedOnline,
+    trackInventory,
+    shippable,
+    descriptionOnline,
+  } = parsed.data;
 
   const result = await createProduct(session.profile, {
     business_id: businessId,
@@ -37,6 +50,10 @@ export async function createProductAction(
     status,
     default_tax_rate: defaultTaxRate,
     category: category ?? null,
+    is_published_online: isPublishedOnline,
+    track_inventory: trackInventory,
+    shippable,
+    description_online: descriptionOnline ?? null,
   });
 
   if (!result.ok) {
@@ -63,8 +80,21 @@ export async function updateProductAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, name, description, priceExcludingTax, stockQuantity, imageUrl, status, defaultTaxRate, category } =
-    parsed.data;
+  const {
+    businessId,
+    name,
+    description,
+    priceExcludingTax,
+    stockQuantity,
+    imageUrl,
+    status,
+    defaultTaxRate,
+    category,
+    isPublishedOnline,
+    trackInventory,
+    shippable,
+    descriptionOnline,
+  } = parsed.data;
 
   const result = await updateProductById(session.profile, id, {
     name,
@@ -75,6 +105,10 @@ export async function updateProductAction(
     status,
     default_tax_rate: defaultTaxRate,
     category: category ?? null,
+    is_published_online: isPublishedOnline,
+    track_inventory: trackInventory,
+    shippable,
+    description_online: descriptionOnline ?? null,
   });
 
   if (!result.ok) {

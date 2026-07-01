@@ -54,11 +54,8 @@ export async function findByBusinessAndPeriod(
   return (data ?? []) as PaymentLedgerRow[];
 }
 
-/**
- * 期間内の未精算エントリ（status != 'succeeded' && status != 'cancelled'）を取得。
- * 締め前チェックに使用する。
- */
-export async function findUnsettledInPeriod(
+/** 締め集計用: 期間内の精算済みエントリを取得（status = 'succeeded', paid_at でフィルタ） */
+export async function findSucceededInPeriod(
   businessId: string,
   periodStartIso: string,
   periodEndIso: string,
@@ -69,13 +66,81 @@ export async function findUnsettledInPeriod(
     .from("payment_ledger")
     .select("*")
     .eq("business_id", businessId)
+    .eq("status", "succeeded")
     .gte("paid_at", periodStartIso)
     .lte("paid_at", periodEndIso)
-    .not("status", "in", '("succeeded","cancelled")')
     .order("paid_at", { ascending: true });
 
   if (error) throw new Error(error.message);
   return (data ?? []) as PaymentLedgerRow[];
+}
+
+export type UnsettledItem = {
+  source_type: PaymentLedgerSourceType;
+  source_id: string;
+};
+
+/**
+ * 締め前の未精算アイテムを返す。
+ *
+ * source_type 別のブロックルール:
+ *   pos / manual  : status が pending / refunded / partially_refunded → 常にブロック
+ *   reservation   : status='pending' かつ reservation_date <= periodEnd のみブロック
+ *                   （利用日未到来の予約は締めに無関係のため除外）
+ */
+export async function findUnsettledInPeriod(
+  businessId: string,
+  _periodStartIso: string,
+  periodEndIso: string,
+): Promise<UnsettledItem[]> {
+  const supabase = await createClient();
+
+  // 1. POS・手動売上の未精算エントリ（source_type='reservation' は別クエリで処理）
+  const { data: ledgerData, error: ledgerError } = await supabase
+    .from("payment_ledger")
+    .select("source_type, source_id")
+    .eq("business_id", businessId)
+    .in("source_type", ["pos", "manual"])
+    .in("status", ["pending", "refunded", "partially_refunded"])
+    .order("created_at", { ascending: true });
+
+  if (ledgerError) throw new Error(ledgerError.message);
+
+  // 2. 利用日が periodEnd 以前の未払い予約のみ（将来日の予約はブロック対象外）
+  const periodEndDate = periodEndIso.slice(0, 10); // YYYY-MM-DD (UTC)
+
+  const { data: spotData, error: spotError } = await supabase
+    .from("locations")
+    .select("id")
+    .eq("business_id", businessId);
+
+  if (spotError) throw new Error(spotError.message);
+
+  const spotIds = (spotData ?? []).map((s) => s.id);
+  let pendingReservations: { id: string }[] = [];
+
+  if (spotIds.length > 0) {
+    const { data: resData, error: resError } = await supabase
+      .from("reservations")
+      .select("id")
+      .in("spot_id", spotIds)
+      .eq("status", "pending")
+      .lte("reservation_date", periodEndDate);
+
+    if (resError) throw new Error(resError.message);
+    pendingReservations = resData ?? [];
+  }
+
+  return [
+    ...(ledgerData ?? []).map((e) => ({
+      source_type: e.source_type as PaymentLedgerSourceType,
+      source_id: e.source_id,
+    })),
+    ...pendingReservations.map((r) => ({
+      source_type: "reservation" as const,
+      source_id: r.id,
+    })),
+  ];
 }
 
 /**

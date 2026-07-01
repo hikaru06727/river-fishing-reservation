@@ -9,7 +9,8 @@ import { findManageableBusinesses } from "@/lib/repositories/businesses.reposito
 import { findProductById } from "@/lib/repositories/products.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
-import { isAdminRole } from "@/lib/auth/role";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
+import { isAdminRole, isStaffRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -35,7 +36,9 @@ export default async function AdminProductsEditPage({ params }: PageProps) {
 
   const assignedIds = isAdminRole(session.profile.role)
     ? []
-    : await findAssignedBusinessIdsByUserId(session.profile.id);
+    : isStaffRole(session.profile.role)
+      ? await findAssignedBusinessIdsByStaffUserId(session.profile.id)
+      : await findAssignedBusinessIdsByUserId(session.profile.id);
 
   if (!canManageBusinessForProfile(session.profile, product.business_id, assignedIds)) {
     redirect("/admin/products");

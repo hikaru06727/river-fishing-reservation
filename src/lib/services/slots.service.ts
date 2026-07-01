@@ -19,7 +19,10 @@ import {
   findWeeklyHoursBySpotId,
 } from "@/lib/repositories/business-hours.repository";
 import { findActivePlanForReservation } from "@/lib/repositories/plans.repository";
-import { findOpenSlotsBySpotAndDateRange } from "@/lib/repositories/slots.repository";
+import {
+  findOpenSlotsBySpotAndDateRange,
+  generateSlotsFromWeeklyHours,
+} from "@/lib/repositories/slots.repository";
 import {
   getAffectedSlotStartTimes,
   validateAffectedSlotsCapacity,
@@ -261,4 +264,31 @@ export async function getAvailableSlotsWithPlan(
     guest_count: guestCount,
     slots: bookableSlots,
   };
+}
+
+const MAX_GENERATE_DAYS = 90;
+
+export async function generateAvailabilitySlots(
+  spotId: string,
+  fromDate: string,
+  toDate: string,
+): Promise<number> {
+  const from = new Date(fromDate);
+  const to = new Date(toDate);
+
+  if (isNaN(from.getTime()) || isNaN(to.getTime())) {
+    throw new Error("日付の形式が正しくありません");
+  }
+
+  const diffDays = Math.round((to.getTime() - from.getTime()) / 86400000);
+
+  if (diffDays < 0) {
+    throw new Error("終了日は開始日以降にしてください");
+  }
+
+  if (diffDays > MAX_GENERATE_DAYS) {
+    throw new Error(`生成期間は最大 ${MAX_GENERATE_DAYS} 日です`);
+  }
+
+  return generateSlotsFromWeeklyHours(spotId, fromDate, toDate);
 }

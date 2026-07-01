@@ -31,6 +31,7 @@ export default async function AdminSalesPage({ searchParams }: AdminSalesPagePro
       isAdmin={result.isAdmin}
       scopedBusinessNames={result.scopedBusinessNames}
       productSalesYen={result.productSalesYen}
+      todaySummary={result.todaySummary}
     />
   );
 }

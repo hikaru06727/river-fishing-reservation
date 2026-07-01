@@ -2,13 +2,15 @@ import { revalidatePath } from "next/cache";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
 import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { findProductById, updateProduct } from "@/lib/repositories/products.repository";
-import { insertProductSale } from "@/lib/repositories/product-sales.repository";
+import { deleteProductSalesBySessionId, insertProductSale } from "@/lib/repositories/product-sales.repository";
 import {
+  deleteSaleSessionById,
   insertSaleSession,
   insertSaleSessionDiscounts,
   insertSaleSessionItems,
 } from "@/lib/repositories/sale-sessions.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
+import { recordPaymentLedger, toLedgerPaymentMethod } from "@/lib/services/payment-ledger.service";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { PosPaymentMethod, Product, Profile, SaleSession } from "@/types/database";
@@ -252,6 +254,33 @@ export async function createSaleSession(
     return { ok: false, error: "販売明細の作成に失敗しました。", status: 500 };
   }
 
+  // payment_ledger に精算済みエントリを記録（締め集計の単一ソース）
+  try {
+    await recordPaymentLedger({
+      business_id: input.business_id,
+      source_type: "pos",
+      source_id: session.id,
+      amount: totalAmount,
+      payment_method: toLedgerPaymentMethod(input.payment_method),
+      status: "succeeded",
+      paid_at: session.sold_at,
+    });
+  } catch (e) {
+    console.error("[createSaleSession] payment_ledger write failed, rolling back:", e);
+    try {
+      await deleteProductSalesBySessionId(session.id);
+      for (const r of resolvedItems) {
+        if (r.product.stock_quantity !== null) {
+          await updateProduct(r.product.id, { stock_quantity: r.product.stock_quantity });
+        }
+      }
+      await deleteSaleSessionById(session.id);
+    } catch (cleanupErr) {
+      console.error("[createSaleSession] rollback failed (orphan may remain):", cleanupErr);
+    }
+    return { ok: false, error: "台帳への記録に失敗しました。", status: 500 };
+  }
+
   revalidatePath("/admin/pos");
   revalidatePath("/admin/products");
   revalidatePath("/admin/products/sales");
@@ -270,7 +299,10 @@ export async function getSaleSessionsForBusiness(
 
   try {
     const { listByBusiness } = await import("@/lib/repositories/sale-sessions.repository");
-    const sessions = await listByBusiness(businessId, filters);
+    const sessions = await listByBusiness(businessId, {
+      ...filters,
+      onlyUnsettled: filters.onlyUnsettled ?? true,
+    });
     return { ok: true, data: sessions };
   } catch {
     return { ok: false, error: "販売履歴の取得に失敗しました。", status: 500 };

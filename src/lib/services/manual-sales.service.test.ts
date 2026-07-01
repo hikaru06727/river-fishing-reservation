@@ -14,6 +14,17 @@ vi.mock("@/lib/repositories/manual-sales.repository", () => ({
   deleteManualSale: vi.fn(),
 }));
 
+vi.mock("@/lib/services/payment-ledger.service", () => ({
+  recordPaymentLedger: vi.fn().mockResolvedValue({}),
+  getPaymentLedgerBySource: vi.fn().mockResolvedValue(null),
+  updatePaymentStatus: vi.fn().mockResolvedValue(undefined),
+  toLedgerPaymentMethod: vi.fn((m: string | null) => {
+    if (m === "cash" || m === "cash_at_venue") return "cash";
+    if (m === "card" || m === "stripe" || m === "credit_card" || m === "online") return "card";
+    return "other";
+  }),
+}));
+
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
 import {
   deleteManualSale,
@@ -22,6 +33,7 @@ import {
   insertManualSale,
   updateManualSale,
 } from "@/lib/repositories/manual-sales.repository";
+import { recordPaymentLedger } from "@/lib/services/payment-ledger.service";
 import {
   createManualSale,
   deleteManualSaleById,
@@ -125,6 +137,17 @@ describe("createManualSale", () => {
     const result = await createManualSale(adminProfile, { ...validCreateInput, business_id: bizB });
     expect(result.ok).toBe(true);
     expect(insertManualSale).toHaveBeenCalledOnce();
+  });
+
+  it("payment_ledger 書き込みが失敗すると manual_sale を削除してエラーを返す", async () => {
+    vi.mocked(recordPaymentLedger).mockRejectedValueOnce(new Error("ledger error"));
+
+    const result = await createManualSale(baProfile, validCreateInput);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(500);
+    // ロールバック: 挿入した manual_sale を削除する
+    expect(deleteManualSale).toHaveBeenCalledWith(saleId);
   });
 });
 

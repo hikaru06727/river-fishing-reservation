@@ -104,6 +104,30 @@ export async function findManageableBusinesses(): Promise<ManageableBusinessRow[
   return (data ?? []) as ManageableBusinessRow[];
 }
 
+export type ActiveBusinessRow = {
+  id: string;
+  name: string;
+  slug: string;
+};
+
+/** 顧客向け: slug から is_active な事業を解決（未認証アクセス可） */
+export async function findActiveBusinessBySlug(slug: string): Promise<ActiveBusinessRow | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("id, name, slug")
+    .eq("slug", slug)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+
 /** 管理画面フィルタ用の釣り場一覧 */
 export async function findManageableSpots(): Promise<ManageableSpotRow[]> {
   const supabase = await createClient();

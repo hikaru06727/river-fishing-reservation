@@ -8,6 +8,9 @@ export type ReservationPaymentAdminMeta = {
   payment: {
     status: PaymentStatus;
   } | null;
+  /** payment_ledger 書き込みに使用 */
+  business_id: string | null;
+  total_amount_yen: number;
 };
 
 export async function findReservationPaymentMetaByIdAdmin(
@@ -17,7 +20,7 @@ export async function findReservationPaymentMetaByIdAdmin(
 
   const { data, error } = await admin
     .from("reservations")
-    .select("payment_method, status, payments ( status )")
+    .select("payment_method, status, total_amount_yen, locations(business_id), payments ( status )")
     .eq("id", reservationId)
     .maybeSingle();
 
@@ -33,10 +36,15 @@ export async function findReservationPaymentMetaByIdAdmin(
     data.payments as unknown as { status: PaymentStatus } | Array<{ status: PaymentStatus }> | null,
   );
 
+  const loc = Array.isArray(data.locations) ? data.locations[0] : data.locations;
+  const businessId = (loc as { business_id: string | null } | null)?.business_id ?? null;
+
   return {
     payment_method: data.payment_method as PaymentMethod,
     reservation_status: data.status as ReservationStatus,
     payment,
+    business_id: businessId,
+    total_amount_yen: data.total_amount_yen,
   };
 }
 

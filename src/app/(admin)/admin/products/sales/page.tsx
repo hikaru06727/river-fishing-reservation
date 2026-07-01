@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
+import { findClosedPeriodsByBusinessId } from "@/lib/repositories/register-closings.repository";
 import { getSaleSessionsForBusiness } from "@/lib/services/sale-session.service";
 import { isAdminRole } from "@/lib/auth/role";
 import { POS_PAYMENT_METHODS } from "@/validations/pos";
@@ -18,15 +19,28 @@ interface PageProps {
     dateFrom?: string;
     dateTo?: string;
     paymentMethod?: string;
+    includeSettled?: string;
   }>;
+}
+
+function isSettled(
+  soldAt: string,
+  periods: Array<{ period_start: string; period_end: string }>,
+): boolean {
+  const t = new Date(soldAt).getTime();
+  return periods.some(
+    (p) =>
+      t >= new Date(p.period_start).getTime() && t <= new Date(p.period_end).getTime(),
+  );
 }
 
 export default async function AdminProductSalesPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/admin/login?next=/admin/products/sales");
 
-  const { businessId, dateFrom, dateTo, paymentMethod } = await searchParams;
+  const { businessId, dateFrom, dateTo, paymentMethod, includeSettled } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);
+  const showSettled = includeSettled === "true";
 
   const businesses = await findManageableBusinesses();
 
@@ -36,15 +50,26 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
 
   let sessions: SaleSessionListRow[] | null = null;
   let sessionsError: string | null = null;
+  let settledIds = new Set<string>();
 
   if (businessId) {
     const result = await getSaleSessionsForBusiness(session.profile, businessId, {
       dateFrom: dateFrom || null,
       dateTo: dateTo || null,
       paymentMethod: paymentMethod || null,
+      onlyUnsettled: !showSettled,
     });
     if (result.ok) {
       sessions = result.data;
+
+      if (showSettled && sessions.length > 0) {
+        const periods = await findClosedPeriodsByBusinessId(businessId);
+        if (periods.length > 0) {
+          for (const s of sessions) {
+            if (isSettled(s.sold_at, periods)) settledIds.add(s.id);
+          }
+        }
+      }
     } else {
       sessionsError = result.error;
     }
@@ -53,7 +78,7 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
   const selectedBusiness = businesses.find((b) => b.id === businessId);
 
   const filterTotal = sessions?.reduce((s, r) => s + r.total_amount, 0) ?? 0;
-  const hasActiveFilter = dateFrom || dateTo || paymentMethod;
+  const hasActiveFilter = dateFrom || dateTo || paymentMethod || showSettled;
 
   return (
     <div>
@@ -137,6 +162,17 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
                 ))}
               </select>
             </div>
+            <label className="flex cursor-pointer items-center gap-1.5 pb-1.5 text-sm text-foreground">
+              <input
+                key={showSettled ? "includeSettled" : "excludeSettled"}
+                type="checkbox"
+                name="includeSettled"
+                value="true"
+                defaultChecked={showSettled}
+                className="h-4 w-4 rounded border-border accent-primary"
+              />
+              締め済みを含む
+            </label>
             <button
               type="submit"
               className="rounded-lg border border-border bg-white px-4 py-1.5 text-sm hover:bg-slate-100"
@@ -205,16 +241,27 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
                     {sessions.map((s) => {
                       const pmLabel = POS_PAYMENT_METHODS.find((m) => m.value === s.payment_method)?.label
                         ?? s.payment_method;
+                      const settled = settledIds.has(s.id);
                       return (
-                        <tr key={s.id} className="border-b border-border last:border-0">
+                        <tr
+                          key={s.id}
+                          className={`border-b border-border last:border-0 ${settled ? "bg-slate-50/60" : ""}`}
+                        >
                           <td className="px-4 py-3 text-muted">
-                            {new Date(s.sold_at).toLocaleString("ja-JP", {
-                              year: "numeric",
-                              month: "2-digit",
-                              day: "2-digit",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            <span>
+                              {new Date(s.sold_at).toLocaleString("ja-JP", {
+                                year: "numeric",
+                                month: "2-digit",
+                                day: "2-digit",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </span>
+                            {settled && (
+                              <span className="ml-2 rounded-full bg-slate-200 px-2 py-0.5 text-xs text-slate-500">
+                                締め済み
+                              </span>
+                            )}
                           </td>
                           <td className="px-4 py-3 text-center">{s.item_count}種</td>
                           <td className="px-4 py-3">

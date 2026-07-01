@@ -77,6 +77,23 @@ export type PlanSummary = {
   price_yen: number;
 };
 
+/** 顧客向け商品一覧（is_published_online = true の商品のみ） */
+export type PublicProductSummary = {
+  id: string;
+  name: string;
+  price_excluding_tax: number;
+  tax_rate_percent: number;
+  image_url: string | null;
+  track_inventory: boolean;
+  stock_quantity: number | null;
+};
+
+/** 顧客向け商品詳細 */
+export type PublicProductDetail = PublicProductSummary & {
+  description_online: string | null;
+  shippable: boolean;
+};
+
 /** 予約のドメイン概要（JOIN 結果を含む場合は各 getter で拡張） */
 export type ReservationSummary = {
   id: string;

@@ -74,3 +74,23 @@ export type SalesReport = {
   businessBreakdown: BusinessSalesRow[];
   planBreakdown: PlanSalesRow[];
 };
+
+export type TodaySalesRawRow = {
+  amountYen: number;
+  paymentMethod: string | null;
+};
+
+export type TodaySalesByPaymentMethod = {
+  cash: number;
+  card: number;
+  eMoney: number;
+  qr: number;
+  other: number;
+};
+
+export type TodaySalesSummary = {
+  date: string;
+  totalAmountYen: number;
+  transactionCount: number;
+  byPaymentMethod: TodaySalesByPaymentMethod;
+};

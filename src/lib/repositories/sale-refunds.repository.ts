@@ -166,6 +166,40 @@ export async function findReservationAmountById(
   return data?.total_amount_yen ?? null;
 }
 
+/** 売上セッションの sold_at を取得（締め後返金判定用） */
+export async function findSaleSessionSoldAtById(
+  saleSessionId: string,
+): Promise<string | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("sale_sessions")
+    .select("sold_at")
+    .eq("id", saleSessionId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  return data?.sold_at ?? null;
+}
+
+/** 予約の reservation_date を取得（締め後返金判定用） */
+export async function findReservationDateById(
+  reservationId: string,
+): Promise<string | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("reservations")
+    .select("reservation_date")
+    .eq("id", reservationId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+
+  return data?.reservation_date ?? null;
+}
+
 /** 過去の返金合計を取得（上限チェック用） */
 export async function findTotalRefundedAmount(params: {
   saleSessionId?: string;

@@ -24,179 +24,94 @@ function buildTableQuery(data: unknown[], error: unknown = null) {
   return chain;
 }
 
-/** テーブル名ごとにデータを返す from() モックを構築する */
-function buildFrom(tableData: Record<string, unknown[]>) {
-  return vi.fn().mockImplementation((table: string) =>
-    buildTableQuery(tableData[table] ?? []),
-  );
-}
+// ============================================================
+// findSalesRowsForClosing — payment_ledger ベース
+// ============================================================
 
-describe("findSalesRowsForClosing — payment_status フィルタ", () => {
+describe("findSalesRowsForClosing — payment_ledger ベース", () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it("payments に succeeded がある予約のみ集計に含まれる", async () => {
-    const paidRes = {
-      id: "res-paid",
-      total_amount_yen: 5000,
-      reserved_unit_price_yen: null,
-      guest_count: 2,
-      payment_method: "cash_at_venue",
-      locations: { business_id: BIZ_A },
-      payments: [{ status: "succeeded" }],
-    };
-    const unpaidRes = {
-      id: "res-unpaid",
-      total_amount_yen: 3000,
-      reserved_unit_price_yen: null,
-      guest_count: 1,
-      payment_method: "cash_at_venue",
-      locations: { business_id: BIZ_A },
-      payments: [],
-    };
+  it("succeeded エントリが amountYen / paymentMethod にマップされる", async () => {
+    const ledgerRows = [
+      { amount: 5000, payment_method: "cash" },
+      { amount: 3000, payment_method: "card" },
+    ];
 
     vi.mocked(createClient).mockResolvedValue({
-      from: buildFrom({
-        sale_refunds: [],
-        reservations: [paidRes, unpaidRes],
-        manual_sales: [],
-        product_sales: [],
-        sale_sessions: [],
-      }),
+      from: vi.fn().mockReturnValue(buildTableQuery(ledgerRows)),
     } as any);
 
     const rows = await findSalesRowsForClosing({
       businessId: BIZ_A,
       periodStartIso: "2026-06-25T00:00:00Z",
-      periodEndIso: "2026-06-25T09:00:00Z",
+      periodEndIso: "2026-06-25T23:59:59Z",
     });
 
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toEqual({ amountYen: 5000, paymentMethod: "cash_at_venue" });
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toEqual({ amountYen: 5000, paymentMethod: "cash" });
+    expect(rows[1]).toEqual({ amountYen: 3000, paymentMethod: "card" });
   });
 
-  it("payments が空の予約（現地決済未完了）は除外される", async () => {
-    const unpaidRes = {
-      id: "res-unpaid",
-      total_amount_yen: 8000,
-      reserved_unit_price_yen: null,
-      guest_count: 1,
-      payment_method: "cash_at_venue",
-      locations: { business_id: BIZ_A },
-      payments: [],
-    };
-
+  it("エントリが空の場合は空配列を返す", async () => {
     vi.mocked(createClient).mockResolvedValue({
-      from: buildFrom({
-        sale_refunds: [],
-        reservations: [unpaidRes],
-        manual_sales: [],
-        product_sales: [],
-        sale_sessions: [],
-      }),
+      from: vi.fn().mockReturnValue(buildTableQuery([])),
     } as any);
 
     const rows = await findSalesRowsForClosing({
       businessId: BIZ_A,
       periodStartIso: "2026-06-25T00:00:00Z",
-      periodEndIso: "2026-06-25T09:00:00Z",
+      periodEndIso: "2026-06-25T23:59:59Z",
     });
 
     expect(rows).toHaveLength(0);
   });
 
-  it("返金済み予約（refundedReservationIds）は集計から除外される", async () => {
-    const refundedRes = {
-      id: "res-refunded",
-      total_amount_yen: 5000,
-      reserved_unit_price_yen: null,
-      guest_count: 2,
-      payment_method: "cash_at_venue",
-      locations: { business_id: BIZ_A },
-      payments: [{ status: "succeeded" }],
-    };
+  it("payment_method が other のエントリも含まれる", async () => {
+    const ledgerRows = [
+      { amount: 1000, payment_method: "other" },
+    ];
 
     vi.mocked(createClient).mockResolvedValue({
-      from: buildFrom({
-        sale_refunds: [{ sale_session_id: null, reservation_id: "res-refunded" }],
-        reservations: [refundedRes],
-        manual_sales: [],
-        product_sales: [],
-        sale_sessions: [],
-      }),
+      from: vi.fn().mockReturnValue(buildTableQuery(ledgerRows)),
     } as any);
 
     const rows = await findSalesRowsForClosing({
       businessId: BIZ_A,
       periodStartIso: "2026-06-25T00:00:00Z",
-      periodEndIso: "2026-06-25T09:00:00Z",
-    });
-
-    expect(rows).toHaveLength(0);
-  });
-
-  it("返金済み sale_session は締め集計から除外される", async () => {
-    const refundedSession = {
-      id: "sess-refunded",
-      total_amount: 3000,
-      payment_method: "cash",
-    };
-    const normalSession = {
-      id: "sess-normal",
-      total_amount: 2000,
-      payment_method: "card",
-    };
-
-    vi.mocked(createClient).mockResolvedValue({
-      from: buildFrom({
-        sale_refunds: [{ sale_session_id: "sess-refunded", reservation_id: null }],
-        reservations: [],
-        manual_sales: [],
-        product_sales: [],
-        sale_sessions: [refundedSession, normalSession],
-      }),
-    } as any);
-
-    const rows = await findSalesRowsForClosing({
-      businessId: BIZ_A,
-      periodStartIso: "2026-06-25T00:00:00Z",
-      periodEndIso: "2026-06-25T09:00:00Z",
+      periodEndIso: "2026-06-25T23:59:59Z",
     });
 
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toEqual({ amountYen: 2000, paymentMethod: "card" });
+    expect(rows[0]).toEqual({ amountYen: 1000, paymentMethod: "other" });
   });
 
-  it("reserved_unit_price_yen がある場合は単価 × 人数で計算される", async () => {
-    const res = {
-      id: "res-priced",
-      total_amount_yen: 99999,
-      reserved_unit_price_yen: 2000,
-      guest_count: 3,
-      payment_method: "online",
-      locations: { business_id: BIZ_A },
-      payments: [{ status: "succeeded" }],
-    };
+  it("DBエラーは例外として伝播する", async () => {
+    const errorQuery = (() => {
+      const result = { data: null, error: { message: "DB error" } };
+      const resolved = Promise.resolve(result);
+      const chain: Record<string, unknown> = {
+        then: resolved.then.bind(resolved),
+        catch: resolved.catch.bind(resolved),
+      };
+      ["select", "eq", "gte", "lte"].forEach((m) => {
+        chain[m] = vi.fn().mockReturnValue(chain);
+      });
+      return chain;
+    })();
 
     vi.mocked(createClient).mockResolvedValue({
-      from: buildFrom({
-        sale_refunds: [],
-        reservations: [res],
-        manual_sales: [],
-        product_sales: [],
-        sale_sessions: [],
-      }),
+      from: vi.fn().mockReturnValue(errorQuery),
     } as any);
 
-    const rows = await findSalesRowsForClosing({
-      businessId: BIZ_A,
-      periodStartIso: "2026-06-25T00:00:00Z",
-      periodEndIso: "2026-06-25T09:00:00Z",
-    });
-
-    expect(rows).toHaveLength(1);
-    expect(rows[0]!.amountYen).toBe(6000); // 2000 × 3
+    await expect(
+      findSalesRowsForClosing({
+        businessId: BIZ_A,
+        periodStartIso: "2026-06-25T00:00:00Z",
+        periodEndIso: "2026-06-25T23:59:59Z",
+      }),
+    ).rejects.toThrow("DB error");
   });
 });
 

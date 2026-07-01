@@ -192,6 +192,12 @@ export async function insertSaleSessionItems(
   return (data ?? []) as SaleSessionItem[];
 }
 
+export async function deleteSaleSessionById(id: string): Promise<void> {
+  const supabase = await createClient();
+  const { error } = await supabase.from("sale_sessions").delete().eq("id", id);
+  if (error) throw new Error(error.message);
+}
+
 export async function insertSaleSessionDiscounts(
   discounts: InsertSaleSessionDiscountInput[],
 ): Promise<SaleSessionDiscount[]> {
@@ -212,6 +218,7 @@ export type SaleSessionListFilters = {
   dateFrom?: string | null;
   dateTo?: string | null;
   paymentMethod?: string | null;
+  onlyUnsettled?: boolean;
 };
 
 /** 事業の販売セッション一覧（明細件数付き・RLS 下） */
@@ -237,9 +244,33 @@ export async function listByBusiness(
     query = query.eq("payment_method", filters.paymentMethod as SaleSession["payment_method"]);
 
   const { data, error } = await query;
-
   if (error) throw new Error(error.message);
-  return ((data ?? []) as unknown as SaleSessionListDbRow[]).map(mapSaleSessionListRow);
+
+  let sessions = ((data ?? []) as unknown as SaleSessionListDbRow[]).map(mapSaleSessionListRow);
+
+  if (filters.onlyUnsettled && sessions.length > 0) {
+    const { data: closingsData, error: closingsError } = await supabase
+      .from("register_closings")
+      .select("period_start, period_end")
+      .eq("business_id", businessId)
+      .in("status", ["closed", "correction_requested", "approved"]);
+
+    if (closingsError) throw new Error(closingsError.message);
+
+    const periods = (closingsData ?? []) as Array<{ period_start: string; period_end: string }>;
+    if (periods.length > 0) {
+      sessions = sessions.filter((s) => {
+        const soldAt = new Date(s.sold_at).getTime();
+        return !periods.some(
+          (p) =>
+            soldAt >= new Date(p.period_start).getTime() &&
+            soldAt <= new Date(p.period_end).getTime(),
+        );
+      });
+    }
+  }
+
+  return sessions;
 }
 
 /** 販売セッション詳細（明細・商品名付き・RLS 下） */

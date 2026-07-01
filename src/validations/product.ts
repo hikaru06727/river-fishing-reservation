@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+const checkboxBoolean = z.preprocess(
+  (val) => val === "on" || val === "true" || val === true,
+  z.boolean(),
+);
+
 export const productFormSchema = z.object({
   businessId: z.string().uuid("事業を選択してください"),
   name: z.string().min(1, "商品名を入力してください").max(100, "商品名は100文字以内で入力してください"),
@@ -34,6 +39,13 @@ export const productFormSchema = z.object({
     (val) => (val === "" ? null : val),
     z.string().max(50, "カテゴリは50文字以内で入力してください").nullable().optional(),
   ),
+  isPublishedOnline: checkboxBoolean,
+  trackInventory: checkboxBoolean,
+  shippable: checkboxBoolean,
+  descriptionOnline: z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.string().max(2000, "オンライン説明文は2000文字以内で入力してください").nullable().optional(),
+  ),
 });
 
 export type ProductFormInput = z.infer<typeof productFormSchema>;
@@ -49,6 +61,10 @@ export function parseProductForm(formData: FormData) {
     status: formData.get("status"),
     defaultTaxRate: formData.get("defaultTaxRate") ?? "10",
     category: formData.get("category"),
+    isPublishedOnline: formData.get("isPublishedOnline"),
+    trackInventory: formData.get("trackInventory"),
+    shippable: formData.get("shippable"),
+    descriptionOnline: formData.get("descriptionOnline"),
   });
 }
 

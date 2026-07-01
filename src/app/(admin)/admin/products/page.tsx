@@ -143,6 +143,7 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                     <th className="px-4 py-3 text-right font-medium">税抜き価格</th>
                     <th className="px-4 py-3 text-center font-medium">在庫</th>
                     <th className="px-4 py-3 text-center font-medium">ステータス</th>
+                    <th className="px-4 py-3 text-center font-medium">EC公開</th>
                     <th className="px-4 py-3"></th>
                   </tr>
                 </thead>
@@ -168,6 +169,17 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
                           className={`inline-block rounded-full border px-2 py-0.5 text-xs ${STATUS_COLORS[p.status] ?? ""}`}
                         >
                           {STATUS_LABELS[p.status] ?? p.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span
+                          className={`inline-block rounded-full border px-2 py-0.5 text-xs ${
+                            p.is_published_online
+                              ? "border-green-200 bg-green-50 text-green-700"
+                              : "border-slate-200 bg-slate-50 text-slate-500"
+                          }`}
+                        >
+                          {p.is_published_online ? "公開中" : "非公開"}
                         </span>
                       </td>
                       <td className="px-4 py-3">

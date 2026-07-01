@@ -667,6 +667,10 @@ export interface Database {
           status: ProductStatus;
           default_tax_rate: number;
           category: string | null;
+          is_published_online: boolean;
+          track_inventory: boolean;
+          shippable: boolean;
+          description_online: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -681,6 +685,10 @@ export interface Database {
           status?: ProductStatus;
           default_tax_rate?: number;
           category?: string | null;
+          is_published_online?: boolean;
+          track_inventory?: boolean;
+          shippable?: boolean;
+          description_online?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -695,6 +703,10 @@ export interface Database {
           status?: ProductStatus;
           default_tax_rate?: number;
           category?: string | null;
+          is_published_online?: boolean;
+          track_inventory?: boolean;
+          shippable?: boolean;
+          description_online?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1230,6 +1242,15 @@ export interface Database {
           expired_count: number;
           reservation_ids: string[];
         }[];
+      };
+      generate_slots_from_weekly_hours: {
+        Args: {
+          p_spot_id: string;
+          p_from_date: string;
+          p_to_date: string;
+          p_step_minutes?: number;
+        };
+        Returns: number;
       };
     };
     Enums: Record<string, never>;
