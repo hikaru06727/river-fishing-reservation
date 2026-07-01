@@ -9,12 +9,12 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 interface ShopProductDetailPageProps {
-  params: Promise<{ businessId: string; id: string }>;
+  params: Promise<{ slug: string; id: string }>;
 }
 
 export async function generateMetadata({ params }: ShopProductDetailPageProps) {
-  const { businessId, id } = await params;
-  const product = await getPublishedProduct(businessId, id);
+  const { slug, id } = await params;
+  const product = await getPublishedProduct(slug, id);
 
   if (!product) {
     return { title: "商品が見つかりません" };
@@ -27,9 +27,9 @@ export async function generateMetadata({ params }: ShopProductDetailPageProps) {
 }
 
 export default async function ShopProductDetailPage({ params }: ShopProductDetailPageProps) {
-  const { businessId, id } = await params;
+  const { slug, id } = await params;
 
-  const product = await getPublishedProduct(businessId, id);
+  const product = await getPublishedProduct(slug, id);
   if (!product) {
     notFound();
   }
@@ -92,7 +92,7 @@ export default async function ShopProductDetailPage({ params }: ShopProductDetai
       </Card>
 
       <Link
-        href={`/shop/${businessId}/products`}
+        href={`/shop/${slug}/products`}
         className="text-sm font-medium text-primary hover:underline"
       >
         ← 商品一覧に戻る

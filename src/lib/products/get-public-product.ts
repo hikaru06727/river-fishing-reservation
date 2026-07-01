@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { findActiveBusinessBySlug } from "@/lib/repositories/businesses.repository";
 import {
   findPublishedProductById,
   type PublicProductRow,
@@ -19,11 +20,17 @@ function toDetail(row: PublicProductRow): PublicProductDetail {
   };
 }
 
-/** 事業・商品IDに対応する公開中商品詳細（顧客向け） */
+/**
+ * 事業slug・商品IDに対応する公開中商品詳細（顧客向け）
+ * slug が存在しない事業、または商品が存在しない・非公開の場合は null
+ */
 export const getPublishedProduct = cache(
-  async (businessId: string, productId: string): Promise<PublicProductDetail | null> => {
+  async (slug: string, productId: string): Promise<PublicProductDetail | null> => {
     try {
-      const row = await findPublishedProductById(businessId, productId);
+      const business = await findActiveBusinessBySlug(slug);
+      if (!business) return null;
+
+      const row = await findPublishedProductById(business.id, productId);
       return row ? toDetail(row) : null;
     } catch (err) {
       console.error("[getPublishedProduct]", err instanceof Error ? err.message : err);

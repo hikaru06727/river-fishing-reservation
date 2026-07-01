@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { ProductCard } from "@/components/products/ProductCard";
 import { getPublishedProducts } from "@/lib/products/get-public-products";
 
@@ -9,12 +10,16 @@ export const metadata = {
 };
 
 interface ShopProductsPageProps {
-  params: Promise<{ businessId: string }>;
+  params: Promise<{ slug: string }>;
 }
 
 export default async function ShopProductsPage({ params }: ShopProductsPageProps) {
-  const { businessId } = await params;
-  const products = await getPublishedProducts(businessId);
+  const { slug } = await params;
+  const products = await getPublishedProducts(slug);
+
+  if (products === null) {
+    notFound();
+  }
 
   return (
     <div className="space-y-6">
@@ -41,7 +46,7 @@ export default async function ShopProductsPage({ params }: ShopProductsPageProps
         <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {products.map((product) => (
             <li key={product.id}>
-              <ProductCard product={product} businessId={businessId} />
+              <ProductCard product={product} slug={slug} />
             </li>
           ))}
         </ul>

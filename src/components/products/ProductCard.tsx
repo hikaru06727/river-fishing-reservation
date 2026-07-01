@@ -5,10 +5,10 @@ import type { PublicProductSummary } from "@/types/domain";
 
 interface ProductCardProps {
   product: PublicProductSummary;
-  businessId: string;
+  slug: string;
 }
 
-export function ProductCard({ product, businessId }: ProductCardProps) {
+export function ProductCard({ product, slug }: ProductCardProps) {
   const isOutOfStock = product.track_inventory && product.stock_quantity === 0;
   const priceIncludingTax = Math.round(
     product.price_excluding_tax * (1 + product.tax_rate_percent / 100),
@@ -16,7 +16,7 @@ export function ProductCard({ product, businessId }: ProductCardProps) {
 
   return (
     <Link
-      href={`/shop/${businessId}/products/${product.id}`}
+      href={`/shop/${slug}/products/${product.id}`}
       className="group block overflow-hidden rounded-xl border border-border bg-card shadow-sm transition-shadow hover:shadow-md"
     >
       <div className="relative aspect-square w-full overflow-hidden bg-sky-100">

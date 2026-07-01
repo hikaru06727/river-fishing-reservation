@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { findPublishedProductByIdMock } = vi.hoisted(() => ({
+const { findActiveBusinessBySlugMock, findPublishedProductByIdMock } = vi.hoisted(() => ({
+  findActiveBusinessBySlugMock: vi.fn(),
   findPublishedProductByIdMock: vi.fn(),
+}));
+
+vi.mock("@/lib/repositories/businesses.repository", () => ({
+  findActiveBusinessBySlug: findActiveBusinessBySlugMock,
 }));
 
 vi.mock("@/lib/repositories/products.repository", () => ({
@@ -13,7 +18,12 @@ import { getPublishedProduct } from "./get-public-product";
 describe("getPublishedProduct", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("公開中商品の詳細をドメイン型へ変換して返す", async () => {
+  it("slug から事業を解決し、公開中商品の詳細をドメイン型へ変換して返す", async () => {
+    findActiveBusinessBySlugMock.mockResolvedValue({
+      id: "biz-1",
+      name: "テスト事業",
+      slug: "test-shop",
+    });
     findPublishedProductByIdMock.mockResolvedValue({
       id: "product-detail-1",
       business_id: "biz-1",
@@ -27,8 +37,9 @@ describe("getPublishedProduct", () => {
       shippable: true,
     });
 
-    const result = await getPublishedProduct("biz-1", "product-detail-1");
+    const result = await getPublishedProduct("test-shop", "product-detail-1");
 
+    expect(findActiveBusinessBySlugMock).toHaveBeenCalledWith("test-shop");
     expect(findPublishedProductByIdMock).toHaveBeenCalledWith("biz-1", "product-detail-1");
     expect(result).toEqual({
       id: "product-detail-1",
@@ -43,17 +54,31 @@ describe("getPublishedProduct", () => {
     });
   });
 
-  it("非公開・他事業の商品は null を返す（business_id 不一致を含む）", async () => {
+  it("存在しない slug の場合は null を返す（呼び出し側で notFound）", async () => {
+    findActiveBusinessBySlugMock.mockResolvedValue(null);
+
+    const result = await getPublishedProduct("unknown-shop", "product-detail-1");
+
+    expect(result).toBeNull();
+    expect(findPublishedProductByIdMock).not.toHaveBeenCalled();
+  });
+
+  it("非公開・他事業の商品は null を返す", async () => {
+    findActiveBusinessBySlugMock.mockResolvedValue({
+      id: "biz-1",
+      name: "テスト事業",
+      slug: "test-shop",
+    });
     findPublishedProductByIdMock.mockResolvedValue(null);
 
-    const result = await getPublishedProduct("biz-1", "product-detail-2");
+    const result = await getPublishedProduct("test-shop", "product-detail-2");
     expect(result).toBeNull();
   });
 
   it("repository が例外を投げた場合はユーザー向けエラーに変換する", async () => {
-    findPublishedProductByIdMock.mockRejectedValue(new Error("DB error"));
+    findActiveBusinessBySlugMock.mockRejectedValue(new Error("DB error"));
 
-    await expect(getPublishedProduct("biz-1", "product-detail-3")).rejects.toThrow(
+    await expect(getPublishedProduct("test-shop", "product-detail-3")).rejects.toThrow(
       "商品データの取得に失敗しました",
     );
   });

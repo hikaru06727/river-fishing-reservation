@@ -1,3 +1,4 @@
+import { findActiveBusinessBySlug } from "@/lib/repositories/businesses.repository";
 import {
   findPublishedProductsByBusinessId,
   type PublicProductRow,
@@ -16,10 +17,16 @@ function toSummary(row: PublicProductRow): PublicProductSummary {
   };
 }
 
-/** 事業ごとの公開中商品一覧（顧客向け） */
-export async function getPublishedProducts(businessId: string): Promise<PublicProductSummary[]> {
+/**
+ * 事業ごとの公開中商品一覧（顧客向け）
+ * slug が存在しない・非公開事業の場合は null を返す（呼び出し側で notFound() する）
+ */
+export async function getPublishedProducts(slug: string): Promise<PublicProductSummary[] | null> {
   try {
-    const rows = await findPublishedProductsByBusinessId(businessId);
+    const business = await findActiveBusinessBySlug(slug);
+    if (!business) return null;
+
+    const rows = await findPublishedProductsByBusinessId(business.id);
     return rows.map(toSummary);
   } catch (err) {
     console.error("[getPublishedProducts]", err instanceof Error ? err.message : err);
