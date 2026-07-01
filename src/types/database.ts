@@ -2,6 +2,10 @@ import type {
   AppUserRole,
   ClosingCorrectionStatus,
   ContentStatus,
+  OnlineOrderFulfillmentType,
+  OnlineOrderPaymentMethod,
+  OnlineOrderPaymentStatus,
+  OnlineOrderStatus,
   PaymentLedgerPaymentMethod,
   PaymentLedgerSourceType,
   PaymentLedgerStatus,
@@ -30,6 +34,10 @@ export type {
   AppUserRole,
   ClosingCorrectionStatus,
   ContentStatus,
+  OnlineOrderFulfillmentType,
+  OnlineOrderPaymentMethod,
+  OnlineOrderPaymentStatus,
+  OnlineOrderStatus,
   PaymentMethod,
   PaymentStatus,
   ProductSaleStatus,
@@ -1198,6 +1206,108 @@ export interface Database {
         };
         Relationships: [];
       };
+      online_orders: {
+        Row: {
+          id: string;
+          business_id: string;
+          status: OnlineOrderStatus;
+          fulfillment_type: OnlineOrderFulfillmentType;
+          payment_method: OnlineOrderPaymentMethod;
+          payment_status: OnlineOrderPaymentStatus;
+          stripe_checkout_session_id: string | null;
+          subtotal_amount: number;
+          tax_amount: number;
+          total_amount: number;
+          customer_name: string;
+          customer_email: string;
+          customer_phone: string | null;
+          shipping_postal_code: string | null;
+          shipping_prefecture: string | null;
+          shipping_address_line1: string | null;
+          shipping_address_line2: string | null;
+          notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          status?: OnlineOrderStatus;
+          fulfillment_type: OnlineOrderFulfillmentType;
+          payment_method: OnlineOrderPaymentMethod;
+          payment_status?: OnlineOrderPaymentStatus;
+          stripe_checkout_session_id?: string | null;
+          subtotal_amount: number;
+          tax_amount: number;
+          total_amount: number;
+          customer_name: string;
+          customer_email: string;
+          customer_phone?: string | null;
+          shipping_postal_code?: string | null;
+          shipping_prefecture?: string | null;
+          shipping_address_line1?: string | null;
+          shipping_address_line2?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          status?: OnlineOrderStatus;
+          fulfillment_type?: OnlineOrderFulfillmentType;
+          payment_method?: OnlineOrderPaymentMethod;
+          payment_status?: OnlineOrderPaymentStatus;
+          stripe_checkout_session_id?: string | null;
+          subtotal_amount?: number;
+          tax_amount?: number;
+          total_amount?: number;
+          customer_name?: string;
+          customer_email?: string;
+          customer_phone?: string | null;
+          shipping_postal_code?: string | null;
+          shipping_prefecture?: string | null;
+          shipping_address_line1?: string | null;
+          shipping_address_line2?: string | null;
+          notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      online_order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          product_id?: string;
+          product_name?: string;
+          unit_price?: number;
+          tax_rate?: number;
+          quantity?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
@@ -1296,3 +1406,5 @@ export type RegisterClosingRow = Database["public"]["Tables"]["register_closings
 export type RegisterClosingCorrectionRow = Database["public"]["Tables"]["register_closing_corrections"]["Row"];
 export type SaleRefundRow = Database["public"]["Tables"]["sale_refunds"]["Row"];
 export type PaymentLedgerRow = Database["public"]["Tables"]["payment_ledger"]["Row"];
+export type OnlineOrderRow = Database["public"]["Tables"]["online_orders"]["Row"];
+export type OnlineOrderItemRow = Database["public"]["Tables"]["online_order_items"]["Row"];

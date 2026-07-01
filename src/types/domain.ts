@@ -15,7 +15,7 @@ export type ClosingCorrectionStatus = "pending" | "approved" | "rejected";
 export type SaleRefundStatus = "pending" | "completed" | "failed";
 export type SaleRefundPaymentMethod = "cash" | "card" | "other";
 
-export type PaymentLedgerSourceType = "pos" | "reservation" | "manual";
+export type PaymentLedgerSourceType = "pos" | "reservation" | "manual" | "online_order";
 export type PaymentLedgerPaymentMethod = "cash" | "card" | "other";
 export type PaymentLedgerStatus =
   | "pending"
@@ -51,6 +51,19 @@ export type ContentStatus = "draft" | "published";
 export type SlotStatus = "open" | "closed";
 export type ProductStatus = "on_sale" | "off_sale" | "archived";
 export type ProductSaleStatus = "pending" | "completed" | "refunded";
+
+export type OnlineOrderStatus =
+  | "pending_payment"
+  | "paid"
+  | "preparing"
+  | "ready"
+  | "shipped"
+  | "delivered"
+  | "cancelled"
+  | "refunded";
+export type OnlineOrderFulfillmentType = "shipping" | "pickup";
+export type OnlineOrderPaymentMethod = "stripe" | "in_person";
+export type OnlineOrderPaymentStatus = "pending" | "paid" | "failed" | "refunded";
 
 /** 認証済みユーザーのアプリ内表現（Supabase User 型に非依存） */
 export type AuthUser = {

@@ -28,6 +28,11 @@ const ENTRY_CONFIG: Record<
     href: () => "/admin/sales",
     linkLabel: "手動売上へ",
   },
+  online_order: {
+    label: (id) => `オンライン注文 #${id.slice(0, 8)}`,
+    href: () => "/admin/orders",
+    linkLabel: "注文一覧へ",
+  },
 };
 
 function UnsettledEntryRow({ entry }: { entry: UnsettledEntryInfo }) {

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { PaymentLedgerRow } from "@/types/database";
 import type {
   PaymentLedgerPaymentMethod,
@@ -95,12 +96,12 @@ export async function findUnsettledInPeriod(
 ): Promise<UnsettledItem[]> {
   const supabase = await createClient();
 
-  // 1. POS・手動売上の未精算エントリ（source_type='reservation' は別クエリで処理）
+  // 1. POS・手動売上・オンライン注文の未精算エントリ（source_type='reservation' は別クエリで処理）
   const { data: ledgerData, error: ledgerError } = await supabase
     .from("payment_ledger")
     .select("source_type, source_id")
     .eq("business_id", businessId)
-    .in("source_type", ["pos", "manual"])
+    .in("source_type", ["pos", "manual", "online_order"])
     .in("status", ["pending", "refunded", "partially_refunded"])
     .order("created_at", { ascending: true });
 
@@ -153,6 +154,37 @@ export async function upsertPaymentLedger(
   const supabase = await createClient();
 
   const { data, error } = await supabase
+    .from("payment_ledger")
+    .upsert(
+      {
+        business_id: input.business_id,
+        source_type: input.source_type,
+        source_id: input.source_id,
+        amount: input.amount,
+        payment_method: input.payment_method,
+        status: input.status ?? "pending",
+        paid_at: input.paid_at ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "source_type,source_id" },
+    )
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as PaymentLedgerRow;
+}
+
+/**
+ * service_role での台帳エントリ作成・更新（Stripe Webhook 用・セッション/RLS なし）。
+ * upsertPaymentLedger と異なり anon 実行コンテキストから呼ばれる。
+ */
+export async function recordPaymentLedgerAdmin(
+  input: UpsertPaymentLedgerInput,
+): Promise<PaymentLedgerRow> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
     .from("payment_ledger")
     .upsert(
       {

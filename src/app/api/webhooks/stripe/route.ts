@@ -14,6 +14,7 @@ import {
   findReservationStatusForStripeWebhook,
 } from "@/lib/repositories/reservations.repository";
 import { upsertPaymentLedger } from "@/lib/repositories/payment-ledger.repository";
+import { handleOnlineOrderCheckoutCompleted } from "@/lib/services/online-order.service";
 import { getStripe } from "@/lib/stripe/server";
 import type { ReservationStatus } from "@/types/database";
 
@@ -63,6 +64,17 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
+
+    if (session.metadata?.orderId) {
+      try {
+        await handleOnlineOrderCheckoutCompleted(session);
+      } catch (err) {
+        console.error("[stripe webhook] online order handling failed:", err);
+        return NextResponse.json({ error: "Failed to process online order" }, { status: 500 });
+      }
+      return NextResponse.json({ received: true, confirmed: true, orderId: session.metadata.orderId });
+    }
+
     const reservationId = session.metadata?.reservationId;
     const userId = session.metadata?.userId;
 

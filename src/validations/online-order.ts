@@ -1,0 +1,34 @@
+import { z } from "zod";
+
+export const createOnlineOrderSchema = z
+  .object({
+    slug: z.string().min(1, "店舗が不正です"),
+    businessId: z.string().uuid("店舗IDが不正です"),
+    items: z
+      .array(
+        z.object({
+          productId: z.string().uuid("商品IDが不正です"),
+          quantity: z.coerce.number().int().min(1, "数量は1以上で入力してください"),
+        }),
+      )
+      .min(1, "カートが空です"),
+    fulfillmentType: z.enum(["shipping", "pickup"], { error: "受け取り方法を選択してください" }),
+    paymentMethod: z.enum(["stripe", "in_person"], { error: "決済方法を選択してください" }),
+    customerName: z.string().min(1, "氏名を入力してください").max(100),
+    customerEmail: z.string().email("メールアドレスの形式が正しくありません"),
+    customerPhone: z.string().max(20).optional(),
+    shippingAddress: z
+      .object({
+        postalCode: z.string().min(1, "郵便番号を入力してください").max(10),
+        prefecture: z.string().min(1, "都道府県を入力してください").max(20),
+        addressLine1: z.string().min(1, "住所を入力してください").max(200),
+        addressLine2: z.string().max(200).optional(),
+      })
+      .optional(),
+  })
+  .refine((data) => data.fulfillmentType !== "shipping" || data.shippingAddress !== undefined, {
+    message: "配送先住所を入力してください",
+    path: ["shippingAddress"],
+  });
+
+export type CreateOnlineOrderInput = z.infer<typeof createOnlineOrderSchema>;

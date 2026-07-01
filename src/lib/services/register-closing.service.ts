@@ -23,8 +23,11 @@ import type { Profile, RegisterClosingCorrectionRow, RegisterClosingRow } from "
 
 export type UnsettledBlockInfo = {
   total: number;
-  bySourceType: { pos: number; reservation: number; manual: number };
-  entries: Array<{ source_type: "pos" | "reservation" | "manual"; source_id: string }>;
+  bySourceType: { pos: number; reservation: number; manual: number; online_order: number };
+  entries: Array<{
+    source_type: "pos" | "reservation" | "manual" | "online_order";
+    source_id: string;
+  }>;
 };
 
 export type ServiceResult<T> =
