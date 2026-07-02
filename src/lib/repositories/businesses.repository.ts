@@ -110,6 +110,23 @@ export type ActiveBusinessRow = {
   slug: string;
 };
 
+/** 管理画面: businessId から顧客向けショップURL用の slug を取得（仮実装: 管理ダッシュボードのショップ遷移ボタン用） */
+export async function findBusinessSlugById(businessId: string): Promise<string | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("businesses")
+    .select("slug")
+    .eq("id", businessId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data?.slug ?? null;
+}
+
 /** 顧客向け: slug から is_active な事業を解決（未認証アクセス可） */
 export async function findActiveBusinessBySlug(slug: string): Promise<ActiveBusinessRow | null> {
   const supabase = await createClient();
