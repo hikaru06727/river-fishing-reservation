@@ -4,15 +4,17 @@ import { useEffect, useRef } from "react";
 import { useCart } from "@/contexts/CartContext";
 
 export function ClearCartOnMount() {
-  const { clearCart } = useCart();
+  const { clearCart, hydrated } = useCart();
   const cleared = useRef(false);
 
   useEffect(() => {
-    if (cleared.current) return;
+    // CartProvider の localStorage 読み込み（マウント時 useEffect）は子コンポーネントの
+    // このエフェクトより後に走る。hydrated を待たずに clearCart すると、その後の
+    // 読み込みで古いカート内容に上書きされてしまうため、hydrated 完了後まで待つ。
+    if (!hydrated || cleared.current) return;
     cleared.current = true;
     clearCart();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hydrated, clearCart]);
 
   return null;
 }

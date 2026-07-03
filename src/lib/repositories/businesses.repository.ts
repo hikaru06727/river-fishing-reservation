@@ -1,4 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
+import { getProfile } from "@/lib/auth/get-user";
+import { isAdminRole, isStaffRole } from "@/lib/auth/role";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 
 /** business_admin の担当事業 ID 一覧（RLS 下・anon client） */
 export async function findAssignedBusinessIdsByUserId(userId: string): Promise<string[]> {
@@ -88,7 +91,12 @@ export type ManageableBusinessRow = {
   is_active: boolean;
 };
 
-/** 管理画面フィルタ用の事業一覧（admin は全件、business_admin は割当分） */
+/**
+ * 管理画面フィルタ用の事業一覧（admin は全件、business_admin/staff は割当分のみ）。
+ * businesses テーブルには anon 向けの公開閲覧ポリシー（is_active=TRUE, migration 054）が
+ * TO 指定なしで存在し、RLS だけでは認証済みユーザーも全件見えてしまうため、
+ * ここで明示的に割当事業に絞り込む。
+ */
 export async function findManageableBusinesses(): Promise<ManageableBusinessRow[]> {
   const supabase = await createClient();
 
@@ -101,7 +109,22 @@ export async function findManageableBusinesses(): Promise<ManageableBusinessRow[
     throw new Error(error.message);
   }
 
-  return (data ?? []) as ManageableBusinessRow[];
+  const businesses = (data ?? []) as ManageableBusinessRow[];
+
+  const profile = await getProfile();
+  if (!profile) {
+    return [];
+  }
+  if (isAdminRole(profile.role)) {
+    return businesses;
+  }
+
+  const assignedIds = isStaffRole(profile.role)
+    ? await findAssignedBusinessIdsByStaffUserId(profile.id)
+    : await findAssignedBusinessIdsByUserId(profile.id);
+
+  const assignedIdSet = new Set(assignedIds);
+  return businesses.filter((b) => assignedIdSet.has(b.id));
 }
 
 export type ActiveBusinessRow = {

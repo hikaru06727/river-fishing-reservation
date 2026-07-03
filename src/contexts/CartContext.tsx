@@ -23,6 +23,8 @@ type CartContextValue = {
   clearCart: () => void;
   itemCount: number;
   totalAmount: number;
+  /** localStorage からの初期読み込みが完了したか。完了前に clearCart すると読み込みで上書きされる */
+  hydrated: boolean;
 };
 
 const CartContext = createContext<CartContextValue | null>(null);
@@ -98,7 +100,16 @@ export function CartProvider({ slug, children }: { slug: string; children: React
 
   return (
     <CartContext.Provider
-      value={{ items, addItem, removeItem, updateQuantity, clearCart, itemCount, totalAmount }}
+      value={{
+        items,
+        addItem,
+        removeItem,
+        updateQuantity,
+        clearCart,
+        itemCount,
+        totalAmount,
+        hydrated,
+      }}
     >
       {children}
     </CartContext.Provider>
