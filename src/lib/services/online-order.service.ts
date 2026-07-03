@@ -201,7 +201,8 @@ export async function createOrder(
       shipping_address_line2: input.shippingAddress?.addressLine2 ?? null,
       pickup_date: pickupDateIso,
     });
-  } catch {
+  } catch (e) {
+    console.error("[createOrder] order insert failed:", e);
     return { ok: false, error: "注文の作成に失敗しました。", status: 500 };
   }
 
@@ -217,7 +218,8 @@ export async function createOrder(
         quantity: i.quantity,
       })),
     );
-  } catch {
+  } catch (e) {
+    console.error("[createOrder] order items insert failed:", e);
     return { ok: false, error: "注文明細の作成に失敗しました。", status: 500 };
   }
 
