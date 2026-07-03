@@ -5,8 +5,9 @@ export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 /**
- * 仮実装: ヘッダーナビの「ショップ」リンク先。
+ * ヘッダーナビの「ショップ」リンク先。
  * 最初の is_active な事業の /shop/[slug]/products へリダイレクトする。
+ * マルチテナント対応後、事業選択導線を追加する場合はここを起点にする。
  */
 export default async function ShopIndexPage() {
   const slug = await findFirstActiveBusinessSlug();

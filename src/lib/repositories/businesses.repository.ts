@@ -110,7 +110,7 @@ export type ActiveBusinessRow = {
   slug: string;
 };
 
-/** 顧客向け: 最初の is_active な事業の slug を取得（仮実装: ヘッダーナビの「ショップ」リンク用） */
+/** 顧客向け: 最初の is_active な事業の slug を取得（ヘッダーナビの「ショップ」リンク用） */
 export async function findFirstActiveBusinessSlug(): Promise<string | null> {
   const supabase = await createClient();
 
@@ -129,7 +129,7 @@ export async function findFirstActiveBusinessSlug(): Promise<string | null> {
   return data?.slug ?? null;
 }
 
-/** 管理画面: businessId から顧客向けショップURL用の slug を取得（仮実装: 管理ダッシュボードのショップ遷移ボタン用） */
+/** 管理画面: businessId から顧客向けショップURL用の slug を取得（管理ダッシュボードのショップ遷移ボタン用） */
 export async function findBusinessSlugById(businessId: string): Promise<string | null> {
   const supabase = await createClient();
 

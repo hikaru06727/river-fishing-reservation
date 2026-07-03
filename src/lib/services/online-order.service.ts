@@ -1,24 +1,90 @@
 import Stripe from "stripe";
-import { findActiveBusinessBySlug } from "@/lib/repositories/businesses.repository";
+import { canManageBusinessForProfile } from "@/lib/auth/management-access";
+import { isAdminRole, isStaffRole } from "@/lib/auth/role";
+import { hasPermission } from "@/lib/permissions";
+import {
+  findActiveBusinessBySlug,
+  findAssignedBusinessIdsByUserId,
+} from "@/lib/repositories/businesses.repository";
 import { decrementProductStockAdmin, findProductsByIds } from "@/lib/repositories/products.repository";
 import {
   createOnlineOrder,
   createOnlineOrderItems,
   findOnlineOrderById,
+  findOnlineOrderByIdForAdmin,
   findOnlineOrderByStripeSessionId,
   findOnlineOrderItemsByOrderId,
+  findOnlineOrdersByBusiness,
   updateOnlineOrderPaymentStatus,
   updateOnlineOrderStatus,
   updateOnlineOrderStripeSession,
+  type OnlineOrderFilters,
 } from "@/lib/repositories/online-order.repository";
 import { recordPaymentLedgerAdmin } from "@/lib/repositories/payment-ledger.repository";
+import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { getStripe } from "@/lib/stripe/server";
-import type { OnlineOrderItemRow, OnlineOrderRow } from "@/types/database";
+import type { OnlineOrderItemRow, OnlineOrderRow, Profile } from "@/types/database";
+import type { OnlineOrderFulfillmentType, OnlineOrderStatus } from "@/types/domain";
 import type { CreateOrderInput } from "@/types/online-order";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: string; status: number };
+
+type OrderManagementProfile = Pick<Profile, "id" | "role">;
+
+async function assertCanManageOrderBusiness(
+  profile: OrderManagementProfile,
+  businessId: string,
+): Promise<ServiceResult<null>> {
+  let assignedIds: readonly string[] = [];
+  if (!isAdminRole(profile.role)) {
+    assignedIds = isStaffRole(profile.role)
+      ? await findAssignedBusinessIdsByStaffUserId(profile.id)
+      : await findAssignedBusinessIdsByUserId(profile.id);
+  }
+  if (!canManageBusinessForProfile(profile, businessId, assignedIds)) {
+    return { ok: false, error: "この事業への操作権限がありません。", status: 403 };
+  }
+  return { ok: true, data: null };
+}
+
+const SHIPPING_STATUS_FLOW: OnlineOrderStatus[] = [
+  "pending_payment",
+  "paid",
+  "preparing",
+  "shipped",
+  "delivered",
+];
+const PICKUP_STATUS_FLOW: OnlineOrderStatus[] = [
+  "pending_payment",
+  "paid",
+  "preparing",
+  "ready",
+  "delivered",
+];
+
+/** 受け取り方法ごとの正規のステータス遷移で、次のステータスを1段階だけ返す */
+export function getNextOnlineOrderStatus(
+  current: OnlineOrderStatus,
+  fulfillmentType: OnlineOrderFulfillmentType,
+): OnlineOrderStatus | null {
+  const flow = fulfillmentType === "shipping" ? SHIPPING_STATUS_FLOW : PICKUP_STATUS_FLOW;
+  const idx = flow.indexOf(current);
+  if (idx === -1 || idx === flow.length - 1) return null;
+  return flow[idx + 1] ?? null;
+}
+
+/** Stripe Webhook・現地受け取り確認の両方で使う在庫減算処理（警告のみでブロックしない） */
+async function decrementStockForOrderItems(items: OnlineOrderItemRow[]): Promise<void> {
+  for (const item of items) {
+    try {
+      await decrementProductStockAdmin(item.product_id, item.quantity);
+    } catch (e) {
+      console.error("[online-order] stock decrement failed:", e);
+    }
+  }
+}
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
@@ -231,14 +297,7 @@ export async function handleOnlineOrderCheckoutCompleted(
   }
 
   const items = await findOnlineOrderItemsByOrderId(order.id);
-
-  for (const item of items) {
-    try {
-      await decrementProductStockAdmin(item.product_id, item.quantity);
-    } catch (e) {
-      console.error("[online-order webhook] stock decrement failed:", e);
-    }
-  }
+  await decrementStockForOrderItems(items);
 
   await updateOnlineOrderPaymentStatus(order.id, "paid");
   await updateOnlineOrderStatus(order.id, "preparing");
@@ -256,4 +315,111 @@ export async function handleOnlineOrderCheckoutCompleted(
   } catch (e) {
     console.error("[online-order webhook] payment_ledger record failed:", e);
   }
+}
+
+/** 管理画面の注文一覧用。事業への操作権限がない場合はエラーを返す */
+export async function getOnlineOrdersForBusiness(
+  profile: OrderManagementProfile,
+  businessId: string,
+  filters: OnlineOrderFilters = {},
+): Promise<ServiceResult<OnlineOrderRow[]>> {
+  const auth = await assertCanManageOrderBusiness(profile, businessId);
+  if (!auth.ok) return auth;
+
+  try {
+    const orders = await findOnlineOrdersByBusiness(businessId, filters);
+    return { ok: true, data: orders };
+  } catch {
+    return { ok: false, error: "注文一覧の取得に失敗しました。", status: 500 };
+  }
+}
+
+/** 管理画面の注文詳細用。RLS で閲覧範囲外の注文は null になる */
+export async function getOnlineOrderDetailForAdmin(
+  orderId: string,
+): Promise<{ order: OnlineOrderRow; items: OnlineOrderItemRow[] } | null> {
+  const order = await findOnlineOrderByIdForAdmin(orderId);
+  if (!order) return null;
+  const items = await findOnlineOrderItemsByOrderId(orderId);
+  return { order, items };
+}
+
+/**
+ * 注文ステータスを正規の遷移で1段階進める（配送・店舗受け取りで別フロー）。
+ * business_admin のみ操作可（staff は閲覧のみ）。
+ */
+export async function advanceOnlineOrderStatus(
+  profile: OrderManagementProfile,
+  orderId: string,
+): Promise<ServiceResult<{ status: OnlineOrderStatus }>> {
+  if (!hasPermission(profile.role, "ORDER_STATUS_MANAGE")) {
+    return { ok: false, error: "ステータスを変更する権限がありません。", status: 403 };
+  }
+
+  const order = await findOnlineOrderByIdForAdmin(orderId);
+  if (!order) {
+    return { ok: false, error: "注文が見つかりません。", status: 404 };
+  }
+
+  const auth = await assertCanManageOrderBusiness(profile, order.business_id);
+  if (!auth.ok) return auth;
+
+  const next = getNextOnlineOrderStatus(order.status, order.fulfillment_type);
+  if (!next) {
+    return { ok: false, error: "これ以上ステータスを進めることはできません。", status: 422 };
+  }
+
+  await updateOnlineOrderStatus(orderId, next);
+  return { ok: true, data: { status: next } };
+}
+
+/**
+ * 現地決済注文の受け取り確認。在庫減算・支払いステータス更新・売上記録を行い
+ * ステータスを delivered にする。business_admin のみ操作可。
+ * 冪等性: payment_status === 'paid' ならエラーを返す（二重の在庫減算を防ぐ）。
+ */
+export async function confirmInPersonOrderPickup(
+  profile: OrderManagementProfile,
+  orderId: string,
+): Promise<ServiceResult<null>> {
+  if (!hasPermission(profile.role, "ORDER_STATUS_MANAGE")) {
+    return { ok: false, error: "この操作を行う権限がありません。", status: 403 };
+  }
+
+  const order = await findOnlineOrderByIdForAdmin(orderId);
+  if (!order) {
+    return { ok: false, error: "注文が見つかりません。", status: 404 };
+  }
+
+  const auth = await assertCanManageOrderBusiness(profile, order.business_id);
+  if (!auth.ok) return auth;
+
+  if (order.payment_method !== "in_person") {
+    return { ok: false, error: "現地決済の注文ではありません。", status: 422 };
+  }
+  if (order.payment_status === "paid") {
+    return { ok: false, error: "この注文はすでに受け取り確認済みです。", status: 422 };
+  }
+
+  const items = await findOnlineOrderItemsByOrderId(orderId);
+  await decrementStockForOrderItems(items);
+
+  await updateOnlineOrderPaymentStatus(orderId, "paid");
+  await updateOnlineOrderStatus(orderId, "delivered");
+
+  try {
+    await recordPaymentLedgerAdmin({
+      business_id: order.business_id,
+      source_type: "online_order",
+      source_id: order.id,
+      amount: order.total_amount,
+      payment_method: "cash",
+      status: "succeeded",
+      paid_at: new Date().toISOString(),
+    });
+  } catch (e) {
+    console.error("[confirmInPersonOrderPickup] payment_ledger record failed:", e);
+  }
+
+  return { ok: true, data: null };
 }

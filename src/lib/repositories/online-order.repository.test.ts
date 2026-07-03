@@ -1,9 +1,17 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
+vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createOnlineOrder, createOnlineOrderItems } from "./online-order.repository";
+import { createClient } from "@/lib/supabase/server";
+import {
+  createOnlineOrder,
+  createOnlineOrderItems,
+  findOnlineOrderBusinessId,
+  findOnlineOrderByIdForAdmin,
+  findOnlineOrdersByBusiness,
+} from "./online-order.repository";
 
 const SAMPLE_ORDER = {
   id: "order-1",
@@ -114,5 +122,111 @@ describe("createOnlineOrderItems", () => {
 
     expect(result).toEqual(items);
     expect(from).toHaveBeenCalledWith("online_order_items");
+  });
+});
+
+function makeQueryBuilder(result: { data: unknown; error: unknown }) {
+  const builder: any = {
+    eq: vi.fn(() => builder),
+    order: vi.fn(() => builder),
+    maybeSingle: vi.fn().mockResolvedValue(result),
+    then: (resolve: (value: typeof result) => void) => resolve(result),
+  };
+  return builder;
+}
+
+describe("findOnlineOrdersByBusiness", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("business_id で絞り込んだ注文一覧を返す", async () => {
+    const orders = [{ id: "order-1" }];
+    const builder = makeQueryBuilder({ data: orders, error: null });
+    const select = vi.fn().mockReturnValue(builder);
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findOnlineOrdersByBusiness("biz-1");
+
+    expect(result).toEqual(orders);
+    expect(from).toHaveBeenCalledWith("online_orders");
+    expect(builder.eq).toHaveBeenCalledWith("business_id", "biz-1");
+  });
+
+  it("フィルタ指定時は追加で eq を呼ぶ", async () => {
+    const builder = makeQueryBuilder({ data: [], error: null });
+    const select = vi.fn().mockReturnValue(builder);
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    await findOnlineOrdersByBusiness("biz-1", {
+      status: "paid",
+      fulfillmentType: "pickup",
+      paymentMethod: "in_person",
+    });
+
+    expect(builder.eq).toHaveBeenCalledWith("status", "paid");
+    expect(builder.eq).toHaveBeenCalledWith("fulfillment_type", "pickup");
+    expect(builder.eq).toHaveBeenCalledWith("payment_method", "in_person");
+  });
+
+  it("DBエラー時は例外をスロー", async () => {
+    const builder = makeQueryBuilder({ data: null, error: { message: "DB error" } });
+    const select = vi.fn().mockReturnValue(builder);
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    await expect(findOnlineOrdersByBusiness("biz-1")).rejects.toThrow("DB error");
+  });
+});
+
+describe("findOnlineOrderByIdForAdmin", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("RLS スコープ内の注文を返す", async () => {
+    const order = { id: "order-1" };
+    const maybeSingle = vi.fn().mockResolvedValue({ data: order, error: null });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findOnlineOrderByIdForAdmin("order-1");
+
+    expect(result).toEqual(order);
+    expect(eq).toHaveBeenCalledWith("id", "order-1");
+  });
+
+  it("見つからない場合は null を返す", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findOnlineOrderByIdForAdmin("order-1");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("findOnlineOrderBusinessId", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("business_id を返す", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: { business_id: "biz-1" }, error: null });
+    const eq = vi.fn().mockReturnValue({ maybeSingle });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findOnlineOrderBusinessId("order-1");
+
+    expect(result).toBe("biz-1");
   });
 });

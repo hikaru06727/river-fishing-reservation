@@ -25,6 +25,9 @@ function getNavLinks(role: string): NavLink[] {
   if (hasPermission(role, "REFUND_MANAGE")) {
     links.push({ href: "/admin/refunds", label: "返金" });
   }
+  if (hasPermission(role, "ORDER_VIEW")) {
+    links.push({ href: "/admin/orders", label: "注文管理" });
+  }
   if (hasPermission(role, "PRODUCT_MANAGE")) {
     links.push({ href: "/admin/plans", label: "プラン管理" });
     links.push({ href: "/admin/products", label: "商品管理" });
@@ -48,6 +51,7 @@ function getNavLinks(role: string): NavLink[] {
       { href: "/admin/register-closing", label: "レジ締め" },
       { href: "/admin/reservations", label: "予約管理" },
       { href: "/admin/refunds", label: "返金" },
+      { href: "/admin/orders", label: "注文管理" },
       { href: "/admin/plans", label: "プラン管理" },
       { href: "/admin/products", label: "商品管理" },
       { href: "/admin/business-hours", label: "営業時間設定" },

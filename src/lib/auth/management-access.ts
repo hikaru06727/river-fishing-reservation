@@ -6,6 +6,7 @@ import {
 } from "@/lib/repositories/businesses.repository";
 import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { findPlanSpotIdByPlanId } from "@/lib/repositories/plans.repository";
+import { findOnlineOrderBusinessId } from "@/lib/repositories/online-order.repository";
 import { getProfile, getUser } from "@/lib/auth/get-user";
 import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import type { Profile, UserRole } from "@/types/database";
@@ -237,6 +238,43 @@ export async function canCurrentUserManageReservation(
   }
 
   return canCurrentUserManageSpot(spotId);
+}
+
+export async function canCurrentUserManageOnlineOrder(
+  orderId: string | null | undefined,
+): Promise<boolean> {
+  if (!orderId) {
+    return false;
+  }
+
+  const profile = await getManagementProfile();
+  if (!profile) {
+    return false;
+  }
+  if (isAdminRole(profile.role)) {
+    return true;
+  }
+  if (!isBusinessAdminRole(profile.role) && !isStaffRole(profile.role)) {
+    return false;
+  }
+
+  let businessId: string | null;
+  try {
+    businessId = await findOnlineOrderBusinessId(orderId);
+  } catch (error) {
+    console.error(
+      "[canCurrentUserManageOnlineOrder]",
+      error instanceof Error ? error.message : error,
+    );
+    return false;
+  }
+
+  if (!businessId) {
+    return false;
+  }
+
+  const assignedIds = await getAssignedBusinessIds(profile.id, profile.role);
+  return canManageBusinessForProfile(profile, businessId, assignedIds);
 }
 
 /** 管理画面の簡易表示用（business_admin は担当事業名を返す） */

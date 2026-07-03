@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { OnlineOrderItemRow, OnlineOrderRow } from "@/types/database";
 import type {
   OnlineOrderFulfillmentType,
@@ -162,6 +163,74 @@ export async function updateOnlineOrderPaymentStatus(
     .eq("id", id);
 
   if (error) throw new Error(error.message);
+}
+
+export type OnlineOrderFilters = {
+  status?: OnlineOrderStatus;
+  fulfillmentType?: OnlineOrderFulfillmentType;
+  paymentMethod?: OnlineOrderPaymentMethod;
+};
+
+/**
+ * 管理画面の注文一覧用。セッション付き RLS クライアントを使い、
+ * business_id の明示的な絞り込みと合わせて二重に権限を担保する。
+ */
+export async function findOnlineOrdersByBusiness(
+  businessId: string,
+  filters: OnlineOrderFilters = {},
+): Promise<OnlineOrderRow[]> {
+  const supabase = await createClient();
+
+  let query = supabase
+    .from("online_orders")
+    .select("*")
+    .eq("business_id", businessId)
+    .order("created_at", { ascending: false });
+
+  if (filters.status) {
+    query = query.eq("status", filters.status);
+  }
+  if (filters.fulfillmentType) {
+    query = query.eq("fulfillment_type", filters.fulfillmentType);
+  }
+  if (filters.paymentMethod) {
+    query = query.eq("payment_method", filters.paymentMethod);
+  }
+
+  const { data, error } = await query;
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OnlineOrderRow[];
+}
+
+/**
+ * 管理画面の注文詳細用。RLS クライアントを使うため、
+ * admin/business_admin/staff の閲覧範囲外の注文は返らない。
+ */
+export async function findOnlineOrderByIdForAdmin(id: string): Promise<OnlineOrderRow | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("online_orders")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as OnlineOrderRow | null;
+}
+
+/** ページレベル認可チェック用。business_id のみを取得する軽量な問い合わせ */
+export async function findOnlineOrderBusinessId(id: string): Promise<string | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("online_orders")
+    .select("business_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data?.business_id ?? null;
 }
 
 /**

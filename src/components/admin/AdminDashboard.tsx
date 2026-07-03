@@ -62,7 +62,7 @@ export function AdminDashboard({
             rel="noopener noreferrer"
             className="shrink-0 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-50"
           >
-            ショップを見る
+            ショップを見る（新しいタブで開く）↗
           </a>
         )}
       </header>
