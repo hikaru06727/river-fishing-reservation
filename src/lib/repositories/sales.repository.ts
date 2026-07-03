@@ -115,6 +115,27 @@ export async function findProductSalesTotalYen(range: SalesDateRange): Promise<n
 }
 
 /**
+ * 期間内のオンライン注文販売合計（税込み）を取得
+ * payment_ledger の source_type='online_order' エントリを集計し、RLS でアクセス制御する
+ */
+export async function findOnlineOrderSalesTotalYen(range: SalesDateRange): Promise<number> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("amount")
+    .eq("source_type", "online_order")
+    .eq("status", "succeeded")
+    .gte("paid_at", range.dateFrom + "T00:00:00+09:00")
+    .lte("paid_at", range.dateTo + "T23:59:59+09:00");
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).reduce((sum, row) => sum + row.amount, 0);
+}
+
+/**
  * 指定 JST 日付の精算済み売上行を取得（payment_ledger から集計）
  * payment_method は payment_ledger でバケット済み: cash / card / other
  */

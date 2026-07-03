@@ -30,6 +30,7 @@ interface SalesDashboardViewProps {
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
   productSalesYen: number;
+  onlineOrderSalesYen: number;
   todaySummary: TodaySalesSummary;
 }
 
@@ -39,6 +40,7 @@ export function SalesDashboardView({
   isAdmin,
   scopedBusinessNames,
   productSalesYen,
+  onlineOrderSalesYen,
   todaySummary,
 }: SalesDashboardViewProps) {
   const [activeTab, setActiveTab] = useState<Tab>("overview");
@@ -125,7 +127,12 @@ export function SalesDashboardView({
           <div className="rounded-xl border border-border bg-card p-4">
             <p className="text-sm text-muted">POS 販売合計（税込み）</p>
             <p className="mt-1 text-2xl font-bold text-foreground">{formatYen(productSalesYen)}</p>
-            <p className="mt-1 text-xs text-muted">レジ販売セッションの合計金額（税込）。予約売上・手動売上とは別集計です。</p>
+            <p className="mt-1 text-xs text-muted">レジ販売セッションの合計金額（税込）。予約売上・手動売上・オンライン注文売上とは別集計です。</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-4">
+            <p className="text-sm text-muted">オンライン注文売上合計（税込み）</p>
+            <p className="mt-1 text-2xl font-bold text-foreground">{formatYen(onlineOrderSalesYen)}</p>
+            <p className="mt-1 text-xs text-muted">ECサイトでの注文合計金額（税込・決済確定分のみ）。POS販売合計とは別集計です。</p>
           </div>
           <SalesPaymentMethodBreakdown
             breakdown={report.paymentMethodBreakdown}

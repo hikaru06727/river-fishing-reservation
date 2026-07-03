@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { findProductSalesTotalYen, findTodaySalesRows } from "./sales.repository";
+import { findOnlineOrderSalesTotalYen, findProductSalesTotalYen, findTodaySalesRows } from "./sales.repository";
 
 const { fromMock } = vi.hoisted(() => ({
   fromMock: vi.fn(),
@@ -102,6 +102,44 @@ describe("findProductSalesTotalYen", () => {
 
     await expect(
       findProductSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" }),
+    ).rejects.toThrow("DB error");
+  });
+});
+
+describe("findOnlineOrderSalesTotalYen", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("payment_ledger の online_order succeeded エントリの amount を合計して返す", async () => {
+    const chain = makeQueryChain({
+      data: [{ amount: 2200 }, { amount: 1100 }],
+      error: null,
+    });
+    fromMock.mockReturnValue(chain);
+
+    const total = await findOnlineOrderSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" });
+
+    expect(fromMock).toHaveBeenCalledWith("payment_ledger");
+    expect(chain.eq).toHaveBeenCalledWith("source_type", "online_order");
+    expect(total).toBe(3300);
+  });
+
+  it("エントリがない場合は 0 を返す", async () => {
+    const chain = makeQueryChain({ data: [], error: null });
+    fromMock.mockReturnValue(chain);
+
+    const total = await findOnlineOrderSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" });
+
+    expect(total).toBe(0);
+  });
+
+  it("DBエラーは例外として伝播する", async () => {
+    const chain = makeQueryChain({ data: null, error: { message: "DB error" } });
+    fromMock.mockReturnValue(chain);
+
+    await expect(
+      findOnlineOrderSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" }),
     ).rejects.toThrow("DB error");
   });
 });
