@@ -28,6 +28,7 @@ export type OnlineOrder = {
   pickup_deadline: string | null;
   confirmation_code: string | null;
   shipped_at: string | null;
+  delivered_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -48,7 +49,6 @@ export type CreateOrderInput = {
   slug: string;
   items: { productId: string; quantity: number }[];
   fulfillmentType: OnlineOrderFulfillmentType;
-  paymentMethod: OnlineOrderPaymentMethod;
   customerName: string;
   customerEmail: string;
   customerPhone?: string;

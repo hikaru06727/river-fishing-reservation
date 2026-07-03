@@ -160,9 +160,14 @@ export async function updateOnlineOrderStatus(
 ): Promise<void> {
   const admin = createAdminClient();
 
-  const update: { status: OnlineOrderStatus; shipped_at?: string } = { status };
+  const update: { status: OnlineOrderStatus; shipped_at?: string; delivered_at?: string } = {
+    status,
+  };
   if (status === "shipped") {
     update.shipped_at = new Date().toISOString();
+  }
+  if (status === "delivered") {
+    update.delivered_at = new Date().toISOString();
   }
 
   const { error } = await admin.from("online_orders").update(update).eq("id", id);

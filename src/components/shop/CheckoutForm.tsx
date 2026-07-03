@@ -14,12 +14,11 @@ import {
   toPickupDateTime,
 } from "@/lib/online-orders/pickup-schedule";
 import { submitOrderAction } from "@/app/(public)/shop/[slug]/checkout/actions";
-import type { OnlineOrderFulfillmentType, OnlineOrderPaymentMethod } from "@/types/domain";
+import type { OnlineOrderFulfillmentType } from "@/types/domain";
 
 export function CheckoutForm({ slug, businessId }: { slug: string; businessId: string }) {
   const { items, totalAmount } = useCart();
   const [fulfillmentType, setFulfillmentType] = useState<OnlineOrderFulfillmentType>("pickup");
-  const [paymentMethod, setPaymentMethod] = useState<OnlineOrderPaymentMethod>("stripe");
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
   const [customerPhone, setCustomerPhone] = useState("");
@@ -70,7 +69,6 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
       businessId,
       items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       fulfillmentType,
-      paymentMethod,
       customerName,
       customerEmail,
       customerPhone: customerPhone || undefined,
@@ -198,6 +196,9 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
                 受け取り期限：{pickupDeadlineLabel}まで。期限を過ぎると自動キャンセルされます。
               </p>
             )}
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+              お支払いは商品受け取り時に店頭でお願いします。
+            </p>
           </div>
         )}
 
@@ -250,6 +251,9 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
                 className="mt-1 w-full min-h-11 rounded-lg border border-border px-3 text-sm"
               />
             </div>
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-muted">
+              お支払いはクレジットカード（Stripe）決済となります。
+            </p>
           </div>
         )}
       </Card>
@@ -297,32 +301,6 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
         </div>
       </Card>
 
-      <Card>
-        <h2 className="text-base font-semibold text-foreground">決済方法</h2>
-        <div className="mt-3 space-y-2">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="paymentMethod"
-              checked={paymentMethod === "stripe"}
-              onChange={() => setPaymentMethod("stripe")}
-              className="h-4 w-4"
-            />
-            クレジットカード決済
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="radio"
-              name="paymentMethod"
-              checked={paymentMethod === "in_person"}
-              onChange={() => setPaymentMethod("in_person")}
-              className="h-4 w-4"
-            />
-            現地決済
-          </label>
-        </div>
-      </Card>
-
       {error && (
         <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
@@ -332,7 +310,7 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
       <Button type="submit" size="lg" className="w-full" disabled={submitting}>
         {submitting
           ? "処理中..."
-          : paymentMethod === "stripe"
+          : fulfillmentType === "shipping"
             ? "クレジットカードで支払う"
             : "注文を確定する"}
       </Button>

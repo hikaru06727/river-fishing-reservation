@@ -26,7 +26,6 @@ export async function submitOrderAction(input: unknown): Promise<SubmitOrderResu
     slug: data.slug,
     items: data.items,
     fulfillmentType: data.fulfillmentType,
-    paymentMethod: data.paymentMethod,
     customerName: data.customerName,
     customerEmail: data.customerEmail,
     customerPhone: data.customerPhone,
@@ -41,7 +40,7 @@ export async function submitOrderAction(input: unknown): Promise<SubmitOrderResu
 
   const { order } = result.data;
 
-  if (data.paymentMethod === "in_person") {
+  if (data.fulfillmentType === "pickup") {
     return {
       ok: true,
       redirectUrl: `/shop/${data.slug}/order-complete?order_id=${order.id}`,

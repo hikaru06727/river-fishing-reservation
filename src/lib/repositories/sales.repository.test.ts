@@ -111,17 +111,17 @@ describe("findOnlineOrderSalesTotalYen", () => {
     vi.clearAllMocks();
   });
 
-  it("payment_ledger の online_order succeeded エントリの amount を合計して返す", async () => {
-    const chain = makeQueryChain({
-      data: [{ amount: 2200 }, { amount: 1100 }],
-      error: null,
-    });
-    fromMock.mockReturnValue(chain);
+  it("online_orders を shipped_at（配送）・delivered_at（受け取り）基準で合計して返す", async () => {
+    const shippedChain = makeQueryChain({ data: [{ total_amount: 2200 }], error: null });
+    const deliveredChain = makeQueryChain({ data: [{ total_amount: 1100 }], error: null });
+    fromMock.mockReturnValueOnce(shippedChain).mockReturnValueOnce(deliveredChain);
 
     const total = await findOnlineOrderSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" });
 
-    expect(fromMock).toHaveBeenCalledWith("payment_ledger");
-    expect(chain.eq).toHaveBeenCalledWith("source_type", "online_order");
+    expect(fromMock).toHaveBeenNthCalledWith(1, "online_orders");
+    expect(shippedChain.eq).toHaveBeenCalledWith("fulfillment_type", "shipping");
+    expect(fromMock).toHaveBeenNthCalledWith(2, "online_orders");
+    expect(deliveredChain.eq).toHaveBeenCalledWith("fulfillment_type", "pickup");
     expect(total).toBe(3300);
   });
 

@@ -183,12 +183,16 @@ export async function createOrder(
       ? toPickupDateTime(input.pickupDate, input.pickupTime).toISOString()
       : null;
 
+  // 決済方法は受け取り方法から一意に決まるため、クライアントからは受け取らない
+  // （配送=Stripe決済のみ、店舗受け取り=現地決済のみ）。
+  const paymentMethod = input.fulfillmentType === "shipping" ? "stripe" : "in_person";
+
   let order: OnlineOrderRow;
   try {
     order = await createOnlineOrder({
       business_id: input.businessId,
       fulfillment_type: input.fulfillmentType,
-      payment_method: input.paymentMethod,
+      payment_method: paymentMethod,
       subtotal_amount: subtotalAmount,
       tax_amount: taxAmount,
       total_amount: totalAmount,
@@ -418,10 +422,18 @@ export async function advanceOnlineOrderStatus(
  * ステータスを delivered にする。business_admin のみ操作可。
  * 冪等性: payment_status === 'paid' ならエラーを返す（二重の在庫減算を防ぐ）。
  */
+const PICKUP_PAYMENT_METHODS = ["cash", "card", "qr"] as const;
+export type PickupPaymentMethod = (typeof PICKUP_PAYMENT_METHODS)[number];
+
+export function isPickupPaymentMethod(value: string): value is PickupPaymentMethod {
+  return (PICKUP_PAYMENT_METHODS as readonly string[]).includes(value);
+}
+
 export async function confirmInPersonOrderPickup(
   profile: OrderManagementProfile,
   orderId: string,
   confirmationCode: string,
+  paymentMethod: PickupPaymentMethod,
 ): Promise<ServiceResult<null>> {
   if (!hasPermission(profile.role, "ORDER_STATUS_MANAGE")) {
     return { ok: false, error: "この操作を行う権限がありません。", status: 403 };
@@ -460,7 +472,7 @@ export async function confirmInPersonOrderPickup(
       source_type: "online_order",
       source_id: order.id,
       amount: order.total_amount,
-      payment_method: "cash",
+      payment_method: paymentMethod,
       status: "succeeded",
       paid_at: new Date().toISOString(),
     });

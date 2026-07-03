@@ -300,6 +300,21 @@ describe("updateOnlineOrderStatus", () => {
     expect(update).toHaveBeenCalledWith({ status: "preparing" });
   });
 
+  it("delivered のときは delivered_at を記録し shipped_at は含めない", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await updateOnlineOrderStatus("order-1", "delivered");
+
+    const updateArg = update.mock.calls[0][0];
+    expect(updateArg.status).toBe("delivered");
+    expect(typeof updateArg.delivered_at).toBe("string");
+    expect(updateArg.shipped_at).toBeUndefined();
+  });
+
   it("shipped のときは shipped_at を記録する", async () => {
     const eq = vi.fn().mockResolvedValue({ error: null });
     const update = vi.fn().mockReturnValue({ eq });

@@ -14,7 +14,6 @@ export const createOnlineOrderSchema = z
       )
       .min(1, "カートが空です"),
     fulfillmentType: z.enum(["shipping", "pickup"], { error: "受け取り方法を選択してください" }),
-    paymentMethod: z.enum(["stripe", "in_person"], { error: "決済方法を選択してください" }),
     customerName: z.string().min(1, "氏名を入力してください").max(100),
     customerEmail: z.string().email("メールアドレスの形式が正しくありません"),
     customerPhone: z.string().max(20).optional(),

@@ -1230,6 +1230,7 @@ export interface Database {
           pickup_deadline: string | null;
           confirmation_code: string | null;
           shipped_at: string | null;
+          delivered_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1256,6 +1257,7 @@ export interface Database {
           pickup_deadline?: string | null;
           confirmation_code?: string | null;
           shipped_at?: string | null;
+          delivered_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1282,6 +1284,7 @@ export interface Database {
           pickup_deadline?: string | null;
           confirmation_code?: string | null;
           shipped_at?: string | null;
+          delivered_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

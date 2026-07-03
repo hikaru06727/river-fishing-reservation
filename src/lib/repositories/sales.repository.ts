@@ -116,23 +116,40 @@ export async function findProductSalesTotalYen(range: SalesDateRange): Promise<n
 
 /**
  * 期間内のオンライン注文販売合計（税込み）を取得
- * payment_ledger の source_type='online_order' エントリを集計し、RLS でアクセス制御する
+ * online_orders を集計基準に直接参照する（RLS でアクセス制御する）。
+ * 配送注文は shipped_at、店舗受け取り注文は delivered_at を集計基準とし、
+ * 未発送・未受け取り（NULL）は売上計上しない。
  */
 export async function findOnlineOrderSalesTotalYen(range: SalesDateRange): Promise<number> {
   const supabase = await createClient();
-  const { data, error } = await supabase
-    .from("payment_ledger")
-    .select("amount")
-    .eq("source_type", "online_order")
-    .eq("status", "succeeded")
-    .gte("paid_at", range.dateFrom + "T00:00:00+09:00")
-    .lte("paid_at", range.dateTo + "T23:59:59+09:00");
+  const dateFromIso = range.dateFrom + "T00:00:00+09:00";
+  const dateToIso = range.dateTo + "T23:59:59+09:00";
 
-  if (error) {
-    throw new Error(error.message);
+  const { data: shippedRows, error: shippedError } = await supabase
+    .from("online_orders")
+    .select("total_amount")
+    .eq("fulfillment_type", "shipping")
+    .gte("shipped_at", dateFromIso)
+    .lte("shipped_at", dateToIso);
+
+  if (shippedError) {
+    throw new Error(shippedError.message);
   }
 
-  return (data ?? []).reduce((sum, row) => sum + row.amount, 0);
+  const { data: deliveredRows, error: deliveredError } = await supabase
+    .from("online_orders")
+    .select("total_amount")
+    .eq("fulfillment_type", "pickup")
+    .gte("delivered_at", dateFromIso)
+    .lte("delivered_at", dateToIso);
+
+  if (deliveredError) {
+    throw new Error(deliveredError.message);
+  }
+
+  const shippedTotal = (shippedRows ?? []).reduce((sum, row) => sum + row.total_amount, 0);
+  const deliveredTotal = (deliveredRows ?? []).reduce((sum, row) => sum + row.total_amount, 0);
+  return shippedTotal + deliveredTotal;
 }
 
 /**

@@ -5,6 +5,7 @@ import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import {
   advanceOnlineOrderStatus,
   confirmInPersonOrderPickup,
+  isPickupPaymentMethod,
 } from "@/lib/services/online-order.service";
 import type {
   AdminAdvanceOrderStatusState,
@@ -59,7 +60,17 @@ export async function adminConfirmOrderPickupAction(
     return { error: "確認コードを入力してください。" };
   }
 
-  const result = await confirmInPersonOrderPickup(session.profile, orderId, confirmationCode);
+  const paymentMethod = formData.get("paymentMethod");
+  if (typeof paymentMethod !== "string" || !isPickupPaymentMethod(paymentMethod)) {
+    return { error: "支払い方法を選択してください。" };
+  }
+
+  const result = await confirmInPersonOrderPickup(
+    session.profile,
+    orderId,
+    confirmationCode,
+    paymentMethod,
+  );
   if (!result.ok) {
     return { error: result.error };
   }

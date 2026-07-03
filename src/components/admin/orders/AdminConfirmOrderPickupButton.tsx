@@ -10,6 +10,12 @@ interface AdminConfirmOrderPickupButtonProps {
   returnTo?: string;
 }
 
+const PAYMENT_METHOD_CHOICES: Record<string, { value: string; label: string }> = {
+  "1": { value: "cash", label: "現金" },
+  "2": { value: "card", label: "クレジットカード" },
+  "3": { value: "qr", label: "QRコード決済" },
+};
+
 export function AdminConfirmOrderPickupButton({
   orderId,
   returnTo = "/admin/orders",
@@ -19,6 +25,7 @@ export function AdminConfirmOrderPickupButton({
     adminConfirmOrderPickupInitialState,
   );
   const codeInputRef = useRef<HTMLInputElement>(null);
+  const paymentMethodInputRef = useRef<HTMLInputElement>(null);
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     const code = window.prompt(
@@ -28,8 +35,21 @@ export function AdminConfirmOrderPickupButton({
       event.preventDefault();
       return;
     }
+
+    const choice = window.prompt(
+      "支払い方法を選択してください：\n1: 現金\n2: クレジットカード\n3: QRコード決済",
+    );
+    const paymentMethod = choice ? PAYMENT_METHOD_CHOICES[choice.trim()] : undefined;
+    if (!paymentMethod) {
+      event.preventDefault();
+      return;
+    }
+
     if (codeInputRef.current) {
       codeInputRef.current.value = code.trim();
+    }
+    if (paymentMethodInputRef.current) {
+      paymentMethodInputRef.current.value = paymentMethod.value;
     }
   }
 
@@ -39,6 +59,7 @@ export function AdminConfirmOrderPickupButton({
         <input type="hidden" name="orderId" value={orderId} />
         <input type="hidden" name="returnTo" value={returnTo} />
         <input type="hidden" name="confirmationCode" ref={codeInputRef} defaultValue="" />
+        <input type="hidden" name="paymentMethod" ref={paymentMethodInputRef} defaultValue="" />
         <Button
           type="submit"
           size="sm"

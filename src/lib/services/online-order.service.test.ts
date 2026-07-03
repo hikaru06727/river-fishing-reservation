@@ -92,6 +92,7 @@ import {
   getOnlineOrderDetailForAdmin,
   getOnlineOrdersForBusiness,
   getTodaysPickupOrders,
+  isPickupPaymentMethod,
 } from "./online-order.service";
 
 const BUSINESS_ID = "11111111-1111-1111-1111-111111111111";
@@ -116,7 +117,6 @@ function baseInput(overrides: Partial<Parameters<typeof createOrder>[0]> = {}) {
     slug: SLUG,
     items: [{ productId: "product-1", quantity: 2 }],
     fulfillmentType: "pickup" as const,
-    paymentMethod: "in_person" as const,
     customerName: "山田太郎",
     customerEmail: "taro@example.com",
     pickupDate: "2099-01-01",
@@ -177,12 +177,12 @@ describe("createOrder", () => {
     expect(createOnlineOrderMock).not.toHaveBeenCalled();
   });
 
-  it("payment_method='in_person' の場合に status='pending_payment' で保存される", async () => {
+  it("fulfillmentType='pickup' のとき payment_method='in_person' が自動で設定される", async () => {
     findProductsByIdsMock.mockResolvedValue([BASE_PRODUCT]);
     createOnlineOrderMock.mockResolvedValue({ id: "order-1", status: "pending_payment" });
     createOnlineOrderItemsMock.mockResolvedValue([]);
 
-    const result = await createOrder(baseInput({ paymentMethod: "in_person" }));
+    const result = await createOrder(baseInput());
 
     expect(result.ok).toBe(true);
     expect(createOnlineOrderMock).toHaveBeenCalledWith(
@@ -191,6 +191,28 @@ describe("createOrder", () => {
     // status は repository 側のデフォルト（pending_payment）に委ねるため明示的には渡さない
     const insertArg = createOnlineOrderMock.mock.calls[0][0];
     expect(insertArg.status).toBeUndefined();
+  });
+
+  it("fulfillmentType='shipping' のとき payment_method='stripe' が自動で設定される", async () => {
+    findProductsByIdsMock.mockResolvedValue([{ ...BASE_PRODUCT, shippable: true }]);
+    createOnlineOrderMock.mockResolvedValue({ id: "order-1", status: "pending_payment" });
+    createOnlineOrderItemsMock.mockResolvedValue([]);
+
+    const result = await createOrder(
+      baseInput({
+        fulfillmentType: "shipping",
+        shippingAddress: {
+          postalCode: "100-0001",
+          prefecture: "東京都",
+          addressLine1: "千代田1-1",
+        },
+      }),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(createOnlineOrderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_method: "stripe" }),
+    );
   });
 
   it("カートが空の場合はエラーになる", async () => {
@@ -240,6 +262,19 @@ describe("getNextOnlineOrderStatus", () => {
 
   it("最終ステータスの場合は null を返す", () => {
     expect(getNextOnlineOrderStatus("delivered", "pickup")).toBeNull();
+  });
+});
+
+describe("isPickupPaymentMethod", () => {
+  it("cash / card / qr を有効と判定する", () => {
+    expect(isPickupPaymentMethod("cash")).toBe(true);
+    expect(isPickupPaymentMethod("card")).toBe(true);
+    expect(isPickupPaymentMethod("qr")).toBe(true);
+  });
+
+  it("それ以外は無効と判定する", () => {
+    expect(isPickupPaymentMethod("other")).toBe(false);
+    expect(isPickupPaymentMethod("")).toBe(false);
   });
 });
 
@@ -334,7 +369,7 @@ describe("confirmInPersonOrderPickup", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("staff は権限がないためエラーになる", async () => {
-    const result = await confirmInPersonOrderPickup(STAFF_PROFILE, "order-1", "123456");
+    const result = await confirmInPersonOrderPickup(STAFF_PROFILE, "order-1", "123456", "cash");
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(403);
@@ -346,7 +381,7 @@ describe("confirmInPersonOrderPickup", () => {
       { product_id: "product-1", quantity: 2 },
     ]);
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456", "cash");
 
     expect(result.ok).toBe(true);
     expect(decrementProductStockAdminMock).toHaveBeenCalledWith("product-1", 2);
@@ -357,10 +392,24 @@ describe("confirmInPersonOrderPickup", () => {
     );
   });
 
+  it("選択した支払い方法（qr）を payment_ledger に記録する", async () => {
+    findOnlineOrderByIdForAdminMock.mockResolvedValue(SAMPLE_ORDER);
+    findOnlineOrderItemsByOrderIdMock.mockResolvedValue([
+      { product_id: "product-1", quantity: 2 },
+    ]);
+
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456", "qr");
+
+    expect(result.ok).toBe(true);
+    expect(recordPaymentLedgerAdminMock).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_method: "qr" }),
+    );
+  });
+
   it("確認コードが一致しない場合はエラーになり在庫は減算されない", async () => {
     findOnlineOrderByIdForAdminMock.mockResolvedValue(SAMPLE_ORDER);
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "000000");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "000000", "cash");
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("確認コード");
@@ -370,7 +419,7 @@ describe("confirmInPersonOrderPickup", () => {
   it("注文に確認コードが未設定の場合はエラーになる", async () => {
     findOnlineOrderByIdForAdminMock.mockResolvedValue({ ...SAMPLE_ORDER, confirmation_code: null });
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456", "cash");
 
     expect(result.ok).toBe(false);
     expect(decrementProductStockAdminMock).not.toHaveBeenCalled();
@@ -379,7 +428,7 @@ describe("confirmInPersonOrderPickup", () => {
   it("stripe 決済の注文はエラーになる", async () => {
     findOnlineOrderByIdForAdminMock.mockResolvedValue({ ...SAMPLE_ORDER, payment_method: "stripe" });
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456", "cash");
 
     expect(result.ok).toBe(false);
     expect(updateOnlineOrderStatusMock).not.toHaveBeenCalled();
@@ -388,7 +437,7 @@ describe("confirmInPersonOrderPickup", () => {
   it("すでに支払い済みの注文は二重に在庫減算されない", async () => {
     findOnlineOrderByIdForAdminMock.mockResolvedValue({ ...SAMPLE_ORDER, payment_status: "paid" });
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456", "cash");
 
     expect(result.ok).toBe(false);
     expect(decrementProductStockAdminMock).not.toHaveBeenCalled();
