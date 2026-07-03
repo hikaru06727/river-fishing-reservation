@@ -54,7 +54,12 @@ export async function adminConfirmOrderPickupAction(
     return { error: "注文IDが不正です。" };
   }
 
-  const result = await confirmInPersonOrderPickup(session.profile, orderId);
+  const confirmationCode = formData.get("confirmationCode");
+  if (typeof confirmationCode !== "string" || !confirmationCode.trim()) {
+    return { error: "確認コードを入力してください。" };
+  }
+
+  const result = await confirmInPersonOrderPickup(session.profile, orderId, confirmationCode);
   if (!result.ok) {
     return { error: result.error };
   }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isPickupDateWithinWindow, isValidPickupTimeSlot } from "@/lib/online-orders/pickup-schedule";
 
 export const createOnlineOrderSchema = z
   .object({
@@ -25,10 +26,43 @@ export const createOnlineOrderSchema = z
         addressLine2: z.string().max(200).optional(),
       })
       .optional(),
+    pickupDate: z
+      .string()
+      .regex(/^\d{4}-\d{2}-\d{2}$/, "受け取り希望日の形式が正しくありません")
+      .optional(),
+    pickupTime: z.string().optional(),
   })
   .refine((data) => data.fulfillmentType !== "shipping" || data.shippingAddress !== undefined, {
     message: "配送先住所を入力してください",
     path: ["shippingAddress"],
-  });
+  })
+  .refine((data) => data.fulfillmentType !== "pickup" || !!data.pickupDate, {
+    message: "受け取り希望日を選択してください",
+    path: ["pickupDate"],
+  })
+  .refine((data) => data.fulfillmentType !== "pickup" || !!data.pickupTime, {
+    message: "受け取り希望時刻を選択してください",
+    path: ["pickupTime"],
+  })
+  .refine(
+    (data) =>
+      data.fulfillmentType !== "pickup" ||
+      !data.pickupDate ||
+      isPickupDateWithinWindow(data.pickupDate),
+    {
+      message: "受け取り希望日は翌日から30日以内で選択してください",
+      path: ["pickupDate"],
+    },
+  )
+  .refine(
+    (data) =>
+      data.fulfillmentType !== "pickup" ||
+      !data.pickupTime ||
+      isValidPickupTimeSlot(data.pickupTime),
+    {
+      message: "受け取り希望時刻は09:00〜18:00の30分刻みで選択してください",
+      path: ["pickupTime"],
+    },
+  );
 
 export type CreateOnlineOrderInput = z.infer<typeof createOnlineOrderSchema>;

@@ -6,6 +6,13 @@ import { useCart } from "@/contexts/CartContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { formatYen } from "@/lib/utils/format";
+import {
+  computePickupDeadline,
+  formatPickupDeadlineDateJst,
+  getPickupDateRange,
+  PICKUP_TIME_SLOTS,
+  toPickupDateTime,
+} from "@/lib/online-orders/pickup-schedule";
 import { submitOrderAction } from "@/app/(public)/shop/[slug]/checkout/actions";
 import type { OnlineOrderFulfillmentType, OnlineOrderPaymentMethod } from "@/types/domain";
 
@@ -20,8 +27,17 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
   const [prefecture, setPrefecture] = useState("");
   const [addressLine1, setAddressLine1] = useState("");
   const [addressLine2, setAddressLine2] = useState("");
+  const [pickupDate, setPickupDate] = useState("");
+  const [pickupTime, setPickupTime] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const pickupDateRange = useMemo(() => getPickupDateRange(), []);
+  const pickupDeadlineLabel = useMemo(() => {
+    if (!pickupDate || !pickupTime) return null;
+    const deadline = computePickupDeadline(toPickupDateTime(pickupDate, pickupTime));
+    return formatPickupDeadlineDateJst(deadline.toISOString());
+  }, [pickupDate, pickupTime]);
 
   const hasUnshippableItem = useMemo(() => items.some((i) => !i.shippable), [items]);
   const subtotalAmount = useMemo(
@@ -67,6 +83,8 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
               addressLine2: addressLine2 || undefined,
             }
           : undefined,
+      pickupDate: fulfillmentType === "pickup" ? pickupDate : undefined,
+      pickupTime: fulfillmentType === "pickup" ? pickupTime : undefined,
     });
 
     if (!result.ok) {
@@ -138,6 +156,50 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
             )}
           </label>
         </div>
+
+        {fulfillmentType === "pickup" && (
+          <div className="mt-4 space-y-3">
+            <div>
+              <label htmlFor="pickupDate" className="block text-sm font-medium">
+                希望受け取り日 <span className="text-red-600">*</span>
+              </label>
+              <input
+                id="pickupDate"
+                type="date"
+                required
+                min={pickupDateRange.min}
+                max={pickupDateRange.max}
+                value={pickupDate}
+                onChange={(e) => setPickupDate(e.target.value)}
+                className="mt-1 w-full min-h-11 rounded-lg border border-border px-3 text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="pickupTime" className="block text-sm font-medium">
+                希望受け取り時刻 <span className="text-red-600">*</span>
+              </label>
+              <select
+                id="pickupTime"
+                required
+                value={pickupTime}
+                onChange={(e) => setPickupTime(e.target.value)}
+                className="mt-1 w-full min-h-11 rounded-lg border border-border bg-white px-3 text-sm"
+              >
+                <option value="">-- 時刻を選択 --</option>
+                {PICKUP_TIME_SLOTS.map((slot) => (
+                  <option key={slot} value={slot}>
+                    {slot}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {pickupDeadlineLabel && (
+              <p className="text-xs text-muted">
+                受け取り期限：{pickupDeadlineLabel}まで。期限を過ぎると自動キャンセルされます。
+              </p>
+            )}
+          </div>
+        )}
 
         {fulfillmentType === "shipping" && (
           <div className="mt-4 space-y-3">

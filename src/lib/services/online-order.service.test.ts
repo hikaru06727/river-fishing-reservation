@@ -11,9 +11,14 @@ const {
   findOnlineOrderByIdForAdminMock,
   findOnlineOrderItemsByOrderIdMock,
   findOnlineOrdersByBusinessMock,
+  findOrdersByPickupDateMock,
+  findExpiredPickupOrdersMock,
   updateOnlineOrderPaymentStatusMock,
   updateOnlineOrderStatusMock,
   recordPaymentLedgerAdminMock,
+  sendOnlineOrderConfirmationEmailMock,
+  sendOnlineOrderReadyEmailMock,
+  sendOnlineOrderPickupExpiredEmailMock,
 } = vi.hoisted(() => ({
   findActiveBusinessBySlugMock: vi.fn(),
   findAssignedBusinessIdsByUserIdMock: vi.fn(),
@@ -25,9 +30,14 @@ const {
   findOnlineOrderByIdForAdminMock: vi.fn(),
   findOnlineOrderItemsByOrderIdMock: vi.fn(),
   findOnlineOrdersByBusinessMock: vi.fn(),
+  findOrdersByPickupDateMock: vi.fn(),
+  findExpiredPickupOrdersMock: vi.fn(),
   updateOnlineOrderPaymentStatusMock: vi.fn(),
   updateOnlineOrderStatusMock: vi.fn(),
   recordPaymentLedgerAdminMock: vi.fn(),
+  sendOnlineOrderConfirmationEmailMock: vi.fn(),
+  sendOnlineOrderReadyEmailMock: vi.fn(),
+  sendOnlineOrderPickupExpiredEmailMock: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories/businesses.repository", () => ({
@@ -52,6 +62,8 @@ vi.mock("@/lib/repositories/online-order.repository", () => ({
   findOnlineOrderByStripeSessionId: vi.fn(),
   findOnlineOrderItemsByOrderId: findOnlineOrderItemsByOrderIdMock,
   findOnlineOrdersByBusiness: findOnlineOrdersByBusinessMock,
+  findOrdersByPickupDate: findOrdersByPickupDateMock,
+  findExpiredPickupOrders: findExpiredPickupOrdersMock,
   updateOnlineOrderPaymentStatus: updateOnlineOrderPaymentStatusMock,
   updateOnlineOrderStatus: updateOnlineOrderStatusMock,
   updateOnlineOrderStripeSession: vi.fn(),
@@ -59,6 +71,12 @@ vi.mock("@/lib/repositories/online-order.repository", () => ({
 
 vi.mock("@/lib/repositories/payment-ledger.repository", () => ({
   recordPaymentLedgerAdmin: recordPaymentLedgerAdminMock,
+}));
+
+vi.mock("@/lib/email/online-order-emails", () => ({
+  sendOnlineOrderConfirmationEmail: sendOnlineOrderConfirmationEmailMock,
+  sendOnlineOrderReadyEmail: sendOnlineOrderReadyEmailMock,
+  sendOnlineOrderPickupExpiredEmail: sendOnlineOrderPickupExpiredEmailMock,
 }));
 
 vi.mock("@/lib/stripe/server", () => ({
@@ -69,9 +87,11 @@ import {
   advanceOnlineOrderStatus,
   confirmInPersonOrderPickup,
   createOrder,
+  expirePickupOrders,
   getNextOnlineOrderStatus,
   getOnlineOrderDetailForAdmin,
   getOnlineOrdersForBusiness,
+  getTodaysPickupOrders,
 } from "./online-order.service";
 
 const BUSINESS_ID = "11111111-1111-1111-1111-111111111111";
@@ -99,6 +119,8 @@ function baseInput(overrides: Partial<Parameters<typeof createOrder>[0]> = {}) {
     paymentMethod: "in_person" as const,
     customerName: "山田太郎",
     customerEmail: "taro@example.com",
+    pickupDate: "2099-01-01",
+    pickupTime: "10:00",
     ...overrides,
   };
 }
@@ -199,6 +221,9 @@ const SAMPLE_ORDER = {
   payment_method: "in_person" as const,
   payment_status: "pending" as const,
   total_amount: 2200,
+  confirmation_code: "123456",
+  pickup_date: null,
+  pickup_deadline: null,
 };
 
 describe("getNextOnlineOrderStatus", () => {
@@ -280,6 +305,9 @@ describe("advanceOnlineOrderStatus", () => {
 
     expect(result.ok).toBe(true);
     expect(updateOnlineOrderStatusMock).toHaveBeenCalledWith("order-1", "ready");
+    expect(sendOnlineOrderReadyEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: SAMPLE_ORDER.id }),
+    );
   });
 
   it("担当外の事業の注文は操作できない", async () => {
@@ -306,7 +334,7 @@ describe("confirmInPersonOrderPickup", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("staff は権限がないためエラーになる", async () => {
-    const result = await confirmInPersonOrderPickup(STAFF_PROFILE, "order-1");
+    const result = await confirmInPersonOrderPickup(STAFF_PROFILE, "order-1", "123456");
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(403);
@@ -318,7 +346,7 @@ describe("confirmInPersonOrderPickup", () => {
       { product_id: "product-1", quantity: 2 },
     ]);
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
 
     expect(result.ok).toBe(true);
     expect(decrementProductStockAdminMock).toHaveBeenCalledWith("product-1", 2);
@@ -329,10 +357,29 @@ describe("confirmInPersonOrderPickup", () => {
     );
   });
 
+  it("確認コードが一致しない場合はエラーになり在庫は減算されない", async () => {
+    findOnlineOrderByIdForAdminMock.mockResolvedValue(SAMPLE_ORDER);
+
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "000000");
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("確認コード");
+    expect(decrementProductStockAdminMock).not.toHaveBeenCalled();
+  });
+
+  it("注文に確認コードが未設定の場合はエラーになる", async () => {
+    findOnlineOrderByIdForAdminMock.mockResolvedValue({ ...SAMPLE_ORDER, confirmation_code: null });
+
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
+
+    expect(result.ok).toBe(false);
+    expect(decrementProductStockAdminMock).not.toHaveBeenCalled();
+  });
+
   it("stripe 決済の注文はエラーになる", async () => {
     findOnlineOrderByIdForAdminMock.mockResolvedValue({ ...SAMPLE_ORDER, payment_method: "stripe" });
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
 
     expect(result.ok).toBe(false);
     expect(updateOnlineOrderStatusMock).not.toHaveBeenCalled();
@@ -341,9 +388,69 @@ describe("confirmInPersonOrderPickup", () => {
   it("すでに支払い済みの注文は二重に在庫減算されない", async () => {
     findOnlineOrderByIdForAdminMock.mockResolvedValue({ ...SAMPLE_ORDER, payment_status: "paid" });
 
-    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1");
+    const result = await confirmInPersonOrderPickup(ADMIN_PROFILE, "order-1", "123456");
 
     expect(result.ok).toBe(false);
     expect(decrementProductStockAdminMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getTodaysPickupOrders", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("本日の受け取り予定注文を明細付きで返す", async () => {
+    findOrdersByPickupDateMock.mockResolvedValue([SAMPLE_ORDER]);
+    findOnlineOrderItemsByOrderIdMock.mockResolvedValue([{ id: "item-1" }]);
+
+    const result = await getTodaysPickupOrders(ADMIN_PROFILE, BUSINESS_ID);
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.data).toEqual([{ order: SAMPLE_ORDER, items: [{ id: "item-1" }] }]);
+    }
+  });
+
+  it("担当外の事業はエラーになる", async () => {
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["other-business"]);
+
+    const result = await getTodaysPickupOrders(BUSINESS_ADMIN_PROFILE, BUSINESS_ID);
+
+    expect(result.ok).toBe(false);
+    expect(findOrdersByPickupDateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("expirePickupOrders", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("期限切れ注文をキャンセルしメールを送信する", async () => {
+    findExpiredPickupOrdersMock.mockResolvedValue([SAMPLE_ORDER]);
+
+    const cancelledCount = await expirePickupOrders();
+
+    expect(cancelledCount).toBe(1);
+    expect(updateOnlineOrderStatusMock).toHaveBeenCalledWith(SAMPLE_ORDER.id, "cancelled");
+    expect(sendOnlineOrderPickupExpiredEmailMock).toHaveBeenCalledWith(
+      expect.objectContaining({ orderId: SAMPLE_ORDER.id }),
+    );
+  });
+
+  it("対象注文がない場合は0件でメールも送らない", async () => {
+    findExpiredPickupOrdersMock.mockResolvedValue([]);
+
+    const cancelledCount = await expirePickupOrders();
+
+    expect(cancelledCount).toBe(0);
+    expect(sendOnlineOrderPickupExpiredEmailMock).not.toHaveBeenCalled();
+  });
+
+  it("ステータス更新が失敗した注文はスキップしてメールを送らない", async () => {
+    findExpiredPickupOrdersMock.mockResolvedValue([SAMPLE_ORDER]);
+    updateOnlineOrderStatusMock.mockRejectedValueOnce(new Error("db error"));
+
+    const cancelledCount = await expirePickupOrders();
+
+    expect(cancelledCount).toBe(0);
+    expect(sendOnlineOrderPickupExpiredEmailMock).not.toHaveBeenCalled();
   });
 });

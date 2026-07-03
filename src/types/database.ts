@@ -1226,6 +1226,10 @@ export interface Database {
           shipping_address_line1: string | null;
           shipping_address_line2: string | null;
           notes: string | null;
+          pickup_date: string | null;
+          pickup_deadline: string | null;
+          confirmation_code: string | null;
+          shipped_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1248,6 +1252,10 @@ export interface Database {
           shipping_address_line1?: string | null;
           shipping_address_line2?: string | null;
           notes?: string | null;
+          pickup_date?: string | null;
+          pickup_deadline?: string | null;
+          confirmation_code?: string | null;
+          shipped_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1270,6 +1278,10 @@ export interface Database {
           shipping_address_line1?: string | null;
           shipping_address_line2?: string | null;
           notes?: string | null;
+          pickup_date?: string | null;
+          pickup_deadline?: string | null;
+          confirmation_code?: string | null;
+          shipped_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

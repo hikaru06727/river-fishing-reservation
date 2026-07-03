@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { computePickupDeadline, getJstDayRangeUtc } from "@/lib/online-orders/pickup-schedule";
 import type { OnlineOrderItemRow, OnlineOrderRow } from "@/types/database";
 import type {
   OnlineOrderFulfillmentType,
@@ -24,7 +25,13 @@ export type InsertOnlineOrderInput = {
   shipping_address_line1?: string | null;
   shipping_address_line2?: string | null;
   notes?: string | null;
+  /** 店舗受け取りの希望日時（ISO文字列）。指定時は pickup_deadline（+3日）を自動算出する */
+  pickup_date?: string | null;
 };
+
+function generateConfirmationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
 
 export type InsertOnlineOrderItemInput = {
   order_id: string;
@@ -41,6 +48,10 @@ export type InsertOnlineOrderItemInput = {
  */
 export async function createOnlineOrder(input: InsertOnlineOrderInput): Promise<OnlineOrderRow> {
   const admin = createAdminClient();
+
+  const pickupDeadline = input.pickup_date
+    ? computePickupDeadline(new Date(input.pickup_date)).toISOString()
+    : null;
 
   const { data, error } = await admin
     .from("online_orders")
@@ -60,6 +71,9 @@ export async function createOnlineOrder(input: InsertOnlineOrderInput): Promise<
       shipping_address_line1: input.shipping_address_line1 ?? null,
       shipping_address_line2: input.shipping_address_line2 ?? null,
       notes: input.notes ?? null,
+      pickup_date: input.pickup_date ?? null,
+      pickup_deadline: pickupDeadline,
+      confirmation_code: generateConfirmationCode(),
     })
     .select()
     .single();
@@ -146,7 +160,12 @@ export async function updateOnlineOrderStatus(
 ): Promise<void> {
   const admin = createAdminClient();
 
-  const { error } = await admin.from("online_orders").update({ status }).eq("id", id);
+  const update: { status: OnlineOrderStatus; shipped_at?: string } = { status };
+  if (status === "shipped") {
+    update.shipped_at = new Date().toISOString();
+  }
+
+  const { error } = await admin.from("online_orders").update(update).eq("id", id);
 
   if (error) throw new Error(error.message);
 }
@@ -231,6 +250,50 @@ export async function findOnlineOrderBusinessId(id: string): Promise<string | nu
 
   if (error) throw new Error(error.message);
   return data?.business_id ?? null;
+}
+
+/**
+ * 指定 JST 暦日が pickup_date の注文一覧（管理画面「本日の受け取り予定」用）。
+ * 将来のカレンダー機能（Phase 17〜18）でも再利用できるよう独立した関数にしてある。
+ */
+export async function findOrdersByPickupDate(
+  businessId: string,
+  date: Date,
+): Promise<OnlineOrderRow[]> {
+  const supabase = await createClient();
+
+  const isoDate = date.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+  const { startUtc, endUtc } = getJstDayRangeUtc(isoDate);
+
+  const { data, error } = await supabase
+    .from("online_orders")
+    .select("*")
+    .eq("business_id", businessId)
+    .gte("pickup_date", startUtc)
+    .lt("pickup_date", endUtc)
+    .order("pickup_date", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return ((data ?? []) as OnlineOrderRow[]).filter(
+    (o) => o.status !== "cancelled" && o.status !== "delivered",
+  );
+}
+
+/**
+ * 受け取り期限切れの店舗受け取り注文（cron による自動キャンセル用）。
+ * service_role を使うためユーザーセッションに依存しない。
+ */
+export async function findExpiredPickupOrders(): Promise<OnlineOrderRow[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("online_orders")
+    .select("*")
+    .lt("pickup_deadline", new Date().toISOString())
+    .in("status", ["paid", "preparing", "ready"]);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OnlineOrderRow[];
 }
 
 /**

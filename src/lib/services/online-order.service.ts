@@ -3,6 +3,12 @@ import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { isAdminRole, isStaffRole } from "@/lib/auth/role";
 import { hasPermission } from "@/lib/permissions";
 import {
+  sendOnlineOrderConfirmationEmail,
+  sendOnlineOrderPickupExpiredEmail,
+  sendOnlineOrderReadyEmail,
+} from "@/lib/email/online-order-emails";
+import { toPickupDateTime } from "@/lib/online-orders/pickup-schedule";
+import {
   findActiveBusinessBySlug,
   findAssignedBusinessIdsByUserId,
 } from "@/lib/repositories/businesses.repository";
@@ -10,11 +16,13 @@ import { decrementProductStockAdmin, findProductsByIds } from "@/lib/repositorie
 import {
   createOnlineOrder,
   createOnlineOrderItems,
+  findExpiredPickupOrders,
   findOnlineOrderById,
   findOnlineOrderByIdForAdmin,
   findOnlineOrderByStripeSessionId,
   findOnlineOrderItemsByOrderId,
   findOnlineOrdersByBusiness,
+  findOrdersByPickupDate,
   updateOnlineOrderPaymentStatus,
   updateOnlineOrderStatus,
   updateOnlineOrderStripeSession,
@@ -139,6 +147,9 @@ export async function createOrder(
   if (input.fulfillmentType === "shipping" && !input.shippingAddress) {
     return { ok: false, error: "配送先住所を入力してください。", status: 400 };
   }
+  if (input.fulfillmentType === "pickup" && (!input.pickupDate || !input.pickupTime)) {
+    return { ok: false, error: "受け取り希望日時を選択してください。", status: 400 };
+  }
 
   let subtotalAmount = 0;
   let taxAmount = 0;
@@ -167,6 +178,11 @@ export async function createOrder(
 
   const totalAmount = subtotalAmount + taxAmount;
 
+  const pickupDateIso =
+    input.fulfillmentType === "pickup" && input.pickupDate && input.pickupTime
+      ? toPickupDateTime(input.pickupDate, input.pickupTime).toISOString()
+      : null;
+
   let order: OnlineOrderRow;
   try {
     order = await createOnlineOrder({
@@ -183,6 +199,7 @@ export async function createOrder(
       shipping_prefecture: input.shippingAddress?.prefecture ?? null,
       shipping_address_line1: input.shippingAddress?.addressLine1 ?? null,
       shipping_address_line2: input.shippingAddress?.addressLine2 ?? null,
+      pickup_date: pickupDateIso,
     });
   } catch {
     return { ok: false, error: "注文の作成に失敗しました。", status: 500 };
@@ -203,6 +220,17 @@ export async function createOrder(
   } catch {
     return { ok: false, error: "注文明細の作成に失敗しました。", status: 500 };
   }
+
+  await sendOnlineOrderConfirmationEmail({
+    orderId: order.id,
+    customerEmail: order.customer_email,
+    fulfillmentType: order.fulfillment_type,
+    items: items.map((i) => ({ productName: i.product_name, quantity: i.quantity, unitPrice: i.unit_price })),
+    totalAmount: order.total_amount,
+    confirmationCode: order.confirmation_code,
+    pickupDate: order.pickup_date,
+    pickupDeadline: order.pickup_deadline,
+  });
 
   return { ok: true, data: { order, items } };
 }
@@ -370,6 +398,16 @@ export async function advanceOnlineOrderStatus(
   }
 
   await updateOnlineOrderStatus(orderId, next);
+
+  if (next === "ready") {
+    await sendOnlineOrderReadyEmail({
+      orderId: order.id,
+      customerEmail: order.customer_email,
+      confirmationCode: order.confirmation_code,
+      pickupDeadline: order.pickup_deadline,
+    });
+  }
+
   return { ok: true, data: { status: next } };
 }
 
@@ -381,6 +419,7 @@ export async function advanceOnlineOrderStatus(
 export async function confirmInPersonOrderPickup(
   profile: OrderManagementProfile,
   orderId: string,
+  confirmationCode: string,
 ): Promise<ServiceResult<null>> {
   if (!hasPermission(profile.role, "ORDER_STATUS_MANAGE")) {
     return { ok: false, error: "この操作を行う権限がありません。", status: 403 };
@@ -399,6 +438,12 @@ export async function confirmInPersonOrderPickup(
   }
   if (order.payment_status === "paid") {
     return { ok: false, error: "この注文はすでに受け取り確認済みです。", status: 422 };
+  }
+  if (!order.confirmation_code) {
+    return { ok: false, error: "確認コードが設定されていません。管理者にお問い合わせください。", status: 422 };
+  }
+  if (confirmationCode.trim() !== order.confirmation_code) {
+    return { ok: false, error: "確認コードが一致しません。", status: 422 };
   }
 
   const items = await findOnlineOrderItemsByOrderId(orderId);
@@ -422,4 +467,54 @@ export async function confirmInPersonOrderPickup(
   }
 
   return { ok: true, data: null };
+}
+
+/** 管理画面「本日の受け取り予定」タブ用。当日 JST の pickup_date 注文（明細付き）を返す */
+export async function getTodaysPickupOrders(
+  profile: OrderManagementProfile,
+  businessId: string,
+): Promise<ServiceResult<Array<{ order: OnlineOrderRow; items: OnlineOrderItemRow[] }>>> {
+  const auth = await assertCanManageOrderBusiness(profile, businessId);
+  if (!auth.ok) return auth;
+
+  try {
+    const orders = await findOrdersByPickupDate(businessId, new Date());
+    const withItems = await Promise.all(
+      orders.map(async (order) => ({
+        order,
+        items: await findOnlineOrderItemsByOrderId(order.id),
+      })),
+    );
+    return { ok: true, data: withItems };
+  } catch {
+    return { ok: false, error: "本日の受け取り予定の取得に失敗しました。", status: 500 };
+  }
+}
+
+/**
+ * 受け取り期限切れの店舗受け取り注文を自動キャンセルする（cron 用）。
+ * 冪等性: 対象は status in (paid, preparing, ready) のみのため、
+ * キャンセル後は再実行しても対象から外れる。
+ */
+export async function expirePickupOrders(): Promise<number> {
+  const expiredOrders = await findExpiredPickupOrders();
+
+  let cancelledCount = 0;
+  for (const order of expiredOrders) {
+    try {
+      await updateOnlineOrderStatus(order.id, "cancelled");
+      cancelledCount += 1;
+    } catch (e) {
+      console.error("[expirePickupOrders] failed to cancel order:", order.id, e);
+      continue;
+    }
+
+    await sendOnlineOrderPickupExpiredEmail({
+      orderId: order.id,
+      customerEmail: order.customer_email,
+      pickupDate: order.pickup_date,
+    });
+  }
+
+  return cancelledCount;
 }

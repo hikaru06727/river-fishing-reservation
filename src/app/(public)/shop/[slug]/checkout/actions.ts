@@ -31,6 +31,8 @@ export async function submitOrderAction(input: unknown): Promise<SubmitOrderResu
     customerEmail: data.customerEmail,
     customerPhone: data.customerPhone,
     shippingAddress: data.shippingAddress,
+    pickupDate: data.pickupDate,
+    pickupTime: data.pickupTime,
   });
 
   if (!result.ok) {

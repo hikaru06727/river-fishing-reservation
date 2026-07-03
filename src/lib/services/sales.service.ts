@@ -16,10 +16,7 @@ import { resolveBusinessDayCountForSales } from "@/lib/sales/sales-insights-cont
 import { parseSalesDateRange } from "@/lib/sales/sales-period";
 import { aggregateTodaySummary } from "@/lib/sales/today-summary";
 import type { SalesDateRange, SalesReport, TodaySalesSummary } from "@/lib/sales/sales-types";
-
-function getTodayJst(): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-}
+import { getTodayJst } from "@/lib/utils/date";
 
 export type SalesDashboardResult = {
   report: SalesReport;

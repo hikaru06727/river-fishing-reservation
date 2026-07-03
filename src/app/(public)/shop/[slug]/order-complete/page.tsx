@@ -4,6 +4,10 @@ import { Card } from "@/components/ui/Card";
 import { ClearCartOnMount } from "@/components/shop/ClearCartOnMount";
 import { findActiveBusinessBySlug } from "@/lib/repositories/businesses.repository";
 import { getOrderForCustomer } from "@/lib/services/online-order.service";
+import {
+  formatPickupDateTimeJst,
+  formatPickupDeadlineDateJst,
+} from "@/lib/online-orders/pickup-schedule";
 import { formatYen } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +52,7 @@ export default async function OrderCompletePage({ params, searchParams }: OrderC
 
   const { order, items } = result;
   const paymentPending = order.payment_method === "stripe" && order.payment_status === "pending";
+  const isPickup = order.fulfillment_type === "pickup";
 
   return (
     <div className="space-y-6">
@@ -77,12 +82,38 @@ export default async function OrderCompletePage({ params, searchParams }: OrderC
             <dt className="text-muted">決済方法</dt>
             <dd className="text-foreground">{PAYMENT_METHOD_LABEL[order.payment_method]}</dd>
           </div>
+          {isPickup && order.pickup_date && (
+            <div className="flex justify-between">
+              <dt className="text-muted">希望受け取り日時</dt>
+              <dd className="text-foreground">{formatPickupDateTimeJst(order.pickup_date)}</dd>
+            </div>
+          )}
+          {isPickup && order.pickup_deadline && (
+            <div className="flex justify-between">
+              <dt className="text-muted">受け取り期限</dt>
+              <dd className="text-foreground">
+                {formatPickupDeadlineDateJst(order.pickup_deadline)}まで
+              </dd>
+            </div>
+          )}
           <div className="flex justify-between text-base font-semibold">
             <dt className="text-foreground">合計（税込）</dt>
             <dd className="text-primary">{formatYen(order.total_amount)}</dd>
           </div>
         </dl>
       </Card>
+
+      {isPickup && order.confirmation_code && (
+        <Card className="text-center">
+          <p className="text-sm text-muted">受け取り確認コード</p>
+          <p className="mt-2 text-3xl font-bold tracking-widest text-primary">
+            {order.confirmation_code}
+          </p>
+          <p className="mt-2 text-xs text-muted">
+            店舗受け取り時にこちらのコードをお伝えください。このコードはメールにも送信されました。
+          </p>
+        </Card>
+      )}
 
       <Card>
         <h2 className="text-base font-semibold text-foreground">ご注文商品</h2>
