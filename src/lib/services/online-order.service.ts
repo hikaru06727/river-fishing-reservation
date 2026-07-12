@@ -312,30 +312,36 @@ export async function createStripeCheckoutSessionForOrder(
   const itemSummary = items.map((i) => `${i.product_name} x${i.quantity}`).join(", ");
 
   const stripe = getStripe();
-  const session = await stripe.checkout.sessions.create({
-    mode: "payment",
-    payment_method_types: ["card"],
-    line_items: [
-      {
-        price_data: {
-          currency: "jpy",
-          product_data: {
-            name: `ご注文（${items.length}点）`,
-            description: itemSummary.slice(0, 500),
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      line_items: [
+        {
+          price_data: {
+            currency: "jpy",
+            product_data: {
+              name: `ご注文（${items.length}点）`,
+              description: itemSummary.slice(0, 500),
+            },
+            unit_amount: order.total_amount,
           },
-          unit_amount: order.total_amount,
+          quantity: 1,
         },
-        quantity: 1,
+      ],
+      metadata: {
+        orderId: order.id,
+        businessId: order.business_id,
+        ...(order.linked_reservation_id ? { linkedReservationId: order.linked_reservation_id } : {}),
       },
-    ],
-    metadata: {
-      orderId: order.id,
-      businessId: order.business_id,
-      ...(order.linked_reservation_id ? { linkedReservationId: order.linked_reservation_id } : {}),
-    },
-    success_url: `${appUrl()}/shop/${slug}/order-complete?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${appUrl()}/shop/${slug}/checkout`,
-  });
+      success_url: `${appUrl()}/shop/${slug}/order-complete?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${appUrl()}/shop/${slug}/checkout`,
+    });
+  } catch (e) {
+    console.error("[createStripeCheckoutSessionForOrder] Stripe session create failed:", e);
+    return { ok: false, error: "決済ページの作成に失敗しました。", status: 500 };
+  }
 
   if (!session.url) {
     return { ok: false, error: "決済ページの作成に失敗しました。", status: 500 };

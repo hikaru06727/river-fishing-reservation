@@ -10,13 +10,14 @@ import type { Page } from "@playwright/test";
 export async function payWithStripeTestCard(page: Page): Promise<void> {
   await page.waitForURL(/checkout\.stripe\.com/, { timeout: 30_000 });
 
-  const emailField = page.locator("#email");
-  if (await emailField.isVisible().catch(() => false)) {
-    const currentValue = await emailField.inputValue().catch(() => "");
-    if (!currentValue) {
-      await emailField.fill("e2e-test@example.com");
-    }
-  }
+  // isVisible() は auto-wait しないため、fill() 自体の auto-wait に任せて存在確認を兼ねる
+  // （email 入力欄が無い/既に入力済みのセッションもあるため、失敗しても無視する）
+  await page
+    .locator("#email")
+    .or(page.getByRole("textbox", { name: "Email" }))
+    .first()
+    .fill("e2e-test@example.com", { timeout: 10_000 })
+    .catch(() => {});
 
   await page.locator("#cardNumber").fill("4242424242424242");
   await page.locator("#cardExpiry").fill("12/34");

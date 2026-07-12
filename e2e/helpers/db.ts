@@ -159,7 +159,11 @@ export type OnlineOrderRow = {
   total_amount: number;
   linked_reservation_id: string | null;
   confirmation_code: string | null;
+  stripe_payment_intent_id: string | null;
 };
+
+const ONLINE_ORDER_SELECT =
+  "id, business_id, status, payment_status, payment_method, total_amount, linked_reservation_id, confirmation_code, stripe_payment_intent_id";
 
 /** 予約に紐づく追加購入注文一覧（Phase 19E） */
 export async function getOnlineOrdersByLinkedReservationId(
@@ -168,9 +172,7 @@ export async function getOnlineOrdersByLinkedReservationId(
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("online_orders")
-    .select(
-      "id, business_id, status, payment_status, payment_method, total_amount, linked_reservation_id, confirmation_code",
-    )
+    .select(ONLINE_ORDER_SELECT)
     .eq("linked_reservation_id", reservationId);
 
   if (error) throw new Error(`[getOnlineOrdersByLinkedReservationId] ${error.message}`);
@@ -181,9 +183,7 @@ export async function getOnlineOrderById(orderId: string): Promise<OnlineOrderRo
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("online_orders")
-    .select(
-      "id, business_id, status, payment_status, payment_method, total_amount, linked_reservation_id, confirmation_code",
-    )
+    .select(ONLINE_ORDER_SELECT)
     .eq("id", orderId)
     .single();
 

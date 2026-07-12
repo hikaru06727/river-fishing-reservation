@@ -84,27 +84,34 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
     setError(null);
     setSubmitting(true);
 
-    const result = await submitOrderAction({
-      slug,
-      businessId,
-      items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
-      fulfillmentType,
-      customerName,
-      customerEmail,
-      customerPhone: customerPhone || undefined,
-      shippingAddress:
-        fulfillmentType === "shipping"
-          ? {
-              postalCode,
-              prefecture,
-              addressLine1,
-              addressLine2: addressLine2 || undefined,
-            }
-          : undefined,
-      pickupDate: fulfillmentType === "pickup" ? pickupDate : undefined,
-      pickupTime: fulfillmentType === "pickup" ? pickupTime : undefined,
-      linkedReservationId: linkedReservationId ?? undefined,
-    });
+    let result: Awaited<ReturnType<typeof submitOrderAction>>;
+    try {
+      result = await submitOrderAction({
+        slug,
+        businessId,
+        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        fulfillmentType,
+        customerName,
+        customerEmail,
+        customerPhone: customerPhone || undefined,
+        shippingAddress:
+          fulfillmentType === "shipping"
+            ? {
+                postalCode,
+                prefecture,
+                addressLine1,
+                addressLine2: addressLine2 || undefined,
+              }
+            : undefined,
+        pickupDate: fulfillmentType === "pickup" ? pickupDate : undefined,
+        pickupTime: fulfillmentType === "pickup" ? pickupTime : undefined,
+        linkedReservationId: linkedReservationId ?? undefined,
+      });
+    } catch {
+      setError("注文の処理中にエラーが発生しました。時間をおいて再度お試しください。");
+      setSubmitting(false);
+      return;
+    }
 
     if (!result.ok) {
       setError(result.error);
