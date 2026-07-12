@@ -29,6 +29,9 @@ export type OnlineOrder = {
   confirmation_code: string | null;
   shipped_at: string | null;
   delivered_at: string | null;
+  /** 予約後の追加購入の場合に紐づく予約ID（Phase 19E）。決済・返金・売上集計は予約から独立。 */
+  linked_reservation_id: string | null;
+  stripe_payment_intent_id: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -62,4 +65,6 @@ export type CreateOrderInput = {
   pickupDate?: string;
   /** 店舗受け取りの希望時刻（HH:MM、09:00〜18:00・30分刻み） */
   pickupTime?: string;
+  /** 予約後の追加購入の場合に紐づける予約ID（Phase 19E）。サーバー側で所有者検証を行う。 */
+  linkedReservationId?: string;
 };

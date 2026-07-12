@@ -13,7 +13,7 @@ vi.mock("@/lib/supabase/server", () => ({
 
 function makeQueryChain(resolvedValue: { data: unknown; error: null | { message: string } }) {
   const chain: Record<string, unknown> = {};
-  const methods = ["select", "eq", "gte", "lte", "in", "is", "order", "single", "maybeSingle"];
+  const methods = ["select", "eq", "neq", "gte", "lte", "in", "is", "order", "single", "maybeSingle"];
   for (const m of methods) {
     chain[m] = vi.fn().mockReturnValue(chain);
   }
@@ -87,6 +87,19 @@ describe("findProductSalesTotalYen", () => {
     expect(total).toBe(8000);
   });
 
+  it("pos と reservation_addon（予約時の追加商品購入）の両方を source_type として問い合わせ、合算して返す", async () => {
+    const chain = makeQueryChain({
+      data: [{ amount: 5000 }, { amount: 1200 }],
+      error: null,
+    });
+    fromMock.mockReturnValue(chain);
+
+    const total = await findProductSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" });
+
+    expect(chain.in).toHaveBeenCalledWith("source_type", ["pos", "reservation_addon"]);
+    expect(total).toBe(6200);
+  });
+
   it("エントリがない場合は 0 を返す", async () => {
     const chain = makeQueryChain({ data: [], error: null });
     fromMock.mockReturnValue(chain);
@@ -141,5 +154,16 @@ describe("findOnlineOrderSalesTotalYen", () => {
     await expect(
       findOnlineOrderSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" }),
     ).rejects.toThrow("DB error");
+  });
+
+  it("返金済み（payment_status=refunded）の注文を除外する（Phase 19E）", async () => {
+    const shippedChain = makeQueryChain({ data: [], error: null });
+    const deliveredChain = makeQueryChain({ data: [], error: null });
+    fromMock.mockReturnValueOnce(shippedChain).mockReturnValueOnce(deliveredChain);
+
+    await findOnlineOrderSalesTotalYen({ dateFrom: "2026-06-01", dateTo: "2026-06-30" });
+
+    expect(shippedChain.neq).toHaveBeenCalledWith("payment_status", "refunded");
+    expect(deliveredChain.neq).toHaveBeenCalledWith("payment_status", "refunded");
   });
 });

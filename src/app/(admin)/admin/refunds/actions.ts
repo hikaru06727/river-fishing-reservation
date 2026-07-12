@@ -12,6 +12,7 @@ const baseSchema = z.object({
   reason: z.string().min(1, "返金理由を入力してください。").max(500),
   saleSessionId: z.string().uuid().optional().nullable(),
   reservationId: z.string().uuid().optional().nullable(),
+  onlineOrderId: z.string().uuid().optional().nullable(),
 });
 
 export async function refundCashAction(
@@ -27,15 +28,16 @@ export async function refundCashAction(
     reason: formData.get("reason"),
     saleSessionId: formData.get("saleSessionId") || null,
     reservationId: formData.get("reservationId") || null,
+    onlineOrderId: formData.get("onlineOrderId") || null,
   });
 
   if (!parsed.success) {
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, amount, reason, saleSessionId, reservationId } = parsed.data;
+  const { businessId, amount, reason, saleSessionId, reservationId, onlineOrderId } = parsed.data;
 
-  if (!saleSessionId && !reservationId) {
+  if (!saleSessionId && !reservationId && !onlineOrderId) {
     return { error: "対象の売上IDが指定されていません。" };
   }
 
@@ -45,6 +47,7 @@ export async function refundCashAction(
     businessId,
     saleSessionId: saleSessionId ?? undefined,
     reservationId: reservationId ?? undefined,
+    onlineOrderId: onlineOrderId ?? undefined,
     amount,
     reason,
     refundedBy: session.profile.id,
@@ -75,6 +78,7 @@ export async function refundCardAction(
     reason: formData.get("reason"),
     saleSessionId: formData.get("saleSessionId") || null,
     reservationId: formData.get("reservationId") || null,
+    onlineOrderId: formData.get("onlineOrderId") || null,
     stripePaymentIntentId: formData.get("stripePaymentIntentId") || null,
   });
 
@@ -82,10 +86,10 @@ export async function refundCardAction(
     return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
   }
 
-  const { businessId, amount, reason, saleSessionId, reservationId, stripePaymentIntentId } =
+  const { businessId, amount, reason, saleSessionId, reservationId, onlineOrderId, stripePaymentIntentId } =
     parsed.data;
 
-  if (!saleSessionId && !reservationId) {
+  if (!saleSessionId && !reservationId && !onlineOrderId) {
     return { error: "対象の売上IDが指定されていません。" };
   }
 
@@ -95,6 +99,7 @@ export async function refundCardAction(
     businessId,
     saleSessionId: saleSessionId ?? undefined,
     reservationId: reservationId ?? undefined,
+    onlineOrderId: onlineOrderId ?? undefined,
     stripePaymentIntentId: stripePaymentIntentId ?? undefined,
     amount,
     reason,

@@ -4,17 +4,22 @@ const {
   findActiveBusinessBySlugMock,
   findAssignedBusinessIdsByUserIdMock,
   findAssignedBusinessIdsByStaffUserIdMock,
+  findSpotBusinessIdBySpotIdMock,
   findProductsByIdsMock,
   decrementProductStockAdminMock,
+  findReservationByIdForUserMock,
+  getUserMock,
   createOnlineOrderMock,
   createOnlineOrderItemsMock,
   findOnlineOrderByIdForAdminMock,
   findOnlineOrderItemsByOrderIdMock,
   findOnlineOrdersByBusinessMock,
+  findOrdersByLinkedReservationIdAdminMock,
   findOrdersByPickupDateMock,
   findExpiredPickupOrdersMock,
   updateOnlineOrderPaymentStatusMock,
   updateOnlineOrderStatusMock,
+  updateOnlineOrderStripePaymentIntentMock,
   recordPaymentLedgerAdminMock,
   sendOnlineOrderConfirmationEmailMock,
   sendOnlineOrderReadyEmailMock,
@@ -23,17 +28,22 @@ const {
   findActiveBusinessBySlugMock: vi.fn(),
   findAssignedBusinessIdsByUserIdMock: vi.fn(),
   findAssignedBusinessIdsByStaffUserIdMock: vi.fn(),
+  findSpotBusinessIdBySpotIdMock: vi.fn(),
   findProductsByIdsMock: vi.fn(),
   decrementProductStockAdminMock: vi.fn(),
+  findReservationByIdForUserMock: vi.fn(),
+  getUserMock: vi.fn(),
   createOnlineOrderMock: vi.fn(),
   createOnlineOrderItemsMock: vi.fn(),
   findOnlineOrderByIdForAdminMock: vi.fn(),
   findOnlineOrderItemsByOrderIdMock: vi.fn(),
   findOnlineOrdersByBusinessMock: vi.fn(),
+  findOrdersByLinkedReservationIdAdminMock: vi.fn(),
   findOrdersByPickupDateMock: vi.fn(),
   findExpiredPickupOrdersMock: vi.fn(),
   updateOnlineOrderPaymentStatusMock: vi.fn(),
   updateOnlineOrderStatusMock: vi.fn(),
+  updateOnlineOrderStripePaymentIntentMock: vi.fn(),
   recordPaymentLedgerAdminMock: vi.fn(),
   sendOnlineOrderConfirmationEmailMock: vi.fn(),
   sendOnlineOrderReadyEmailMock: vi.fn(),
@@ -43,6 +53,7 @@ const {
 vi.mock("@/lib/repositories/businesses.repository", () => ({
   findActiveBusinessBySlug: findActiveBusinessBySlugMock,
   findAssignedBusinessIdsByUserId: findAssignedBusinessIdsByUserIdMock,
+  findSpotBusinessIdBySpotId: findSpotBusinessIdBySpotIdMock,
 }));
 
 vi.mock("@/lib/repositories/staff-members.repository", () => ({
@@ -54,6 +65,14 @@ vi.mock("@/lib/repositories/products.repository", () => ({
   decrementProductStockAdmin: decrementProductStockAdminMock,
 }));
 
+vi.mock("@/lib/repositories/reservations.repository", () => ({
+  findReservationByIdForUser: findReservationByIdForUserMock,
+}));
+
+vi.mock("@/lib/auth/get-user", () => ({
+  getUser: getUserMock,
+}));
+
 vi.mock("@/lib/repositories/online-order.repository", () => ({
   createOnlineOrder: createOnlineOrderMock,
   createOnlineOrderItems: createOnlineOrderItemsMock,
@@ -62,10 +81,12 @@ vi.mock("@/lib/repositories/online-order.repository", () => ({
   findOnlineOrderByStripeSessionId: vi.fn(),
   findOnlineOrderItemsByOrderId: findOnlineOrderItemsByOrderIdMock,
   findOnlineOrdersByBusiness: findOnlineOrdersByBusinessMock,
+  findOrdersByLinkedReservationIdAdmin: findOrdersByLinkedReservationIdAdminMock,
   findOrdersByPickupDate: findOrdersByPickupDateMock,
   findExpiredPickupOrders: findExpiredPickupOrdersMock,
   updateOnlineOrderPaymentStatus: updateOnlineOrderPaymentStatusMock,
   updateOnlineOrderStatus: updateOnlineOrderStatusMock,
+  updateOnlineOrderStripePaymentIntent: updateOnlineOrderStripePaymentIntentMock,
   updateOnlineOrderStripeSession: vi.fn(),
 }));
 
@@ -88,6 +109,7 @@ import {
   confirmInPersonOrderPickup,
   createOrder,
   expirePickupOrders,
+  getLinkedOrdersForReservation,
   getNextOnlineOrderStatus,
   getOnlineOrderDetailForAdmin,
   getOnlineOrdersForBusiness,
@@ -129,6 +151,7 @@ describe("createOrder", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     findActiveBusinessBySlugMock.mockResolvedValue({ id: BUSINESS_ID, name: "Test Shop", slug: SLUG });
+    getUserMock.mockResolvedValue(null);
   });
 
   it("在庫あり商品の注文作成が成功する", async () => {
@@ -501,5 +524,92 @@ describe("expirePickupOrders", () => {
 
     expect(cancelledCount).toBe(0);
     expect(sendOnlineOrderPickupExpiredEmailMock).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// 予約後の追加購入リンク（Phase 19E）
+// ============================================================
+describe("createOrder — linkedReservationId 検証", () => {
+  const RESERVATION_ID = "res-1111-1111-1111-111111111111";
+  const USER_ID = "user-1";
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    findActiveBusinessBySlugMock.mockResolvedValue({ id: BUSINESS_ID, name: "Test Shop", slug: SLUG });
+    findProductsByIdsMock.mockResolvedValue([BASE_PRODUCT]);
+    createOnlineOrderMock.mockResolvedValue({ id: "order-1", status: "pending_payment" });
+    createOnlineOrderItemsMock.mockResolvedValue([]);
+  });
+
+  it("未ログインの場合はリンクなしで注文を作成する", async () => {
+    getUserMock.mockResolvedValue(null);
+
+    const result = await createOrder(baseInput({ linkedReservationId: RESERVATION_ID }));
+
+    expect(result.ok).toBe(true);
+    expect(findReservationByIdForUserMock).not.toHaveBeenCalled();
+    expect(createOnlineOrderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ linked_reservation_id: null }),
+    );
+  });
+
+  it("本人の予約かつ同一事業の場合はリンクして注文を作成する", async () => {
+    getUserMock.mockResolvedValue({ id: USER_ID });
+    findReservationByIdForUserMock.mockResolvedValue({ id: RESERVATION_ID, spot_id: "spot-1" });
+    findSpotBusinessIdBySpotIdMock.mockResolvedValue(BUSINESS_ID);
+
+    const result = await createOrder(baseInput({ linkedReservationId: RESERVATION_ID }));
+
+    expect(result.ok).toBe(true);
+    expect(findReservationByIdForUserMock).toHaveBeenCalledWith(RESERVATION_ID, USER_ID);
+    expect(createOnlineOrderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ linked_reservation_id: RESERVATION_ID }),
+    );
+  });
+
+  it("他人の予約IDが指定された場合はリンクせず注文自体は成功する", async () => {
+    getUserMock.mockResolvedValue({ id: USER_ID });
+    findReservationByIdForUserMock.mockResolvedValue(null);
+
+    const result = await createOrder(baseInput({ linkedReservationId: RESERVATION_ID }));
+
+    expect(result.ok).toBe(true);
+    expect(createOnlineOrderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ linked_reservation_id: null }),
+    );
+  });
+
+  it("予約の事業と注文の事業が異なる場合はリンクしない", async () => {
+    getUserMock.mockResolvedValue({ id: USER_ID });
+    findReservationByIdForUserMock.mockResolvedValue({ id: RESERVATION_ID, spot_id: "spot-1" });
+    findSpotBusinessIdBySpotIdMock.mockResolvedValue("other-business");
+
+    const result = await createOrder(baseInput({ linkedReservationId: RESERVATION_ID }));
+
+    expect(result.ok).toBe(true);
+    expect(createOnlineOrderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ linked_reservation_id: null }),
+    );
+  });
+});
+
+describe("getLinkedOrdersForReservation", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("予約に紐づく注文一覧を返す", async () => {
+    findOrdersByLinkedReservationIdAdminMock.mockResolvedValue([SAMPLE_ORDER]);
+
+    const result = await getLinkedOrdersForReservation("res-1");
+
+    expect(result).toEqual([SAMPLE_ORDER]);
+  });
+
+  it("取得に失敗した場合は空配列を返す", async () => {
+    findOrdersByLinkedReservationIdAdminMock.mockRejectedValue(new Error("db error"));
+
+    const result = await getLinkedOrdersForReservation("res-1");
+
+    expect(result).toEqual([]);
   });
 });

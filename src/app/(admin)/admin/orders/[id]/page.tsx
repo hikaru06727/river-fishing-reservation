@@ -4,6 +4,7 @@ import { AdminAdvanceOrderStatusButton } from "@/components/admin/orders/AdminAd
 import { AdminConfirmOrderPickupButton } from "@/components/admin/orders/AdminConfirmOrderPickupButton";
 import { OrderStatusBadge } from "@/components/admin/orders/OrderStatusBadge";
 import { Card } from "@/components/ui/Card";
+import { RefundButton } from "@/components/refund/RefundButton";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { canCurrentUserManageOnlineOrder } from "@/lib/auth/management-access";
 import { hasPermission } from "@/lib/permissions";
@@ -52,6 +53,8 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const nextStatus = getNextOnlineOrderStatus(order.status, order.fulfillment_type);
   const isAwaitingPickupConfirmation =
     order.payment_method === "in_person" && order.payment_status !== "paid";
+  const canRefund =
+    order.payment_status === "paid" && hasPermission(session.profile.role, "REFUND_MANAGE");
 
   return (
     <div className="space-y-6">
@@ -98,6 +101,19 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
               <dt className="text-muted">合計金額（税込）</dt>
               <dd className="font-semibold">{formatYen(order.total_amount)}</dd>
             </div>
+            {order.linked_reservation_id && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted">紐づく予約</dt>
+                <dd>
+                  <Link
+                    href={`/admin/reservations/${order.linked_reservation_id}`}
+                    className="text-primary hover:underline"
+                  >
+                    予約詳細を見る
+                  </Link>
+                </dd>
+              </div>
+            )}
           </dl>
         </Card>
 
@@ -169,6 +185,23 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
           </table>
         </div>
       </Card>
+
+      {canRefund && (
+        <Card>
+          <h3 className="font-semibold text-foreground">返金</h3>
+          <div className="mt-3">
+            <RefundButton
+              businessId={order.business_id}
+              target={{
+                type: "onlineOrder",
+                id: order.id,
+                stripePaymentIntentId: order.stripe_payment_intent_id,
+              }}
+              maxAmount={order.total_amount}
+            />
+          </div>
+        </Card>
+      )}
 
       {canManageStatus && (isAwaitingPickupConfirmation || nextStatus) && (
         <Card>

@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
+import { getUser } from "@/lib/auth/get-user";
 import { isAdminRole, isStaffRole } from "@/lib/auth/role";
 import { hasPermission } from "@/lib/permissions";
 import {
@@ -11,8 +12,10 @@ import { toPickupDateTime } from "@/lib/online-orders/pickup-schedule";
 import {
   findActiveBusinessBySlug,
   findAssignedBusinessIdsByUserId,
+  findSpotBusinessIdBySpotId,
 } from "@/lib/repositories/businesses.repository";
 import { decrementProductStockAdmin, findProductsByIds } from "@/lib/repositories/products.repository";
+import { findReservationByIdForUser } from "@/lib/repositories/reservations.repository";
 import {
   createOnlineOrder,
   createOnlineOrderItems,
@@ -22,9 +25,11 @@ import {
   findOnlineOrderByStripeSessionId,
   findOnlineOrderItemsByOrderId,
   findOnlineOrdersByBusiness,
+  findOrdersByLinkedReservationIdAdmin,
   findOrdersByPickupDate,
   updateOnlineOrderPaymentStatus,
   updateOnlineOrderStatus,
+  updateOnlineOrderStripePaymentIntent,
   updateOnlineOrderStripeSession,
   type OnlineOrderFilters,
 } from "@/lib/repositories/online-order.repository";
@@ -96,6 +101,34 @@ async function decrementStockForOrderItems(items: OnlineOrderItemRow[]): Promise
 
 function appUrl(): string {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+}
+
+/**
+ * 予約後の追加購入（Phase 19E）のリンク検証。ログイン中の本人の予約かつ
+ * 同一事業であることを確認できた場合のみリンクを成立させる。検証に失敗しても
+ * 注文作成自体は妨げない（リンクなしの通常注文として処理する）。
+ */
+async function resolveValidatedLinkedReservationId(
+  linkedReservationId: string | undefined,
+  businessId: string,
+): Promise<string | null> {
+  if (!linkedReservationId) return null;
+
+  try {
+    const user = await getUser();
+    if (!user) return null;
+
+    const reservation = await findReservationByIdForUser(linkedReservationId, user.id);
+    if (!reservation) return null;
+
+    const spotBusinessId = await findSpotBusinessIdBySpotId(reservation.spot_id);
+    if (spotBusinessId !== businessId) return null;
+
+    return reservation.id;
+  } catch (e) {
+    console.error("[createOrder] linkedReservationId validation failed:", e);
+    return null;
+  }
 }
 
 /**
@@ -187,6 +220,11 @@ export async function createOrder(
   // （配送=Stripe決済のみ、店舗受け取り=現地決済のみ）。
   const paymentMethod = input.fulfillmentType === "shipping" ? "stripe" : "in_person";
 
+  const linkedReservationId = await resolveValidatedLinkedReservationId(
+    input.linkedReservationId,
+    input.businessId,
+  );
+
   let order: OnlineOrderRow;
   try {
     order = await createOnlineOrder({
@@ -204,6 +242,7 @@ export async function createOrder(
       shipping_address_line1: input.shippingAddress?.addressLine1 ?? null,
       shipping_address_line2: input.shippingAddress?.addressLine2 ?? null,
       pickup_date: pickupDateIso,
+      linked_reservation_id: linkedReservationId,
     });
   } catch (e) {
     console.error("[createOrder] order insert failed:", e);
@@ -292,6 +331,7 @@ export async function createStripeCheckoutSessionForOrder(
     metadata: {
       orderId: order.id,
       businessId: order.business_id,
+      ...(order.linked_reservation_id ? { linkedReservationId: order.linked_reservation_id } : {}),
     },
     success_url: `${appUrl()}/shop/${slug}/order-complete?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${appUrl()}/shop/${slug}/checkout`,
@@ -336,6 +376,18 @@ export async function handleOnlineOrderCheckoutCompleted(
   await updateOnlineOrderPaymentStatus(order.id, "paid");
   await updateOnlineOrderStatus(order.id, "preparing");
 
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent?.id ?? null);
+  if (paymentIntentId) {
+    try {
+      await updateOnlineOrderStripePaymentIntent(order.id, paymentIntentId);
+    } catch (e) {
+      console.error("[online-order webhook] payment_intent record failed:", e);
+    }
+  }
+
   try {
     await recordPaymentLedgerAdmin({
       business_id: order.business_id,
@@ -348,6 +400,21 @@ export async function handleOnlineOrderCheckoutCompleted(
     });
   } catch (e) {
     console.error("[online-order webhook] payment_ledger record failed:", e);
+  }
+}
+
+/**
+ * 予約に紐づく追加購入注文の一覧（Phase 19E）。呼び出し元（予約詳細ページ）で
+ * 予約への閲覧権限を確認済みであることを前提とする。
+ */
+export async function getLinkedOrdersForReservation(
+  reservationId: string,
+): Promise<OnlineOrderRow[]> {
+  try {
+    return await findOrdersByLinkedReservationIdAdmin(reservationId);
+  } catch (e) {
+    console.error("[getLinkedOrdersForReservation]", e);
+    return [];
   }
 }
 

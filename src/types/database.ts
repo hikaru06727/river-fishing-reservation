@@ -14,6 +14,7 @@ import type {
   ProductSaleStatus,
   ProductStatus,
   RegisterClosingStatus,
+  ReservationAddonItemStatus,
   ReservationStatus,
   SaleRefundPaymentMethod,
   SaleRefundStatus,
@@ -43,6 +44,7 @@ export type {
   ProductSaleStatus,
   ProductStatus,
   RegisterClosingStatus,
+  ReservationAddonItemStatus,
   ReservationStatus,
   SaleRefundPaymentMethod,
   SaleRefundStatus,
@@ -59,6 +61,7 @@ export interface Database {
           email: string;
           full_name: string | null;
           role: UserRole;
+          is_system: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -67,6 +70,7 @@ export interface Database {
           email: string;
           full_name?: string | null;
           role?: UserRole;
+          is_system?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -75,6 +79,7 @@ export interface Database {
           email?: string;
           full_name?: string | null;
           role?: UserRole;
+          is_system?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -1088,6 +1093,7 @@ export interface Database {
           reservation_id: string | null;
           stripe_refund_id: string | null;
           stripe_payment_intent_id: string | null;
+          online_order_id: string | null;
           amount: number;
           payment_method: SaleRefundPaymentMethod;
           reason: string | null;
@@ -1104,6 +1110,7 @@ export interface Database {
           reservation_id?: string | null;
           stripe_refund_id?: string | null;
           stripe_payment_intent_id?: string | null;
+          online_order_id?: string | null;
           amount: number;
           payment_method: SaleRefundPaymentMethod;
           reason?: string | null;
@@ -1120,6 +1127,7 @@ export interface Database {
           reservation_id?: string | null;
           stripe_refund_id?: string | null;
           stripe_payment_intent_id?: string | null;
+          online_order_id?: string | null;
           amount?: number;
           payment_method?: SaleRefundPaymentMethod;
           reason?: string | null;
@@ -1231,6 +1239,8 @@ export interface Database {
           confirmation_code: string | null;
           shipped_at: string | null;
           delivered_at: string | null;
+          linked_reservation_id: string | null;
+          stripe_payment_intent_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1258,6 +1268,8 @@ export interface Database {
           confirmation_code?: string | null;
           shipped_at?: string | null;
           delivered_at?: string | null;
+          linked_reservation_id?: string | null;
+          stripe_payment_intent_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1285,6 +1297,8 @@ export interface Database {
           confirmation_code?: string | null;
           shipped_at?: string | null;
           delivered_at?: string | null;
+          linked_reservation_id?: string | null;
+          stripe_payment_intent_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1320,6 +1334,48 @@ export interface Database {
           tax_rate?: number;
           quantity?: number;
           created_at?: string;
+        };
+        Relationships: [];
+      };
+      reservation_addon_items: {
+        Row: {
+          id: string;
+          reservation_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          status: ReservationAddonItemStatus;
+          stock_decremented_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          reservation_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          status?: ReservationAddonItemStatus;
+          stock_decremented_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          reservation_id?: string;
+          product_id?: string;
+          product_name?: string;
+          unit_price?: number;
+          tax_rate?: number;
+          quantity?: number;
+          status?: ReservationAddonItemStatus;
+          stock_decremented_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
         Relationships: [];
       };
@@ -1423,3 +1479,4 @@ export type SaleRefundRow = Database["public"]["Tables"]["sale_refunds"]["Row"];
 export type PaymentLedgerRow = Database["public"]["Tables"]["payment_ledger"]["Row"];
 export type OnlineOrderRow = Database["public"]["Tables"]["online_orders"]["Row"];
 export type OnlineOrderItemRow = Database["public"]["Tables"]["online_order_items"]["Row"];
+export type ReservationAddonItemRow = Database["public"]["Tables"]["reservation_addon_items"]["Row"];

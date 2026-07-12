@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { CancelReservationButton } from "@/components/reservation/CancelReservationButton";
+import { LinkedOrdersCard } from "@/components/reservation/LinkedOrdersCard";
 import { ProceedToCheckoutButton } from "@/components/reservation/ProceedToCheckoutButton";
 import {
   buildReservationPaymentInfo,
@@ -9,12 +10,14 @@ import {
 import { Card } from "@/components/ui/Card";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
 import { getUser } from "@/lib/auth/get-user";
+import { findBusinessSlugById } from "@/lib/repositories/businesses.repository";
 import {
   canCancelReservation,
 } from "@/lib/reservations/get-my-reservations";
 import { getReservationById } from "@/lib/reservations/get-reservation";
 import { shouldProceedToStripeCheckout } from "@/lib/reservations/payment-method";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
+import { getLinkedOrdersForReservation } from "@/lib/services/online-order.service";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
 import { formatDuration } from "@/lib/utils/plan";
 
@@ -55,6 +58,14 @@ export default async function ReservationDetailPage({
   const showCheckout =
     reservation.status === "pending" &&
     shouldProceedToStripeCheckout(paymentInfo.paymentMethod);
+
+  const [shopSlug, linkedOrders] = await Promise.all([
+    reservation.locations?.business_id
+      ? findBusinessSlugById(reservation.locations.business_id).catch(() => null)
+      : Promise.resolve(null),
+    getLinkedOrdersForReservation(reservation.id),
+  ]);
+  const showAddPurchase = !!shopSlug && reservation.status !== "cancelled";
 
   return (
     <div className="space-y-6">
@@ -130,6 +141,17 @@ export default async function ReservationDetailPage({
           </div>
         )}
 
+        {showAddPurchase && (
+          <div className="mt-6 border-t border-border pt-4">
+            <Link
+              href={`/shop/${shopSlug}/products?linkedReservationId=${reservation.id}&linkedReservationDate=${reservation.reservation_date}`}
+              className="inline-flex min-h-11 items-center justify-center rounded-lg border border-primary px-4 text-sm font-medium text-primary hover:bg-primary/5"
+            >
+              追加で商品を購入する
+            </Link>
+          </div>
+        )}
+
         {cancelPolicy.allowed ? (
           <div className="mt-6 border-t border-border pt-4">
             <CancelReservationButton reservationId={reservation.id} />
@@ -142,6 +164,8 @@ export default async function ReservationDetailPage({
           )
         )}
       </Card>
+
+      <LinkedOrdersCard orders={linkedOrders} />
 
       {reservation.locations?.slug && (
         <Link

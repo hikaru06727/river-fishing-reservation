@@ -1,15 +1,20 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCart } from "@/contexts/CartContext";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { formatYen } from "@/lib/utils/format";
 import {
+  clearLinkedReservation,
+  readLinkedReservation,
+} from "@/lib/online-orders/linked-reservation-storage";
+import {
   computePickupDeadline,
   formatPickupDeadlineDateJst,
   getPickupDateRange,
+  isPickupDateWithinWindow,
   PICKUP_TIME_SLOTS,
   toPickupDateTime,
 } from "@/lib/online-orders/pickup-schedule";
@@ -30,6 +35,21 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
   const [pickupTime, setPickupTime] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [linkedReservationId, setLinkedReservationId] = useState<string | null>(null);
+
+  useEffect(() => {
+    const linked = readLinkedReservation(slug);
+    if (!linked) return;
+    setLinkedReservationId(linked.id);
+    if (linked.date && isPickupDateWithinWindow(linked.date)) {
+      setPickupDate(linked.date);
+    }
+  }, [slug]);
+
+  function handleUnlink() {
+    clearLinkedReservation(slug);
+    setLinkedReservationId(null);
+  }
 
   const pickupDateRange = useMemo(() => getPickupDateRange(), []);
   const pickupDeadlineLabel = useMemo(() => {
@@ -83,6 +103,7 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
           : undefined,
       pickupDate: fulfillmentType === "pickup" ? pickupDate : undefined,
       pickupTime: fulfillmentType === "pickup" ? pickupTime : undefined,
+      linkedReservationId: linkedReservationId ?? undefined,
     });
 
     if (!result.ok) {
@@ -91,11 +112,27 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
       return;
     }
 
+    if (linkedReservationId) {
+      clearLinkedReservation(slug);
+    }
+
     window.location.href = result.redirectUrl;
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {linkedReservationId && (
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+          <p className="text-foreground">この注文は予約に関連付けられます。</p>
+          <button
+            type="button"
+            onClick={handleUnlink}
+            className="shrink-0 text-xs font-medium text-muted hover:text-foreground hover:underline"
+          >
+            解除する
+          </button>
+        </div>
+      )}
       <Card>
         <h2 className="text-base font-semibold text-foreground">ご注文内容</h2>
         <ul className="mt-3 divide-y divide-border">

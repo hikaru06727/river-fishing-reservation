@@ -12,8 +12,10 @@ import {
   findOnlineOrderBusinessId,
   findOnlineOrderByIdForAdmin,
   findOnlineOrdersByBusiness,
+  findOrdersByLinkedReservationIdAdmin,
   findOrdersByPickupDate,
   updateOnlineOrderStatus,
+  updateOnlineOrderStripePaymentIntent,
 } from "./online-order.repository";
 
 const SAMPLE_ORDER = {
@@ -137,6 +139,116 @@ describe("createOnlineOrder", () => {
     const insertArg = insert.mock.calls[0][0];
     expect(insertArg.pickup_date).toBe("2025-08-02T01:00:00.000Z");
     expect(insertArg.pickup_deadline).toBe("2025-08-05T01:00:00.000Z");
+  });
+
+  it("linked_reservation_id指定時はそのままinsertする（Phase 19E）", async () => {
+    const single = vi.fn().mockResolvedValue({ data: SAMPLE_ORDER, error: null });
+    const select = vi.fn().mockReturnValue({ single });
+    const insert = vi.fn().mockReturnValue({ select });
+    const from = vi.fn().mockReturnValue({ insert });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await createOnlineOrder({
+      business_id: "biz-1",
+      fulfillment_type: "pickup",
+      payment_method: "in_person",
+      subtotal_amount: 2000,
+      tax_amount: 200,
+      total_amount: 2200,
+      customer_name: "山田太郎",
+      customer_email: "taro@example.com",
+      linked_reservation_id: "reservation-1",
+    });
+
+    const insertArg = insert.mock.calls[0][0];
+    expect(insertArg.linked_reservation_id).toBe("reservation-1");
+  });
+
+  it("linked_reservation_id未指定時はnullでinsertする", async () => {
+    const single = vi.fn().mockResolvedValue({ data: SAMPLE_ORDER, error: null });
+    const select = vi.fn().mockReturnValue({ single });
+    const insert = vi.fn().mockReturnValue({ select });
+    const from = vi.fn().mockReturnValue({ insert });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await createOnlineOrder({
+      business_id: "biz-1",
+      fulfillment_type: "pickup",
+      payment_method: "in_person",
+      subtotal_amount: 2000,
+      tax_amount: 200,
+      total_amount: 2200,
+      customer_name: "山田太郎",
+      customer_email: "taro@example.com",
+    });
+
+    const insertArg = insert.mock.calls[0][0];
+    expect(insertArg.linked_reservation_id).toBeNull();
+  });
+});
+
+describe("findOrdersByLinkedReservationIdAdmin", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("紐づく予約IDで絞り込んだ注文一覧を新しい順で返す（Phase 19E）", async () => {
+    const orders = [{ id: "order-1" }, { id: "order-2" }];
+    const order = vi.fn().mockResolvedValue({ data: orders, error: null });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    const result = await findOrdersByLinkedReservationIdAdmin("reservation-1");
+
+    expect(result).toEqual(orders);
+    expect(from).toHaveBeenCalledWith("online_orders");
+    expect(eq).toHaveBeenCalledWith("linked_reservation_id", "reservation-1");
+    expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
+  });
+
+  it("DBエラー時は例外をスロー", async () => {
+    const order = vi.fn().mockResolvedValue({ data: null, error: { message: "DB error" } });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await expect(findOrdersByLinkedReservationIdAdmin("reservation-1")).rejects.toThrow(
+      "DB error",
+    );
+  });
+});
+
+describe("updateOnlineOrderStripePaymentIntent", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("payment_intent_id を更新する（Phase 19E）", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: null });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await updateOnlineOrderStripePaymentIntent("order-1", "pi_123");
+
+    expect(update).toHaveBeenCalledWith({ stripe_payment_intent_id: "pi_123" });
+    expect(eq).toHaveBeenCalledWith("id", "order-1");
+  });
+
+  it("DBエラー時は例外をスロー", async () => {
+    const eq = vi.fn().mockResolvedValue({ error: { message: "DB error" } });
+    const update = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ update });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await expect(updateOnlineOrderStripePaymentIntent("order-1", "pi_123")).rejects.toThrow(
+      "DB error",
+    );
   });
 });
 

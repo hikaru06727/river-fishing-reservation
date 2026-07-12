@@ -30,6 +30,7 @@ export const createOnlineOrderSchema = z
       .regex(/^\d{4}-\d{2}-\d{2}$/, "受け取り希望日の形式が正しくありません")
       .optional(),
     pickupTime: z.string().optional(),
+    linkedReservationId: z.string().uuid().optional(),
   })
   .refine((data) => data.fulfillmentType !== "shipping" || data.shippingAddress !== undefined, {
     message: "配送先住所を入力してください",

@@ -27,6 +27,8 @@ export type InsertOnlineOrderInput = {
   notes?: string | null;
   /** 店舗受け取りの希望日時（ISO文字列）。指定時は pickup_deadline（+3日）を自動算出する */
   pickup_date?: string | null;
+  /** 予約後の追加購入の場合に紐づく予約ID（Phase 19E） */
+  linked_reservation_id?: string | null;
 };
 
 function generateConfirmationCode(): string {
@@ -74,6 +76,7 @@ export async function createOnlineOrder(input: InsertOnlineOrderInput): Promise<
       pickup_date: input.pickup_date ?? null,
       pickup_deadline: pickupDeadline,
       confirmation_code: generateConfirmationCode(),
+      linked_reservation_id: input.linked_reservation_id ?? null,
     })
     .select()
     .single();
@@ -171,6 +174,21 @@ export async function updateOnlineOrderStatus(
   }
 
   const { error } = await admin.from("online_orders").update(update).eq("id", id);
+
+  if (error) throw new Error(error.message);
+}
+
+/** Stripe Webhook（checkout.session.completed）確定時に payment_intent_id を保存する（カード返金用） */
+export async function updateOnlineOrderStripePaymentIntent(
+  id: string,
+  stripePaymentIntentId: string,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("online_orders")
+    .update({ stripe_payment_intent_id: stripePaymentIntentId })
+    .eq("id", id);
 
   if (error) throw new Error(error.message);
 }
@@ -296,6 +314,27 @@ export async function findExpiredPickupOrders(): Promise<OnlineOrderRow[]> {
     .select("*")
     .lt("pickup_deadline", new Date().toISOString())
     .in("status", ["paid", "preparing", "ready"]);
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OnlineOrderRow[];
+}
+
+/**
+ * 予約に紐づく追加購入注文の一覧（Phase 19E）。予約詳細ページ（顧客・管理画面
+ * どちらも）から呼ぶため、呼び出し元で予約への閲覧権限を確認済みであることを前提に
+ * service_role で取得する（online_orders の RLS は staff/business_admin/admin のみ
+ * カバーしており、予約の所有者である一般顧客はこの経路では読めないため）。
+ */
+export async function findOrdersByLinkedReservationIdAdmin(
+  reservationId: string,
+): Promise<OnlineOrderRow[]> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("online_orders")
+    .select("*")
+    .eq("linked_reservation_id", reservationId)
+    .order("created_at", { ascending: false });
 
   if (error) throw new Error(error.message);
   return (data ?? []) as OnlineOrderRow[];

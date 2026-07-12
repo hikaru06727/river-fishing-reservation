@@ -32,6 +32,7 @@ export async function submitOrderAction(input: unknown): Promise<SubmitOrderResu
     shippingAddress: data.shippingAddress,
     pickupDate: data.pickupDate,
     pickupTime: data.pickupTime,
+    linkedReservationId: data.linkedReservationId,
   });
 
   if (!result.ok) {

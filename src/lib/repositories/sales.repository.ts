@@ -95,14 +95,15 @@ function mapSalesReservationRow(
 
 /**
  * 期間内の POS 販売合計（税込み）を取得
- * payment_ledger の source_type='pos' エントリを集計し、RLS でアクセス制御する
+ * payment_ledger の source_type='pos'（店頭POS販売）と 'reservation_addon'（予約時の追加商品購入）
+ * エントリを集計し、RLS でアクセス制御する
  */
 export async function findProductSalesTotalYen(range: SalesDateRange): Promise<number> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("payment_ledger")
     .select("amount")
-    .eq("source_type", "pos")
+    .in("source_type", ["pos", "reservation_addon"])
     .eq("status", "succeeded")
     .gte("paid_at", range.dateFrom + "T00:00:00+09:00")
     .lte("paid_at", range.dateTo + "T23:59:59+09:00");
@@ -129,6 +130,7 @@ export async function findOnlineOrderSalesTotalYen(range: SalesDateRange): Promi
     .from("online_orders")
     .select("total_amount")
     .eq("fulfillment_type", "shipping")
+    .neq("payment_status", "refunded")
     .gte("shipped_at", dateFromIso)
     .lte("shipped_at", dateToIso);
 
@@ -140,6 +142,7 @@ export async function findOnlineOrderSalesTotalYen(range: SalesDateRange): Promi
     .from("online_orders")
     .select("total_amount")
     .eq("fulfillment_type", "pickup")
+    .neq("payment_status", "refunded")
     .gte("delivered_at", dateFromIso)
     .lte("delivered_at", dateToIso);
 

@@ -1,5 +1,7 @@
+import { Suspense } from "react";
 import { CartProvider } from "@/contexts/CartContext";
 import { CartHeaderBar } from "@/components/shop/CartHeaderBar";
+import { LinkedReservationCapture } from "@/components/shop/LinkedReservationCapture";
 
 interface ShopLayoutProps {
   params: Promise<{ slug: string }>;
@@ -11,6 +13,9 @@ export default async function ShopLayout({ params, children }: ShopLayoutProps) 
 
   return (
     <CartProvider slug={slug}>
+      <Suspense fallback={null}>
+        <LinkedReservationCapture slug={slug} />
+      </Suspense>
       <CartHeaderBar slug={slug} />
       {children}
     </CartProvider>
