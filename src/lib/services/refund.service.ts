@@ -331,6 +331,15 @@ export async function refundCard(
   }
 }
 
+/**
+ * 表示用: online_order の返金済み合計額を取得する（Phase 19E）。
+ * payment_status は全額返金時のみ 'refunded' に遷移するため、部分返金は
+ * この合計額を都度計算することでのみ検知できる（sale_refunds が唯一の情報源）。
+ */
+export async function getRefundedAmountForOnlineOrder(onlineOrderId: string): Promise<number> {
+  return findTotalRefundedAmount({ onlineOrderId }).catch(() => 0);
+}
+
 /** 返金一覧取得 */
 export async function listRefunds(
   profile: OperatorProfile,

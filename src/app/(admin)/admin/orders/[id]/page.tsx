@@ -17,6 +17,7 @@ import {
   getNextOnlineOrderStatus,
   getOnlineOrderDetailForAdmin,
 } from "@/lib/services/online-order.service";
+import { getRefundedAmountForOnlineOrder } from "@/lib/services/refund.service";
 import { formatDateTime, formatYen } from "@/lib/utils/format";
 
 export const dynamic = "force-dynamic";
@@ -55,6 +56,9 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
     order.payment_method === "in_person" && order.payment_status !== "paid";
   const canRefund =
     order.payment_status === "paid" && hasPermission(session.profile.role, "REFUND_MANAGE");
+  const refundedAmount =
+    order.payment_status === "paid" ? await getRefundedAmountForOnlineOrder(order.id) : 0;
+  const isPartiallyRefunded = order.payment_status === "paid" && refundedAmount > 0;
 
   return (
     <div className="space-y-6">
@@ -87,7 +91,14 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">支払い状況</dt>
-              <dd>{ONLINE_ORDER_PAYMENT_STATUS_LABEL[order.payment_status]}</dd>
+              <dd>
+                {ONLINE_ORDER_PAYMENT_STATUS_LABEL[order.payment_status]}
+                {isPartiallyRefunded && (
+                  <span className="ml-1.5 text-xs text-amber-700">
+                    （一部返金済み：{formatYen(refundedAmount)}返金）
+                  </span>
+                )}
+              </dd>
             </div>
             <div className="flex justify-between gap-4">
               <dt className="text-muted">小計（税抜）</dt>

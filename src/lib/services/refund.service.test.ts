@@ -4,6 +4,7 @@ import {
   refundCash,
   refundCard,
   listRefunds,
+  getRefundedAmountForOnlineOrder,
 } from "@/lib/services/refund.service";
 
 const {
@@ -821,5 +822,24 @@ describe("refundCash / refundCard — onlineOrderId ターゲット", () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.status).toBe(422);
     expect(stripeRefundsCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getRefundedAmountForOnlineOrder", () => {
+  it("返金済み合計額を返す（部分返金の判定に使用）", async () => {
+    findTotalRefundedAmountMock.mockResolvedValue(1000);
+
+    const result = await getRefundedAmountForOnlineOrder("order-1");
+
+    expect(result).toBe(1000);
+    expect(findTotalRefundedAmountMock).toHaveBeenCalledWith({ onlineOrderId: "order-1" });
+  });
+
+  it("取得に失敗した場合は0を返す", async () => {
+    findTotalRefundedAmountMock.mockRejectedValue(new Error("db error"));
+
+    const result = await getRefundedAmountForOnlineOrder("order-1");
+
+    expect(result).toBe(0);
   });
 });
