@@ -191,23 +191,6 @@ export async function getOnlineOrderById(orderId: string): Promise<OnlineOrderRo
   return data;
 }
 
-/**
- * テスト専用: 現地決済注文を「受け取り確認済み（payment_status='paid'）」に直接更新する。
- * 本来は ORDER_STATUS_MANAGE 権限（business_admin）を持つ管理者が
- * AdminConfirmOrderPickupButton から行う操作だが、E2E 管理者フィクスチャが
- * staff ロールのため UI 経由では確認できない。返金フロー検証を UI 越しに
- * 行うための前提状態づくりとして DB を直接更新する。
- */
-export async function markOnlineOrderPaidForTest(orderId: string): Promise<void> {
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("online_orders")
-    .update({ payment_status: "paid", status: "preparing" })
-    .eq("id", orderId);
-
-  if (error) throw new Error(`[markOnlineOrderPaidForTest] ${error.message}`);
-}
-
 export async function getSaleRefundsByOnlineOrderId(orderId: string): Promise<SaleRefundRow[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase

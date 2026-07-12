@@ -7,7 +7,6 @@ import {
   getOnlineOrderById,
   getOnlineOrdersByLinkedReservationId,
   getSaleRefundsByOnlineOrderId,
-  markOnlineOrderPaidForTest,
 } from "./helpers/db";
 
 /**
@@ -140,13 +139,38 @@ test.describe.serial("予約後の追加購入フロー", () => {
       await expect(page.getByRole("heading", { name: "追加購入" })).toBeVisible();
     });
 
-    await test.step("管理画面で返金を行う", async () => {
-      // 受け取り確認（ORDER_STATUS_MANAGE = business_admin 限定）は E2E 管理者
-      // フィクスチャが staff ロールのため UI 経由では実行できない。返金フローの
-      // 検証に必要な前提状態（payment_status='paid'）は DB を直接更新して作る。
-      await markOnlineOrderPaidForTest(orderId);
+    await test.step("管理画面で受け取り確認を行う（UI経由）", async () => {
+      const order = await getOnlineOrderById(orderId);
+      expect(order.confirmation_code, "confirmation_code が発行されていない").not.toBeNull();
+
       await page.goto(`/admin/orders/${orderId}`);
 
+      const confirmButton = page.getByRole("button", { name: "受け取り確認" });
+      await expect(
+        confirmButton,
+        "受け取り確認ボタンが表示されない（ORDER_STATUS_MANAGE 権限・payment_status を確認）",
+      ).toBeVisible({ timeout: 15_000 });
+
+      // window.prompt() 2連続（確認コード→支払い方法）。page.once を2つ登録すると
+      // 連続発火時にレースするため、カウンタ付きの単一ハンドラで順序を保証する
+      let dialogCount = 0;
+      page.on("dialog", async (dialog) => {
+        dialogCount += 1;
+        await dialog.accept(dialogCount === 1 ? (order.confirmation_code ?? "") : "1");
+      });
+      await confirmButton.click();
+
+      await waitFor(
+        async () => {
+          const refreshed = await getOnlineOrderById(orderId);
+          return refreshed.payment_status === "paid" ? refreshed : null;
+        },
+        { description: "受け取り確認（UI経由）後に payment_status が paid になる" },
+      );
+      await page.reload();
+    });
+
+    await test.step("管理画面で返金を行う", async () => {
       await page.getByRole("button", { name: "返金する" }).click();
       await page.locator('textarea[name="reason"]').fill("E2E テスト返金");
       await page.getByRole("button", { name: "返金する", exact: true }).last().click();
