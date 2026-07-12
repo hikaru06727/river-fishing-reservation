@@ -15,7 +15,14 @@ export type ClosingCorrectionStatus = "pending" | "approved" | "rejected";
 export type SaleRefundStatus = "pending" | "completed" | "failed";
 export type SaleRefundPaymentMethod = "cash" | "card" | "other";
 
-export type PaymentLedgerSourceType = "pos" | "reservation" | "manual" | "online_order";
+export type PaymentLedgerSourceType =
+  | "pos"
+  | "reservation"
+  | "manual"
+  | "online_order"
+  | "reservation_addon";
+
+export type ReservationAddonItemStatus = "active" | "cancelled";
 export type PaymentLedgerPaymentMethod = "cash" | "card" | "other" | "qr";
 export type PaymentLedgerStatus =
   | "pending"

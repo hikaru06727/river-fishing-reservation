@@ -22,6 +22,7 @@ export type UnsettledSummary = {
     reservation: number;
     manual: number;
     online_order: number;
+    reservation_addon: number;
   };
   entries: UnsettledItem[];
 };
@@ -55,7 +56,13 @@ export async function checkUnsettledBeforeClose(
 ): Promise<UnsettledSummary> {
   const entries = await findUnsettledInPeriod(businessId, periodStartIso, periodEndIso);
 
-  const bySourceType = { pos: 0, reservation: 0, manual: 0, online_order: 0 };
+  const bySourceType = {
+    pos: 0,
+    reservation: 0,
+    manual: 0,
+    online_order: 0,
+    reservation_addon: 0,
+  };
   for (const entry of entries) {
     bySourceType[entry.source_type]++;
   }

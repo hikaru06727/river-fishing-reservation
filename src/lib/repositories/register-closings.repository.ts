@@ -303,6 +303,28 @@ export async function findClosingContainingReservationDate(
   return data as RegisterClosingRow | null;
 }
 
+/** service_role 版（予約キャンセルに伴う自動返金用。顧客自身のキャンセル操作から呼ぶ） */
+export async function findClosingContainingReservationDateAdmin(
+  businessId: string,
+  reservationDate: string,
+): Promise<RegisterClosingRow | null> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("register_closings")
+    .select("*")
+    .eq("business_id", businessId)
+    .lte("period_start", `${reservationDate}T23:59:59Z`)
+    .gte("period_end", `${reservationDate}T00:00:00Z`)
+    .in("status", ["closed", "correction_requested", "approved"])
+    .order("closed_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as RegisterClosingRow | null;
+}
+
 /** 締め後返金差分カラムを加算更新（service_role で RLS をバイパス） */
 export async function updatePostCloseRefund(params: {
   closingId: string;

@@ -33,6 +33,11 @@ const ENTRY_CONFIG: Record<
     href: () => "/admin/orders",
     linkLabel: "注文一覧へ",
   },
+  reservation_addon: {
+    label: (id) => `予約アドオン #${id.slice(0, 8)}`,
+    href: (id) => `/admin/reservations/${id}`,
+    linkLabel: "予約詳細へ",
+  },
 };
 
 function UnsettledEntryRow({ entry }: { entry: UnsettledEntryInfo }) {

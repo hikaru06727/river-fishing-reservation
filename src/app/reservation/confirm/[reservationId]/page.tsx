@@ -10,6 +10,7 @@ import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadg
 import { getUser } from "@/lib/auth/get-user";
 import { getReservationById } from "@/lib/reservations/get-reservation";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
+import { getActiveAddonAmountSummary, getActiveAddonItems } from "@/lib/services/reservation-addon.service";
 import { formatDate, formatTime, formatYen } from "@/lib/utils/format";
 import { formatDuration } from "@/lib/utils/plan";
 
@@ -37,6 +38,9 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
   const spotName = reservation.locations?.name ?? "—";
   const planDisplay = getReservationPlanDisplay(reservation);
   const paymentInfo = buildReservationPaymentInfo(reservation);
+  const addonItems = await getActiveAddonItems(reservation.id);
+  const addonSummary = await getActiveAddonAmountSummary(reservation.id);
+  const grandTotal = reservation.total_amount_yen + addonSummary.totalAmount;
   const isOnlinePending =
     paymentInfo.paymentMethod === "online" && reservation.status === "pending";
   const isCashConfirmed =
@@ -75,7 +79,7 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
         <Card className="border-amber-200 bg-amber-50">
           <h2 className="text-sm font-semibold text-amber-900">当日現金精算</h2>
           <p className="mt-2 text-sm text-amber-800">
-            合計 {formatYen(reservation.total_amount_yen)} を、利用当日の受付にて現金でお支払いください。
+            合計 {formatYen(grandTotal)} を、利用当日の受付にて現金でお支払いください。
             事前のカード決済は不要です。
           </p>
           <p className="mt-2 text-xs text-amber-700">
@@ -135,10 +139,29 @@ export default async function ReservationConfirmPage({ params }: ConfirmPageProp
             <dt className="shrink-0 text-muted">参加人数</dt>
             <dd className="text-right">{reservation.guest_count} 名</dd>
           </div>
+          {addonItems.length > 0 && (
+            <div className="border-t border-border pt-3">
+              <dt className="text-muted">追加商品</dt>
+              <dd className="mt-2 space-y-1">
+                {addonItems.map((item) => (
+                  <div key={item.id} className="flex justify-between gap-4">
+                    <span>
+                      {item.product_name} × {item.quantity}
+                    </span>
+                    <span>
+                      {formatYen(
+                        Math.floor(item.unit_price * (1 + item.tax_rate / 100)) * item.quantity,
+                      )}
+                    </span>
+                  </div>
+                ))}
+              </dd>
+            </div>
+          )}
           <div className="flex justify-between gap-4 border-t border-border pt-3">
             <dt className="shrink-0 text-muted">合計金額</dt>
             <dd className="text-right text-lg font-bold text-primary">
-              {formatYen(reservation.total_amount_yen)}
+              {formatYen(grandTotal)}
             </dd>
           </div>
           <div className="flex justify-between gap-4">

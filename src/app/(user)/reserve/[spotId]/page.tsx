@@ -4,6 +4,7 @@ import { ReserveForm } from "@/components/reservation/ReserveForm";
 import { getUser } from "@/lib/auth/get-user";
 import { getPlanBySlugForSpot } from "@/lib/plans/get-plan-by-slug";
 import { getSpotById } from "@/lib/spots/get-spot-by-id";
+import { findPublishedProductsByBusinessId } from "@/lib/repositories/products.repository";
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
@@ -46,6 +47,10 @@ export default async function ReservePage({
     notFound();
   }
 
+  const addonProducts = spot.business_id
+    ? await findPublishedProductsByBusinessId(spot.business_id)
+    : [];
+
   return (
     <div className="mx-auto max-w-lg space-y-6">
       <header>
@@ -53,7 +58,7 @@ export default async function ReservePage({
         <p className="mt-1 text-sm text-muted">{spot.name}</p>
       </header>
 
-      <ReserveForm spot={spot} plan={plan} />
+      <ReserveForm spot={spot} plan={plan} addonProducts={addonProducts} />
     </div>
   );
 }

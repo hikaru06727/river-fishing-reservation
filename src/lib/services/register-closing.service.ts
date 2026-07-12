@@ -23,9 +23,15 @@ import type { Profile, RegisterClosingCorrectionRow, RegisterClosingRow } from "
 
 export type UnsettledBlockInfo = {
   total: number;
-  bySourceType: { pos: number; reservation: number; manual: number; online_order: number };
+  bySourceType: {
+    pos: number;
+    reservation: number;
+    manual: number;
+    online_order: number;
+    reservation_addon: number;
+  };
   entries: Array<{
-    source_type: "pos" | "reservation" | "manual" | "online_order";
+    source_type: "pos" | "reservation" | "manual" | "online_order" | "reservation_addon";
     source_id: string;
   }>;
 };

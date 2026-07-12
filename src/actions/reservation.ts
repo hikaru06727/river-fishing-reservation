@@ -20,6 +20,16 @@ export async function createReservationAction(
     redirect("/login?next=/my/reservations");
   }
 
+  const addonItemsRaw = formData.get("addonItemsJson");
+  let addonItems: unknown;
+  if (typeof addonItemsRaw === "string" && addonItemsRaw.length > 0) {
+    try {
+      addonItems = JSON.parse(addonItemsRaw);
+    } catch {
+      addonItems = undefined;
+    }
+  }
+
   const result = await createReservation(user.id, {
     spotId: formData.get("spotId"),
     planId: formData.get("planId"),
@@ -27,6 +37,7 @@ export async function createReservationAction(
     reservationDate: formData.get("reservationDate"),
     guestCount: formData.get("guestCount"),
     paymentMethod: formData.get("paymentMethod"),
+    addonItems,
   });
 
   if (!result.ok) {

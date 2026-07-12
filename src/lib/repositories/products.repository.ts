@@ -264,3 +264,30 @@ export async function decrementProductStockAdmin(
 
   if (error) throw new Error(error.message);
 }
+
+/**
+ * 予約キャンセルに伴う在庫復元（service_role）。decrementProductStockAdmin の逆操作。
+ * track_inventory=false または stock_quantity=null（無制限在庫）の商品は何もしない。
+ */
+export async function incrementProductStockAdmin(
+  productId: string,
+  quantity: number,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: product, error: fetchError } = await admin
+    .from("products")
+    .select("stock_quantity, track_inventory")
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!product || !product.track_inventory || product.stock_quantity === null) return;
+
+  const { error } = await admin
+    .from("products")
+    .update({ stock_quantity: product.stock_quantity + quantity })
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+}

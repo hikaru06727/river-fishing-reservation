@@ -4,6 +4,7 @@ import { useActionState, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { createReservationAction } from "@/actions/reservation";
 import { createReservationInitialState } from "@/types/reservation-action";
+import { AddonSelector, type AddonSelection } from "@/components/reservation/AddonSelector";
 import { PaymentMethodSelector } from "@/components/reservation/PaymentMethodSelector";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -12,6 +13,7 @@ import { AVAILABLE_SLOT_LOOKAHEAD_DAYS } from "@/lib/slots/availability-lookahea
 import { getUniqueSlotDates } from "@/lib/slots/group-slots-by-date";
 import { getAvailableDates } from "@/lib/utils/date";
 import type { PaymentMethod } from "@/lib/reservations/payment-method";
+import type { PublicProductRow } from "@/lib/repositories/products.repository";
 import type { SpotSummary } from "@/lib/spots/get-spot-by-id";
 import { formatDate, formatTime, formatYen, cn } from "@/lib/utils/format";
 import { formatDuration } from "@/lib/utils/plan";
@@ -20,9 +22,10 @@ import type { Plan } from "@/types/database";
 interface ReserveFormProps {
   spot: SpotSummary;
   plan: Plan;
+  addonProducts: PublicProductRow[];
 }
 
-export function ReserveForm({ spot, plan }: ReserveFormProps) {
+export function ReserveForm({ spot, plan, addonProducts }: ReserveFormProps) {
   const [state, formAction, pending] = useActionState(
     createReservationAction,
     createReservationInitialState,
@@ -32,6 +35,7 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [guestCount, setGuestCount] = useState(1);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [addonItems, setAddonItems] = useState<AddonSelection[]>([]);
 
   const { data, loading, error } = useAvailableSlotsWithPlan({
     spotId: spot.id,
@@ -69,7 +73,22 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
   const selectedSlot = slotsForDate.find((s) => s.id === selectedSlotId);
   // remaining_count は API が返す値のみ使用（再計算禁止）
   const maxGuests = selectedSlot?.remaining_count ?? 1;
-  const totalAmount = planInfo.price_yen * guestCount;
+  const planAmount = planInfo.price_yen * guestCount;
+
+  // 表示用の概算（税込・円未満切り捨て）。実際の請求額は Stripe Checkout / 現地精算時に確定する。
+  const addonAmount = useMemo(() => {
+    const productById = new Map(addonProducts.map((p) => [p.id, p]));
+    return addonItems.reduce((sum, item) => {
+      const product = productById.get(item.productId);
+      if (!product) return sum;
+      const unitPriceTaxIncluded = Math.floor(
+        product.price_excluding_tax * (1 + product.default_tax_rate / 100),
+      );
+      return sum + unitPriceTaxIncluded * item.quantity;
+    }, 0);
+  }, [addonProducts, addonItems]);
+
+  const totalAmount = planAmount + addonAmount;
 
   function handleDateChange(date: string) {
     setSelectedDate(date);
@@ -248,12 +267,33 @@ export function ReserveForm({ spot, plan }: ReserveFormProps) {
         )}
       </Card>
 
+      <AddonSelector
+        products={addonProducts}
+        disabled={pending || loading}
+        onChange={setAddonItems}
+      />
+      {addonItems.length > 0 && (
+        <input type="hidden" name="addonItemsJson" value={JSON.stringify(addonItems)} />
+      )}
+
       <Card className="bg-sky-50">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium text-muted">合計金額</span>
-          <span className="text-2xl font-bold text-primary">
-            {formatYen(totalAmount)}
-          </span>
+        <div className="space-y-1">
+          <div className="flex items-center justify-between text-sm text-muted">
+            <span>利用料金</span>
+            <span>{formatYen(planAmount)}</span>
+          </div>
+          {addonAmount > 0 && (
+            <div className="flex items-center justify-between text-sm text-muted">
+              <span>追加商品</span>
+              <span>{formatYen(addonAmount)}</span>
+            </div>
+          )}
+          <div className="flex items-center justify-between border-t border-border pt-1">
+            <span className="text-sm font-medium text-muted">合計金額</span>
+            <span className="text-2xl font-bold text-primary">
+              {formatYen(totalAmount)}
+            </span>
+          </div>
         </div>
       </Card>
 

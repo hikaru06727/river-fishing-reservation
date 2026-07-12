@@ -6,11 +6,13 @@ const {
   findExpiredReservationsPendingEmailMock,
   markExpiredEmailSentMock,
   sendReservationExpiredEmailMock,
+  cancelAddonItemsAndRestoreStockMock,
 } = vi.hoisted(() => ({
   expirePendingReservationsRpcMock: vi.fn(),
   findExpiredReservationsPendingEmailMock: vi.fn(),
   markExpiredEmailSentMock: vi.fn(),
   sendReservationExpiredEmailMock: vi.fn(),
+  cancelAddonItemsAndRestoreStockMock: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories/reservations.repository", () => ({
@@ -21,6 +23,10 @@ vi.mock("@/lib/repositories/reservations.repository", () => ({
 
 vi.mock("@/lib/email/reservation-expired-emails", () => ({
   sendReservationExpiredEmail: sendReservationExpiredEmailMock,
+}));
+
+vi.mock("@/lib/services/reservation-addon.service", () => ({
+  cancelAddonItemsAndRestoreStock: cancelAddonItemsAndRestoreStockMock,
 }));
 
 const onlineExpiredCandidate = {
@@ -43,6 +49,8 @@ describe("processExpirePendingReservations", () => {
     findExpiredReservationsPendingEmailMock.mockReset();
     markExpiredEmailSentMock.mockReset();
     sendReservationExpiredEmailMock.mockReset();
+    cancelAddonItemsAndRestoreStockMock.mockReset();
+    cancelAddonItemsAndRestoreStockMock.mockResolvedValue(undefined);
 
     expirePendingReservationsRpcMock.mockResolvedValue({
       expired_count: 1,

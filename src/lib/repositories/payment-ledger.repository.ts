@@ -35,6 +35,27 @@ export async function findBySource(
   return data as PaymentLedgerRow | null;
 }
 
+/**
+ * service_role での取得（顧客自身のキャンセル操作等、payment_ledger への
+ * RLS アクセス権を持たないコンテキストから呼ぶ）。
+ */
+export async function findBySourceAdmin(
+  sourceType: PaymentLedgerSourceType,
+  sourceId: string,
+): Promise<PaymentLedgerRow | null> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("payment_ledger")
+    .select("*")
+    .eq("source_type", sourceType)
+    .eq("source_id", sourceId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as PaymentLedgerRow | null;
+}
+
 /** 事業・期間で絞り込んだ支払い台帳エントリ一覧を取得 */
 export async function findByBusinessAndPeriod(
   businessId: string,
@@ -221,6 +242,31 @@ export async function updatePaymentLedgerStatus(
   if (paidAt !== undefined) patch.paid_at = paidAt;
 
   const { error } = await supabase
+    .from("payment_ledger")
+    .update(patch)
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * service_role での支払いステータス更新（顧客自身のキャンセル操作等、
+ * payment_ledger への RLS アクセス権を持たないコンテキストから呼ぶ）。
+ */
+export async function updatePaymentLedgerStatusAdmin(
+  id: string,
+  status: PaymentLedgerStatus,
+  paidAt?: string | null,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const patch: { status: PaymentLedgerStatus; paid_at?: string | null; updated_at: string } = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+  if (paidAt !== undefined) patch.paid_at = paidAt;
+
+  const { error } = await admin
     .from("payment_ledger")
     .update(patch)
     .eq("id", id);

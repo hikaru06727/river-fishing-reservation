@@ -6,7 +6,7 @@ export type SpotListItem = Pick<
   "id" | "name" | "slug" | "description" | "prefecture" | "image_url"
 >;
 
-export type SpotSummaryRow = Pick<Location, "id" | "name" | "slug">;
+export type SpotSummaryRow = Pick<Location, "id" | "name" | "slug" | "business_id">;
 
 export type SpotDetailRow = Pick<
   Location,
@@ -43,7 +43,7 @@ export async function findActiveSpotSummaryById(id: string): Promise<SpotSummary
 
   const { data, error } = await supabase
     .from("locations")
-    .select("id, name, slug")
+    .select("id, name, slug, business_id")
     .eq("id", id)
     .eq("is_active", true)
     .maybeSingle();

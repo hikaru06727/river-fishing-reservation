@@ -4,6 +4,7 @@ import {
   findExpiredReservationsPendingEmail,
   markExpiredEmailSent,
 } from "@/lib/repositories/reservations.repository";
+import { cancelAddonItemsAndRestoreStock } from "@/lib/services/reservation-addon.service";
 
 export type ExpirePendingReservationsResult = {
   expiredCount: number;
@@ -20,6 +21,18 @@ export type ExpirePendingReservationsResult = {
  */
 export async function processExpirePendingReservations(): Promise<ExpirePendingReservationsResult> {
   const expireResult = await expirePendingReservationsRpc();
+
+  // 期限切れになった予約のアドオンも一体で無効化する（在庫は Webhook 未到達のため
+  // 未引当のまま=復元不要。cancelAddonItemsAndRestoreStock はその場合何もしない）。
+  for (const reservationId of expireResult.reservation_ids) {
+    await cancelAddonItemsAndRestoreStock(reservationId).catch((err) => {
+      console.error(
+        "[processExpirePendingReservations] addon cancellation failed:",
+        reservationId,
+        err,
+      );
+    });
+  }
 
   const candidates = await findExpiredReservationsPendingEmail();
 

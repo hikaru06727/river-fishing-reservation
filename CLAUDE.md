@@ -102,3 +102,7 @@ Phase 13A：repository層・service層・管理画面UIの実装
 - 管理画面から手動売上を登録・一覧・編集・削除できるUI
 - 予約作成時に tax_rate_percent をスナップショット保存する処理
 - unified_sales_view（予約売上＋手動売上の統合VIEW）
+
+## 既知の技術的負債
+
+- `cancelReservation()`（`src/lib/services/reservations.service.ts`）のキャンセル時自動返金＋アドオン後処理（在庫復元・明細cancelled化・payment_ledger更新）は、Stripe返金APIを含む複数ステップにまたがるがDBトランザクションで結ばれておらず、返金成功後にアドオン後処理だけが丸ごと失敗すると在庫・帳簿の不整合が残り得る（検知手段はconsole.errorのログのみ、自動リトライ・管理画面アラート無し）。完全なアトミック性保証は未着手。

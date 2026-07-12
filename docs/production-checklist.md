@@ -28,6 +28,7 @@
 ### 本番で設定しない / 注意
 
 - [ ] `ADMIN_SECRET` — **本番では未設定推奨**（`/api/admin/set-role` 等は production では無効だが、念のため Secret に載せない）
+- [ ] `E2E_TEST_LOGIN_SECRET` / `E2E_TEST_LOGIN_ENABLED` — **本番では未設定・未設定(false)推奨**。`/api/test/login`（Playwright E2E専用、Magic Link を経由せずセッション発行）は production / Vercel では常に無効だが、念のため Secret に載せず `E2E_TEST_LOGIN_ENABLED` も設定しない
 - [ ] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — 現行実装では未使用（Stripe Checkout リダイレクト方式）
 
 ### 設定漏れしやすい項目
@@ -218,4 +219,5 @@
 □ admin / business_admin アカウント作成済み
 □ npm run build 成功
 □ テスト決済 1 件成功（本番 or テストモード）
+□ E2E_TEST_LOGIN_SECRET / E2E_TEST_LOGIN_ENABLED が本番環境変数に存在しないこと（/api/test/login 無効化確認）
 ```

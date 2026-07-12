@@ -124,7 +124,8 @@ export async function findBusinessAdminEmailsByBusinessId(
     .from("profiles")
     .select("email")
     .in("id", userIds)
-    .eq("role", "business_admin");
+    .eq("role", "business_admin")
+    .eq("is_system", false);
 
   if (profileError) {
     throw new Error(profileError.message);
@@ -137,3 +138,23 @@ export async function findBusinessAdminEmailsByBusinessId(
 
 /** @deprecated findProfileEmailByUserIdAdmin を使用 */
 export const findProfileEmailByUserId = findProfileEmailByUserIdAdmin;
+
+/**
+ * 自動返金の refunded_by に使う system プレースホルダー profile の id を取得する。
+ * scripts/setup-system-profile.mjs が環境ごとに1回作成する（is_system = true、高々1件）。
+ */
+export async function findSystemProfileId(): Promise<string | null> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("is_system", true)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data?.id ?? null;
+}

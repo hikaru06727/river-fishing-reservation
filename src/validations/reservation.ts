@@ -20,6 +20,17 @@ function isTodayOrFuture(dateStr: string): boolean {
   return target >= today;
 }
 
+export const addonSelectionSchema = z.object({
+  productId: z.string().uuid("商品IDが不正です"),
+  quantity: z.coerce
+    .number()
+    .int("数量は整数で入力してください")
+    .min(1, "数量は1以上で指定してください")
+    .max(99, "数量は99以下です"),
+});
+
+export type AddonSelectionInput = z.infer<typeof addonSelectionSchema>;
+
 export const createReservationSchema = z
   .object({
     spotId: z.string().uuid("釣り場IDが不正です"),
@@ -36,6 +47,7 @@ export const createReservationSchema = z
     paymentMethod: z.enum(["online", "cash_at_venue"], {
       error: "支払い方法を選択してください",
     }),
+    addonItems: z.array(addonSelectionSchema).max(20, "選択できる商品数を超えています").optional(),
   })
   .refine((data) => isTodayOrFuture(data.reservationDate), {
     message: "過去の日付は選択できません",
