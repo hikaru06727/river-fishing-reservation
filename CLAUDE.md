@@ -15,7 +15,7 @@ npm run test:e2e     # E2E tests (Playwright, Chrome only)
 npm run test:e2e:ui  # E2E tests with UI
 ```
 
-Run a single unit test file: `npx vitest run src/lib/services/reservation.test.ts`
+Run a single unit test file: `npx vitest run src/lib/services/reservations.service.test.ts`
 
 ## Architecture
 
@@ -45,7 +45,7 @@ The Repository layer exists specifically to allow future migration away from Sup
 - `src/lib/` — Business logic organized by domain: `auth/`, `business-hours/`, `email/`, `plans/`, `reservations/`, `repositories/`, `services/`, `slots/`, `spots/`, `stripe/`, `supabase/`
 - `src/components/` — React components grouped by domain
 - `src/validations/` — Zod schemas for all request boundaries
-- `supabase/migrations/` — 21 sequential SQL migration files (DDL, RPC functions, RLS policies)
+- `supabase/migrations/` — 63 sequential SQL migration files (DDL, RPC functions, RLS policies)
 - `docs/` — Operational docs: architecture, schema, env vars, Stripe/email setup
 
 ### Reservation Flow
@@ -59,9 +59,9 @@ Atomic PostgreSQL RPC functions handle slot capacity updates to prevent race con
 ### Authorization (Two Layers)
 
 1. **PostgreSQL RLS** — enforced at the database level for all queries
-2. **Middleware** (`middleware.ts`) + `lib/auth/management-access.ts` — route-level protection in the application
+2. **Middleware** (`src/middleware.ts`) + `src/lib/auth/management-access.ts` — route-level protection in the application
 
-Roles: `user`, `admin`, `business_admin`. Routes `/admin/*` and `/my/*` are middleware-protected.
+Roles: `user`, `admin`, `business_admin`, `staff`. Routes `/admin/*` and `/my/*` are middleware-protected.
 
 ### Path Alias
 
@@ -71,7 +71,7 @@ Roles: `user`, `admin`, `business_admin`. Routes `/admin/*` and `/my/*` are midd
 
 Copy `.env.example` to `.env.local`. Required services: Supabase, Stripe, Resend (email). See `docs/env-vars.md` for all variables and `docs/supabase-setup.md` / `docs/stripe-setup.md` for local setup.
 
-Stripe webhooks require `stripe listen --forward-to localhost:3000/api/stripe/webhook` running locally.
+Stripe webhooks require `stripe listen --forward-to localhost:3000/api/webhooks/stripe` running locally.
 
 ## 作業完了時のルール
 
