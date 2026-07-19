@@ -267,4 +267,149 @@ test.describe.serial("予約後の追加購入フロー", () => {
       expect(linked.map((o) => o.id)).toContain(orderId);
     });
   });
+
+  test("予約詳細 → 追加購入（店舗受け取り） → 部分返金 → 残額返金で refunded に遷移", async ({ page }) => {
+    const fixtures = getE2EFixtures();
+
+    let reservationId = "";
+    let shopSlug = "";
+
+    await test.step("現地決済で予約を作成する（アドオンなし）", async () => {
+      reservationId = await createCashReservation(page, fixtures);
+    });
+
+    await test.step("予約詳細ページの「追加で購入する」導線からショップへ遷移する", async () => {
+      await page.goto(`/my/reservations/${reservationId}`);
+      const addPurchaseLink = page.getByRole("link", { name: "追加で商品を購入する" });
+      await expect(addPurchaseLink).toBeVisible({ timeout: 10_000 });
+
+      const href = await addPurchaseLink.getAttribute("href");
+      shopSlug = href?.match(/\/shop\/([^/]+)\//)?.[1] ?? "";
+      expect(shopSlug, `shop slug が href から取得できません: ${href}`).not.toBe("");
+
+      await addPurchaseLink.click();
+      await page.waitForURL(new RegExp(`/shop/${shopSlug}/products`), { timeout: 15_000 });
+    });
+
+    let orderId = "";
+
+    await test.step("店舗受け取りで別会計の注文を作成する", async () => {
+      // ¥1のダミー商品だと部分返金の分割ができないため除外する
+      const productLink = page
+        .locator(`a[href^="/shop/${shopSlug}/products/"]`)
+        .filter({ hasNotText: "ダミー商品" })
+        .first();
+      await expect(
+        productLink,
+        "¥2以上の商品がない（部分返金を分割できる商品を用意してください）",
+      ).toBeVisible({ timeout: 10_000 });
+      await productLink.click();
+
+      await page.getByRole("button", { name: /カートに追加|在庫切れ/ }).click();
+      await page.getByRole("link", { name: "カート" }).click();
+      await page.waitForURL(new RegExp(`/shop/${shopSlug}/checkout`), { timeout: 10_000 });
+
+      await page.getByLabel("氏名").fill("E2E 部分返金太郎");
+      await page.getByLabel("メールアドレス").fill(fixtures.testUserEmail);
+
+      const pickupDateInput = page.locator("#pickupDate");
+      const currentValue = await pickupDateInput.inputValue();
+      expect(currentValue).not.toBe("");
+      await page.locator("#pickupTime").selectOption({ index: 1 });
+
+      await page.getByRole("button", { name: "注文を確定する" }).click();
+      await page.waitForURL(/order-complete/, { timeout: 15_000 });
+
+      const match = page.url().match(/order_id=([^&]+)/);
+      if (!match) throw new Error(`order_id が URL から取得できません: ${page.url()}`);
+      orderId = match[1]!;
+    });
+
+    let totalAmount = 0;
+    let partialAmount = 0;
+    let remainingAmount = 0;
+
+    await test.step("管理画面で受け取り確認を行う（現金・UI経由）", async () => {
+      const order = await waitFor(() => getOnlineOrderById(orderId), {
+        description: "追加購入注文が作成される",
+      });
+      expect(order.confirmation_code, "confirmation_code が発行されていない").not.toBeNull();
+      totalAmount = order.total_amount;
+      expect(totalAmount, "部分返金を検証するには合計金額が2円以上必要").toBeGreaterThan(1);
+      partialAmount = Math.floor(totalAmount / 2);
+      remainingAmount = totalAmount - partialAmount;
+
+      await loginAsAdmin(page, fixtures);
+      await page.goto(`/admin/orders/${orderId}`);
+
+      const confirmButton = page.getByRole("button", { name: "受け取り確認" });
+      await expect(confirmButton).toBeVisible({ timeout: 15_000 });
+
+      let dialogCount = 0;
+      page.on("dialog", async (dialog) => {
+        dialogCount += 1;
+        await dialog.accept(dialogCount === 1 ? (order.confirmation_code ?? "") : "1");
+      });
+      await confirmButton.click();
+
+      await waitFor(
+        async () => {
+          const refreshed = await getOnlineOrderById(orderId);
+          return refreshed.payment_status === "paid" ? refreshed : null;
+        },
+        { description: "受け取り確認（UI経由）後に payment_status が paid になる" },
+      );
+      await page.reload();
+    });
+
+    await test.step("注文合計の一部だけを返金する（設計案A: payment_status は paid のまま維持）", async () => {
+      await page.getByRole("button", { name: "返金する" }).click();
+      await page.locator('input[name="amount"]').fill(String(partialAmount));
+      await page.locator('textarea[name="reason"]').fill("E2E 部分返金テスト");
+      await page.getByRole("button", { name: "返金する", exact: true }).last().click();
+
+      await waitFor(
+        async () => {
+          const rows = await getSaleRefundsByOnlineOrderId(orderId);
+          return rows.some((r) => r.amount === partialAmount) ? rows : null;
+        },
+        { description: "sale_refunds に部分返金額のレコードが記録される" },
+      );
+
+      const order = await getOnlineOrderById(orderId);
+      expect(
+        order.payment_status,
+        "部分返金後も payment_status は paid のまま維持されるべき（設計案A）",
+      ).toBe("paid");
+
+      await page.reload();
+      const amountLabel = partialAmount.toLocaleString("ja-JP");
+      await expect(
+        page.getByText(new RegExp(`一部返金済み.*${amountLabel}`)),
+        "返金済み合計額が画面上に正しく表示されていない",
+      ).toBeVisible({ timeout: 10_000 });
+    });
+
+    await test.step("残額も返金し、payment_status が refunded に遷移する", async () => {
+      await page.getByRole("button", { name: "返金する" }).click();
+      await page.locator('input[name="amount"]').fill(String(remainingAmount));
+      await page.locator('textarea[name="reason"]').fill("E2E 残額返金テスト");
+      await page.getByRole("button", { name: "返金する", exact: true }).last().click();
+
+      await waitFor(
+        async () => {
+          const refreshed = await getOnlineOrderById(orderId);
+          return refreshed.payment_status === "refunded" ? refreshed : null;
+        },
+        { description: "残額返金後に payment_status が refunded になる" },
+      );
+
+      const refunds = await getSaleRefundsByOnlineOrderId(orderId);
+      expect(refunds.length, "返金レコードが部分返金分・残額返金分の2件になっていない").toBe(2);
+      expect(
+        refunds.reduce((sum, r) => sum + r.amount, 0),
+        "返金合計額が注文合計額と一致しない",
+      ).toBe(totalAmount);
+    });
+  });
 });
