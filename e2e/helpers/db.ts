@@ -202,6 +202,100 @@ export async function getSaleRefundsByOnlineOrderId(orderId: string): Promise<Sa
   return data ?? [];
 }
 
+/**
+ * Phase 20 E2E 用: メール受信を経由せずパスワード付きの確認済みユーザーを作成する。
+ * 呼び出し元でテスト終了時に必ず deleteTestUser() で後始末すること。
+ */
+export async function createConfirmedTestUser(email: string, password: string): Promise<string> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+  });
+
+  if (error || !data.user) {
+    throw new Error(`[createConfirmedTestUser] ${error?.message ?? "user is null"}`);
+  }
+  return data.user.id;
+}
+
+export async function deleteTestUser(userId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.auth.admin.deleteUser(userId);
+  if (error) throw new Error(`[deleteTestUser] ${error.message}`);
+}
+
+export async function getAuthUserEmailConfirmedAt(userId: string): Promise<string | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase.auth.admin.getUserById(userId);
+  if (error || !data.user) {
+    throw new Error(`[getAuthUserEmailConfirmedAt] ${error?.message ?? "user is null"}`);
+  }
+  return data.user.email_confirmed_at ?? null;
+}
+
+export type ProfileAddressRow = {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  postal_code: string | null;
+  prefecture: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+};
+
+export async function getProfileByEmail(email: string): Promise<ProfileAddressRow | null> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id, full_name, phone, postal_code, prefecture, address_line1, address_line2")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (error) throw new Error(`[getProfileByEmail] ${error.message}`);
+  return data;
+}
+
+export async function findBusinessIdForSpot(spotId: string): Promise<string> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("locations")
+    .select("business_id")
+    .eq("id", spotId)
+    .single();
+
+  if (error || !data.business_id) {
+    throw new Error(`[findBusinessIdForSpot] ${error?.message ?? "business_id is null"}`);
+  }
+  return data.business_id;
+}
+
+/** 「他人の注文」RLS 検証用に、任意の user_id で最小限の online_order 行を作成する（Phase 20）。 */
+export async function insertOnlineOrderForUser(userId: string, businessId: string): Promise<string> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("online_orders")
+    .insert({
+      business_id: businessId,
+      user_id: userId,
+      fulfillment_type: "pickup",
+      payment_method: "in_person",
+      subtotal_amount: 1000,
+      tax_amount: 100,
+      total_amount: 1100,
+      customer_name: "E2E 他人テスト",
+      customer_email: "e2e-other-user@example.com",
+    })
+    .select("id")
+    .single();
+
+  if (error || !data) {
+    throw new Error(`[insertOnlineOrderForUser] ${error?.message ?? "insert returned no data"}`);
+  }
+  return data.id;
+}
+
 export async function getSystemProfileId(): Promise<string> {
   const supabase = createAdminClient();
   const { data, error } = await supabase

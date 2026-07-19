@@ -136,6 +136,33 @@ export async function findBusinessAdminEmailsByBusinessId(
     .filter((email): email is string => Boolean(email?.trim()));
 }
 
+export type ProfileAddressFields = {
+  full_name?: string;
+  phone?: string | null;
+  postal_code?: string | null;
+  prefecture?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+};
+
+/**
+ * チェックアウトの「この住所を今後のために保存する」チェック時に呼ぶ（Phase 20）。
+ * RLS の profiles_update_own ポリシー（auth.uid() = id かつ role 不変）に依存するため、
+ * 呼び出し元は必ずログイン中の本人の userId を渡すこと。
+ */
+export async function updateProfileAddress(
+  userId: string,
+  fields: ProfileAddressFields,
+): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("profiles").update(fields).eq("id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 /** @deprecated findProfileEmailByUserIdAdmin を使用 */
 export const findProfileEmailByUserId = findProfileEmailByUserIdAdmin;
 

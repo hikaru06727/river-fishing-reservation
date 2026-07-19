@@ -62,6 +62,11 @@ export interface Database {
           full_name: string | null;
           role: UserRole;
           is_system: boolean;
+          phone: string | null;
+          postal_code: string | null;
+          prefecture: string | null;
+          address_line1: string | null;
+          address_line2: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -71,6 +76,11 @@ export interface Database {
           full_name?: string | null;
           role?: UserRole;
           is_system?: boolean;
+          phone?: string | null;
+          postal_code?: string | null;
+          prefecture?: string | null;
+          address_line1?: string | null;
+          address_line2?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -80,6 +90,11 @@ export interface Database {
           full_name?: string | null;
           role?: UserRole;
           is_system?: boolean;
+          phone?: string | null;
+          postal_code?: string | null;
+          prefecture?: string | null;
+          address_line1?: string | null;
+          address_line2?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1218,6 +1233,7 @@ export interface Database {
         Row: {
           id: string;
           business_id: string;
+          user_id: string | null;
           status: OnlineOrderStatus;
           fulfillment_type: OnlineOrderFulfillmentType;
           payment_method: OnlineOrderPaymentMethod;
@@ -1247,6 +1263,7 @@ export interface Database {
         Insert: {
           id?: string;
           business_id: string;
+          user_id?: string | null;
           status?: OnlineOrderStatus;
           fulfillment_type: OnlineOrderFulfillmentType;
           payment_method: OnlineOrderPaymentMethod;
@@ -1276,6 +1293,7 @@ export interface Database {
         Update: {
           id?: string;
           business_id?: string;
+          user_id?: string | null;
           status?: OnlineOrderStatus;
           fulfillment_type?: OnlineOrderFulfillmentType;
           payment_method?: OnlineOrderPaymentMethod;

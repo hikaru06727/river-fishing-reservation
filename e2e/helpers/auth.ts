@@ -2,14 +2,24 @@ import type { Page } from "@playwright/test";
 import type { E2EFixtures } from "../fixtures";
 
 /**
- * Magic Link のメール受信を経由せず、テスト専用API (/api/test/login) で
- * カスタマーユーザーとしてログインする。page.request は page と Cookie を
- * 共有するため、この後の page.goto() はログイン済み状態になる。
+ * メール受信を経由せず、テスト専用API (/api/test/login) でカスタマーユーザー
+ * としてログインする。page.request は page と Cookie を共有するため、
+ * この後の page.goto() はログイン済み状態になる。
+ *
+ * options.type="recovery" を指定すると、パスワード再設定リンクをクリックした
+ * 直後と同じ状態（/login/reset/confirm でパスワード変更可能な状態）になる。
  */
-export async function loginAsTestUser(page: Page, fixtures: E2EFixtures): Promise<void> {
+export async function loginAsTestUser(
+  page: Page,
+  fixtures: E2EFixtures,
+  options?: { email?: string; type?: "magiclink" | "recovery" },
+): Promise<void> {
   const response = await page.request.post("/api/test/login", {
     headers: { "x-e2e-test-secret": fixtures.testLoginSecret },
-    data: { email: fixtures.testUserEmail },
+    data: {
+      email: options?.email ?? fixtures.testUserEmail,
+      type: options?.type ?? "magiclink",
+    },
   });
 
   if (!response.ok()) {

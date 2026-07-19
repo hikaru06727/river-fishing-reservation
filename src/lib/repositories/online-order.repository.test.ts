@@ -9,9 +9,12 @@ import {
   createOnlineOrder,
   createOnlineOrderItems,
   findExpiredPickupOrders,
+  findLatestOnlineOrderContactByUserId,
   findOnlineOrderBusinessId,
   findOnlineOrderByIdForAdmin,
+  findOnlineOrderByIdForUser,
   findOnlineOrdersByBusiness,
+  findOnlineOrdersByUserId,
   findOrdersByLinkedReservationIdAdmin,
   findOrdersByPickupDate,
   updateOnlineOrderStatus,
@@ -186,6 +189,165 @@ describe("createOnlineOrder", () => {
 
     const insertArg = insert.mock.calls[0][0];
     expect(insertArg.linked_reservation_id).toBeNull();
+  });
+
+  it("user_id指定時はそのままinsertする（Phase 20）", async () => {
+    const single = vi.fn().mockResolvedValue({ data: SAMPLE_ORDER, error: null });
+    const select = vi.fn().mockReturnValue({ single });
+    const insert = vi.fn().mockReturnValue({ select });
+    const from = vi.fn().mockReturnValue({ insert });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await createOnlineOrder({
+      business_id: "biz-1",
+      user_id: "user-1",
+      fulfillment_type: "pickup",
+      payment_method: "in_person",
+      subtotal_amount: 2000,
+      tax_amount: 200,
+      total_amount: 2200,
+      customer_name: "山田太郎",
+      customer_email: "taro@example.com",
+    });
+
+    const insertArg = insert.mock.calls[0][0];
+    expect(insertArg.user_id).toBe("user-1");
+  });
+
+  it("user_id未指定時はnullでinsertする（ゲスト注文・Phase 20）", async () => {
+    const single = vi.fn().mockResolvedValue({ data: SAMPLE_ORDER, error: null });
+    const select = vi.fn().mockReturnValue({ single });
+    const insert = vi.fn().mockReturnValue({ select });
+    const from = vi.fn().mockReturnValue({ insert });
+
+    vi.mocked(createAdminClient).mockReturnValue({ from } as any);
+
+    await createOnlineOrder({
+      business_id: "biz-1",
+      fulfillment_type: "pickup",
+      payment_method: "in_person",
+      subtotal_amount: 2000,
+      tax_amount: 200,
+      total_amount: 2200,
+      customer_name: "山田太郎",
+      customer_email: "taro@example.com",
+    });
+
+    const insertArg = insert.mock.calls[0][0];
+    expect(insertArg.user_id).toBeNull();
+  });
+});
+
+describe("findOnlineOrdersByUserId", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("user_id で絞り込んだ注文一覧を新しい順で返す（Phase 20）", async () => {
+    const orders = [{ id: "order-1" }, { id: "order-2" }];
+    const order = vi.fn().mockResolvedValue({ data: orders, error: null });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findOnlineOrdersByUserId("user-1");
+
+    expect(result).toEqual(orders);
+    expect(from).toHaveBeenCalledWith("online_orders");
+    expect(eq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
+  });
+
+  it("DBエラー時は例外をスロー", async () => {
+    const order = vi.fn().mockResolvedValue({ data: null, error: { message: "DB error" } });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    await expect(findOnlineOrdersByUserId("user-1")).rejects.toThrow("DB error");
+  });
+});
+
+describe("findOnlineOrderByIdForUser", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("id と user_id が一致する注文を返す（Phase 20）", async () => {
+    const order = { id: "order-1", user_id: "user-1" };
+    const maybeSingle = vi.fn().mockResolvedValue({ data: order, error: null });
+    const eq2 = vi.fn().mockReturnValue({ maybeSingle });
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
+    const select = vi.fn().mockReturnValue({ eq: eq1 });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findOnlineOrderByIdForUser("order-1", "user-1");
+
+    expect(result).toEqual(order);
+    expect(eq1).toHaveBeenCalledWith("id", "order-1");
+    expect(eq2).toHaveBeenCalledWith("user_id", "user-1");
+  });
+
+  it("他人の注文の場合は null を返す", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const eq2 = vi.fn().mockReturnValue({ maybeSingle });
+    const eq1 = vi.fn().mockReturnValue({ eq: eq2 });
+    const select = vi.fn().mockReturnValue({ eq: eq1 });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findOnlineOrderByIdForUser("order-1", "someone-else");
+
+    expect(result).toBeNull();
+  });
+});
+
+describe("findLatestOnlineOrderContactByUserId", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("直近の注文の連絡先・住所を返す（Phase 20）", async () => {
+    const contact = {
+      customer_name: "山田太郎",
+      customer_phone: "090-1234-5678",
+      shipping_postal_code: "100-0001",
+      shipping_prefecture: "東京都",
+      shipping_address_line1: "千代田1-1",
+      shipping_address_line2: null,
+    };
+    const maybeSingle = vi.fn().mockResolvedValue({ data: contact, error: null });
+    const limit = vi.fn().mockReturnValue({ maybeSingle });
+    const order = vi.fn().mockReturnValue({ limit });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findLatestOnlineOrderContactByUserId("user-1");
+
+    expect(result).toEqual(contact);
+    expect(eq).toHaveBeenCalledWith("user_id", "user-1");
+    expect(order).toHaveBeenCalledWith("created_at", { ascending: false });
+    expect(limit).toHaveBeenCalledWith(1);
+  });
+
+  it("注文がない場合は null を返す", async () => {
+    const maybeSingle = vi.fn().mockResolvedValue({ data: null, error: null });
+    const limit = vi.fn().mockReturnValue({ maybeSingle });
+    const order = vi.fn().mockReturnValue({ limit });
+    const eq = vi.fn().mockReturnValue({ order });
+    const select = vi.fn().mockReturnValue({ eq });
+    const from = vi.fn().mockReturnValue({ select });
+
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+
+    const result = await findLatestOnlineOrderContactByUserId("user-1");
+
+    expect(result).toBeNull();
   });
 });
 

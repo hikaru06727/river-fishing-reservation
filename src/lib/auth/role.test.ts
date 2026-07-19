@@ -17,6 +17,11 @@ function makeProfile(role: Profile["role"]): Profile {
     full_name: null,
     role,
     is_system: false,
+    phone: null,
+    postal_code: null,
+    prefecture: null,
+    address_line1: null,
+    address_line2: null,
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
   };

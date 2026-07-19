@@ -84,8 +84,24 @@ export type UserProfile = {
   email: string;
   full_name: string | null;
   role: UserRole;
+  phone: string | null;
+  postal_code: string | null;
+  prefecture: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
   created_at: string;
   updated_at: string;
+};
+
+/** チェックアウトフォームの自動入力に使う住所情報（Phase 20） */
+export type CheckoutContactPrefill = {
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  postalCode: string | null;
+  prefecture: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
 };
 
 /** UI / API で使うプラン概要 */

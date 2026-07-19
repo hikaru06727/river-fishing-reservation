@@ -19,20 +19,28 @@ import {
   toPickupDateTime,
 } from "@/lib/online-orders/pickup-schedule";
 import { submitOrderAction } from "@/app/(public)/shop/[slug]/checkout/actions";
-import type { OnlineOrderFulfillmentType } from "@/types/domain";
+import type { CheckoutContactPrefill, OnlineOrderFulfillmentType } from "@/types/domain";
 
-export function CheckoutForm({ slug, businessId }: { slug: string; businessId: string }) {
+interface CheckoutFormProps {
+  slug: string;
+  businessId: string;
+  isLoggedIn?: boolean;
+  prefill?: CheckoutContactPrefill | null;
+}
+
+export function CheckoutForm({ slug, businessId, isLoggedIn = false, prefill = null }: CheckoutFormProps) {
   const { items, totalAmount } = useCart();
   const [fulfillmentType, setFulfillmentType] = useState<OnlineOrderFulfillmentType>("pickup");
-  const [customerName, setCustomerName] = useState("");
-  const [customerEmail, setCustomerEmail] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [prefecture, setPrefecture] = useState("");
-  const [addressLine1, setAddressLine1] = useState("");
-  const [addressLine2, setAddressLine2] = useState("");
+  const [customerName, setCustomerName] = useState(prefill?.fullName ?? "");
+  const [customerEmail, setCustomerEmail] = useState(prefill?.email ?? "");
+  const [customerPhone, setCustomerPhone] = useState(prefill?.phone ?? "");
+  const [postalCode, setPostalCode] = useState(prefill?.postalCode ?? "");
+  const [prefecture, setPrefecture] = useState(prefill?.prefecture ?? "");
+  const [addressLine1, setAddressLine1] = useState(prefill?.addressLine1 ?? "");
+  const [addressLine2, setAddressLine2] = useState(prefill?.addressLine2 ?? "");
   const [pickupDate, setPickupDate] = useState("");
   const [pickupTime, setPickupTime] = useState("");
+  const [saveAddress, setSaveAddress] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [linkedReservationId, setLinkedReservationId] = useState<string | null>(null);
@@ -106,6 +114,7 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
         pickupDate: fulfillmentType === "pickup" ? pickupDate : undefined,
         pickupTime: fulfillmentType === "pickup" ? pickupTime : undefined,
         linkedReservationId: linkedReservationId ?? undefined,
+        saveAddress: isLoggedIn ? saveAddress : undefined,
       });
     } catch {
       setError("注文の処理中にエラーが発生しました。時間をおいて再度お試しください。");
@@ -342,6 +351,22 @@ export function CheckoutForm({ slug, businessId }: { slug: string; businessId: s
               className="mt-1 w-full min-h-11 rounded-lg border border-border px-3 text-sm"
             />
           </div>
+          {isLoggedIn && (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={saveAddress}
+                onChange={(e) => setSaveAddress(e.target.checked)}
+                className="mt-0.5 h-4 w-4"
+              />
+              <span>
+                この住所を今後のために保存する
+                <span className="block text-xs text-muted">
+                  次回チェックアウト時に自動入力されます（贈り先など一時的な送付先の場合はチェックを外してください）
+                </span>
+              </span>
+            </label>
+          )}
         </div>
       </Card>
 

@@ -31,6 +31,8 @@ export const createOnlineOrderSchema = z
       .optional(),
     pickupTime: z.string().optional(),
     linkedReservationId: z.string().uuid().optional(),
+    /** ログイン済みの場合に「この住所を今後のために保存する」を選択したか（Phase 20） */
+    saveAddress: z.boolean().optional(),
   })
   .refine((data) => data.fulfillmentType !== "shipping" || data.shippingAddress !== undefined, {
     message: "配送先住所を入力してください",

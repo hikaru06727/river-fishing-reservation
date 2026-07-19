@@ -11,6 +11,8 @@ import type {
 
 export type InsertOnlineOrderInput = {
   business_id: string;
+  /** チェックアウト時にログイン済みだった場合の注文者（Phase 20）。未指定/nullならゲスト注文。 */
+  user_id?: string | null;
   fulfillment_type: OnlineOrderFulfillmentType;
   payment_method: OnlineOrderPaymentMethod;
   status?: OnlineOrderStatus;
@@ -59,6 +61,7 @@ export async function createOnlineOrder(input: InsertOnlineOrderInput): Promise<
     .from("online_orders")
     .insert({
       business_id: input.business_id,
+      user_id: input.user_id ?? null,
       fulfillment_type: input.fulfillment_type,
       payment_method: input.payment_method,
       status: input.status ?? "pending_payment",
@@ -344,6 +347,68 @@ export async function findOrdersByLinkedReservationIdAdmin(
  * Stripe Webhook からの検索用。checkout.session.completed イベントには
  * business_id が含まれないため session_id のみで検索する。
  */
+/** マイ注文一覧（本人）。RLS の online_orders_owner_select ポリシーに依存する（Phase 20）。 */
+export async function findOnlineOrdersByUserId(userId: string): Promise<OnlineOrderRow[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("online_orders")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as OnlineOrderRow[];
+}
+
+/** マイ注文詳細（本人）。user_id を明示フィルタし RLS と二重に権限を担保する（Phase 20）。 */
+export async function findOnlineOrderByIdForUser(
+  id: string,
+  userId: string,
+): Promise<OnlineOrderRow | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("online_orders")
+    .select("*")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as OnlineOrderRow | null;
+}
+
+export type LatestOnlineOrderContact = Pick<
+  OnlineOrderRow,
+  | "customer_name"
+  | "customer_phone"
+  | "shipping_postal_code"
+  | "shipping_prefecture"
+  | "shipping_address_line1"
+  | "shipping_address_line2"
+>;
+
+/** チェックアウト自動入力用: 本人の直近の注文の連絡先・住所（Phase 20） */
+export async function findLatestOnlineOrderContactByUserId(
+  userId: string,
+): Promise<LatestOnlineOrderContact | null> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("online_orders")
+    .select(
+      "customer_name, customer_phone, shipping_postal_code, shipping_prefecture, shipping_address_line1, shipping_address_line2",
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
 export async function findOnlineOrderByStripeSessionId(
   stripeCheckoutSessionId: string,
 ): Promise<OnlineOrderRow | null> {

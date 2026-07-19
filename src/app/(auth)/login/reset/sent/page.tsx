@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = { title: "メールを送信しました" };
 
-export default async function SentPage({
+export default async function PasswordResetSentPage({
   searchParams,
 }: {
   searchParams: Promise<{ email?: string }>;
@@ -15,18 +15,18 @@ export default async function SentPage({
         <div className="text-5xl" aria-hidden="true">
           📧
         </div>
-        <h1 className="mt-4 text-2xl font-bold">確認メールを送信しました</h1>
+        <h1 className="mt-4 text-2xl font-bold">メールを送信しました</h1>
         <p className="mt-4 text-sm text-muted">
           {email ? (
             <>
               <span className="font-medium text-foreground">{email}</span> に
-              確認メールをお送りしました。
+              パスワード設定用のリンクをお送りしました。
             </>
           ) : (
-            "確認メールをお送りしました。"
+            "パスワード設定用のリンクをお送りしました。"
           )}
           <br />
-          メール内のリンクをクリックして登録を完了してください。
+          メール内のリンクをクリックして、新しいパスワードを設定してください。
         </p>
       </div>
     </div>

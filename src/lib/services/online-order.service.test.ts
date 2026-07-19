@@ -24,6 +24,10 @@ const {
   sendOnlineOrderConfirmationEmailMock,
   sendOnlineOrderReadyEmailMock,
   sendOnlineOrderPickupExpiredEmailMock,
+  findOnlineOrdersByUserIdMock,
+  findOnlineOrderByIdForUserMock,
+  findLatestOnlineOrderContactByUserIdMock,
+  findProfileByUserIdMock,
 } = vi.hoisted(() => ({
   findActiveBusinessBySlugMock: vi.fn(),
   findAssignedBusinessIdsByUserIdMock: vi.fn(),
@@ -48,6 +52,10 @@ const {
   sendOnlineOrderConfirmationEmailMock: vi.fn(),
   sendOnlineOrderReadyEmailMock: vi.fn(),
   sendOnlineOrderPickupExpiredEmailMock: vi.fn(),
+  findOnlineOrdersByUserIdMock: vi.fn(),
+  findOnlineOrderByIdForUserMock: vi.fn(),
+  findLatestOnlineOrderContactByUserIdMock: vi.fn(),
+  findProfileByUserIdMock: vi.fn(),
 }));
 
 vi.mock("@/lib/repositories/businesses.repository", () => ({
@@ -88,6 +96,13 @@ vi.mock("@/lib/repositories/online-order.repository", () => ({
   updateOnlineOrderStatus: updateOnlineOrderStatusMock,
   updateOnlineOrderStripePaymentIntent: updateOnlineOrderStripePaymentIntentMock,
   updateOnlineOrderStripeSession: vi.fn(),
+  findOnlineOrdersByUserId: findOnlineOrdersByUserIdMock,
+  findOnlineOrderByIdForUser: findOnlineOrderByIdForUserMock,
+  findLatestOnlineOrderContactByUserId: findLatestOnlineOrderContactByUserIdMock,
+}));
+
+vi.mock("@/lib/repositories/profiles.repository", () => ({
+  findProfileByUserId: findProfileByUserIdMock,
 }));
 
 vi.mock("@/lib/repositories/payment-ledger.repository", () => ({
@@ -109,7 +124,10 @@ import {
   confirmInPersonOrderPickup,
   createOrder,
   expirePickupOrders,
+  getCheckoutContactPrefill,
   getLinkedOrdersForReservation,
+  getMyOnlineOrderDetail,
+  getMyOnlineOrders,
   getNextOnlineOrderStatus,
   getOnlineOrderDetailForAdmin,
   getOnlineOrdersForBusiness,
@@ -236,6 +254,30 @@ describe("createOrder", () => {
     expect(createOnlineOrderMock).toHaveBeenCalledWith(
       expect.objectContaining({ payment_method: "stripe" }),
     );
+  });
+
+  it("ログイン中の場合はuser_idをそのままinsertする（Phase 20）", async () => {
+    findProductsByIdsMock.mockResolvedValue([BASE_PRODUCT]);
+    createOnlineOrderMock.mockResolvedValue({ id: "order-1", status: "pending_payment" });
+    createOnlineOrderItemsMock.mockResolvedValue([]);
+
+    const result = await createOrder(baseInput({ userId: "user-1" }));
+
+    expect(result.ok).toBe(true);
+    expect(createOnlineOrderMock).toHaveBeenCalledWith(
+      expect.objectContaining({ user_id: "user-1" }),
+    );
+  });
+
+  it("未ログイン（ゲスト）の場合はuser_idにnullをinsertする（Phase 20）", async () => {
+    findProductsByIdsMock.mockResolvedValue([BASE_PRODUCT]);
+    createOnlineOrderMock.mockResolvedValue({ id: "order-1", status: "pending_payment" });
+    createOnlineOrderItemsMock.mockResolvedValue([]);
+
+    const result = await createOrder(baseInput());
+
+    expect(result.ok).toBe(true);
+    expect(createOnlineOrderMock).toHaveBeenCalledWith(expect.objectContaining({ user_id: null }));
   });
 
   it("カートが空の場合はエラーになる", async () => {
@@ -611,5 +653,120 @@ describe("getLinkedOrdersForReservation", () => {
     const result = await getLinkedOrdersForReservation("res-1");
 
     expect(result).toEqual([]);
+  });
+});
+
+describe("getMyOnlineOrders", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("本人の注文一覧を返す（Phase 20）", async () => {
+    findOnlineOrdersByUserIdMock.mockResolvedValue([SAMPLE_ORDER]);
+
+    const result = await getMyOnlineOrders("user-1");
+
+    expect(result).toEqual([SAMPLE_ORDER]);
+    expect(findOnlineOrdersByUserIdMock).toHaveBeenCalledWith("user-1");
+  });
+});
+
+describe("getMyOnlineOrderDetail", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("本人の注文詳細（注文＋明細）を返す（Phase 20）", async () => {
+    findOnlineOrderByIdForUserMock.mockResolvedValue(SAMPLE_ORDER);
+    findOnlineOrderItemsByOrderIdMock.mockResolvedValue([{ id: "item-1" }]);
+
+    const result = await getMyOnlineOrderDetail("order-1", "user-1");
+
+    expect(result).toEqual({ order: SAMPLE_ORDER, items: [{ id: "item-1" }] });
+    expect(findOnlineOrderByIdForUserMock).toHaveBeenCalledWith("order-1", "user-1");
+  });
+
+  it("本人の注文でない場合は null を返す", async () => {
+    findOnlineOrderByIdForUserMock.mockResolvedValue(null);
+
+    const result = await getMyOnlineOrderDetail("order-1", "someone-else");
+
+    expect(result).toBeNull();
+    expect(findOnlineOrderItemsByOrderIdMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getCheckoutContactPrefill", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("profiles の値を優先して返す（Phase 20）", async () => {
+    findProfileByUserIdMock.mockResolvedValue({
+      full_name: "山田太郎",
+      email: "taro@example.com",
+      phone: "090-1111-2222",
+      postal_code: "100-0001",
+      prefecture: "東京都",
+      address_line1: "千代田1-1",
+      address_line2: "101号室",
+    });
+    findLatestOnlineOrderContactByUserIdMock.mockResolvedValue({
+      customer_name: "旧・山田太郎",
+      customer_phone: "090-9999-9999",
+      shipping_postal_code: "999-9999",
+      shipping_prefecture: "北海道",
+      shipping_address_line1: "旧住所1-1",
+      shipping_address_line2: null,
+    });
+
+    const result = await getCheckoutContactPrefill("user-1");
+
+    expect(result).toEqual({
+      fullName: "山田太郎",
+      email: "taro@example.com",
+      phone: "090-1111-2222",
+      postalCode: "100-0001",
+      prefecture: "東京都",
+      addressLine1: "千代田1-1",
+      addressLine2: "101号室",
+    });
+  });
+
+  it("profiles未設定の項目は直近の注文から補完する", async () => {
+    findProfileByUserIdMock.mockResolvedValue({
+      full_name: null,
+      email: "taro@example.com",
+      phone: null,
+      postal_code: null,
+      prefecture: null,
+      address_line1: null,
+      address_line2: null,
+    });
+    findLatestOnlineOrderContactByUserIdMock.mockResolvedValue({
+      customer_name: "山田太郎",
+      customer_phone: "090-9999-9999",
+      shipping_postal_code: "999-9999",
+      shipping_prefecture: "北海道",
+      shipping_address_line1: "旧住所1-1",
+      shipping_address_line2: null,
+    });
+
+    const result = await getCheckoutContactPrefill("user-1");
+
+    expect(result.fullName).toBe("山田太郎");
+    expect(result.phone).toBe("090-9999-9999");
+    expect(result.postalCode).toBe("999-9999");
+  });
+
+  it("profiles・直近注文のどちらも無い場合は null を返す", async () => {
+    findProfileByUserIdMock.mockRejectedValue(new Error("not found"));
+    findLatestOnlineOrderContactByUserIdMock.mockResolvedValue(null);
+
+    const result = await getCheckoutContactPrefill("user-1");
+
+    expect(result).toEqual({
+      fullName: null,
+      email: null,
+      phone: null,
+      postalCode: null,
+      prefecture: null,
+      addressLine1: null,
+      addressLine2: null,
+    });
   });
 });

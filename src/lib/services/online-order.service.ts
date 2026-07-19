@@ -20,11 +20,14 @@ import {
   createOnlineOrder,
   createOnlineOrderItems,
   findExpiredPickupOrders,
+  findLatestOnlineOrderContactByUserId,
   findOnlineOrderById,
   findOnlineOrderByIdForAdmin,
+  findOnlineOrderByIdForUser,
   findOnlineOrderByStripeSessionId,
   findOnlineOrderItemsByOrderId,
   findOnlineOrdersByBusiness,
+  findOnlineOrdersByUserId,
   findOrdersByLinkedReservationIdAdmin,
   findOrdersByPickupDate,
   updateOnlineOrderPaymentStatus,
@@ -34,10 +37,11 @@ import {
   type OnlineOrderFilters,
 } from "@/lib/repositories/online-order.repository";
 import { recordPaymentLedgerAdmin } from "@/lib/repositories/payment-ledger.repository";
+import { findProfileByUserId } from "@/lib/repositories/profiles.repository";
 import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { getStripe } from "@/lib/stripe/server";
 import type { OnlineOrderItemRow, OnlineOrderRow, Profile } from "@/types/database";
-import type { OnlineOrderFulfillmentType, OnlineOrderStatus } from "@/types/domain";
+import type { CheckoutContactPrefill, OnlineOrderFulfillmentType, OnlineOrderStatus } from "@/types/domain";
 import type { CreateOrderInput } from "@/types/online-order";
 
 export type ServiceResult<T> =
@@ -229,6 +233,7 @@ export async function createOrder(
   try {
     order = await createOnlineOrder({
       business_id: input.businessId,
+      user_id: input.userId ?? null,
       fulfillment_type: input.fulfillmentType,
       payment_method: paymentMethod,
       subtotal_amount: subtotalAmount,
@@ -422,6 +427,44 @@ export async function getLinkedOrdersForReservation(
     console.error("[getLinkedOrdersForReservation]", e);
     return [];
   }
+}
+
+/** マイ注文一覧（本人・Phase 20） */
+export async function getMyOnlineOrders(userId: string): Promise<OnlineOrderRow[]> {
+  return findOnlineOrdersByUserId(userId);
+}
+
+/** マイ注文詳細（本人・Phase 20） */
+export async function getMyOnlineOrderDetail(
+  orderId: string,
+  userId: string,
+): Promise<{ order: OnlineOrderRow; items: OnlineOrderItemRow[] } | null> {
+  const order = await findOnlineOrderByIdForUser(orderId, userId);
+  if (!order) return null;
+  const items = await findOnlineOrderItemsByOrderId(orderId);
+  return { order, items };
+}
+
+/**
+ * チェックアウト自動入力用の連絡先・住所（Phase 20）。
+ * profiles（本人が明示的に保存した情報）を優先し、未設定の項目のみ
+ * 直近の自分の online_orders から補完する。
+ */
+export async function getCheckoutContactPrefill(userId: string): Promise<CheckoutContactPrefill> {
+  const [profile, latestOrder] = await Promise.all([
+    findProfileByUserId(userId).catch(() => null),
+    findLatestOnlineOrderContactByUserId(userId).catch(() => null),
+  ]);
+
+  return {
+    fullName: profile?.full_name ?? latestOrder?.customer_name ?? null,
+    email: profile?.email ?? null,
+    phone: profile?.phone ?? latestOrder?.customer_phone ?? null,
+    postalCode: profile?.postal_code ?? latestOrder?.shipping_postal_code ?? null,
+    prefecture: profile?.prefecture ?? latestOrder?.shipping_prefecture ?? null,
+    addressLine1: profile?.address_line1 ?? latestOrder?.shipping_address_line1 ?? null,
+    addressLine2: profile?.address_line2 ?? latestOrder?.shipping_address_line2 ?? null,
+  };
 }
 
 /** 管理画面の注文一覧用。事業への操作権限がない場合はエラーを返す */

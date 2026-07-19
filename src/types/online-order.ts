@@ -8,6 +8,7 @@ import type {
 export type OnlineOrder = {
   id: string;
   business_id: string;
+  user_id: string | null;
   status: OnlineOrderStatus;
   fulfillment_type: OnlineOrderFulfillmentType;
   payment_method: OnlineOrderPaymentMethod;
@@ -67,4 +68,6 @@ export type CreateOrderInput = {
   pickupTime?: string;
   /** 予約後の追加購入の場合に紐づける予約ID（Phase 19E）。サーバー側で所有者検証を行う。 */
   linkedReservationId?: string;
+  /** チェックアウト時にログイン済みだった場合の注文者（Phase 20）。未ログインなら undefined（ゲスト注文）。 */
+  userId?: string;
 };

@@ -88,21 +88,20 @@ Stripe webhooks require `stripe listen --forward-to localhost:3000/api/webhooks/
 ```
 
 ## 現在の作業
-Phase 13A：repository層・service層・管理画面UIの実装
+Phase 20：顧客アカウント機能（完了）
 
-実装済み（DB設計完了）：
-- tax_rates テーブル（migration 024）
-- payments.status 拡張（migration 025）
-- refunds テーブル（migration 026）
-- manual_sales テーブル（migration 027）
-- reservations.tax_rate_percent（migration 028）
+実装済み：
+- 認証方式をマジックリンクからメール＋パスワードに変更（`signInWithPassword` / `signUp`）。`/login`, `/signup` はパスワード方式のみ表示、管理画面側（`/admin/login`）は変更なし
+- パスワードリセットフロー（`resetPasswordForEmail` → `/login/reset` → `/login/reset/confirm`）
+- signup確認メールのエラーハンドリング強化（`/auth/callback` でリンク期限切れ／使用済み／不明を判定、確認メール再送導線）
+- `online_orders.user_id`（migration 064）+ RLS（`online_orders_owner_select`）で注文にログインユーザーを紐付け
+- `/my/orders`（一覧）・`/my/orders/[id]`（詳細）ページ新設
+- `profiles` に住所・電話番号カラム追加（migration 065）。チェックアウト時に自動入力し、「この住所を今後のために保存する」チェック（デフォルトON）で明示的に保存
+- migration 064・065 は dev/共有Supabaseプロジェクトへ適用済み
 
-次に実装する内容：
-- manual_sales の repository / service 層
-- 管理画面から手動売上を登録・一覧・編集・削除できるUI
-- 予約作成時に tax_rate_percent をスナップショット保存する処理
-- unified_sales_view（予約売上＋手動売上の統合VIEW）
+次のPhase未定。
 
 ## 既知の技術的負債
 
 - `cancelReservation()`（`src/lib/services/reservations.service.ts`）のキャンセル時自動返金＋アドオン後処理（在庫復元・明細cancelled化・payment_ledger更新）は、Stripe返金APIを含む複数ステップにまたがるがDBトランザクションで結ばれておらず、返金成功後にアドオン後処理だけが丸ごと失敗すると在庫・帳簿の不整合が残り得る（検知手段はconsole.errorのログのみ、自動リトライ・管理画面アラート無し）。完全なアトミック性保証は未着手。
+- Supabase Authのメール送信（signup確認・パスワードリセット）はSupabase標準メーラーを使用しており、カスタムSMTP未設定のためレート制限が低い（Phase 20のE2E検証中に signup を連続実行し `email rate limit exceeded` を確認）。本番運用前にSupabase側でカスタムSMTPの設定を検討する必要がある（`docs/email-setup.md` にも「Supabase Auth OTPは別系統」の記載あり、Phase 20固有の新規債務ではないが未対応のまま残っている）。

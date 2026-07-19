@@ -1,23 +1,32 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { signup } from "../actions";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/auth/get-user";
+import { updatePassword } from "../../../actions";
 
-export const metadata: Metadata = { title: "新規登録" };
+export const metadata: Metadata = { title: "新しいパスワードの設定" };
 
-export default async function SignupPage({
+export default async function PasswordResetConfirmPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
   const { error } = await searchParams;
 
+  const user = await getUser();
+  if (!user) {
+    redirect(
+      "/login?" +
+        new URLSearchParams({
+          error: "リンクの有効期限が切れているか、無効です。お手数ですが再度パスワード再設定をお試しください。",
+        }).toString(),
+    );
+  }
+
   return (
     <div className="px-4 py-8">
       <div className="mx-auto max-w-sm">
-        <h1 className="text-2xl font-bold">新規登録</h1>
-        <p className="mt-2 text-sm text-muted">
-          メールアドレスとパスワードでアカウントを作成
-        </p>
+        <h1 className="text-2xl font-bold">新しいパスワードの設定</h1>
+        <p className="mt-2 text-sm text-muted">新しいパスワードを入力してください。</p>
 
         {error && (
           <p className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
@@ -25,24 +34,10 @@ export default async function SignupPage({
           </p>
         )}
 
-        <form action={signup} className="mt-8 space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium">
-              メールアドレス
-            </label>
-            <input
-              id="email"
-              name="email"
-              type="email"
-              required
-              autoComplete="email"
-              className="mt-1 w-full min-h-12 rounded-xl border border-border px-4 text-sm outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-              placeholder="you@example.com"
-            />
-          </div>
+        <form action={updatePassword} className="mt-8 space-y-4">
           <div>
             <label htmlFor="password" className="block text-sm font-medium">
-              パスワード
+              新しいパスワード
             </label>
             <input
               id="password"
@@ -57,7 +52,7 @@ export default async function SignupPage({
           </div>
           <div>
             <label htmlFor="confirmPassword" className="block text-sm font-medium">
-              パスワード（確認）
+              新しいパスワード（確認）
             </label>
             <input
               id="confirmPassword"
@@ -74,16 +69,9 @@ export default async function SignupPage({
             type="submit"
             className="w-full min-h-12 rounded-full bg-primary font-semibold text-primary-foreground hover:opacity-90"
           >
-            登録する
+            パスワードを設定する
           </button>
         </form>
-
-        <p className="mt-4 text-center text-sm text-muted">
-          すでにアカウントをお持ちの方は{" "}
-          <Link href="/login" className="text-primary hover:underline">
-            ログイン
-          </Link>
-        </p>
       </div>
     </div>
   );
