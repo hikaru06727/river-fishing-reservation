@@ -51,7 +51,7 @@ export async function login(formData: FormData) {
   if (error) {
     redirect(
       loginRedirectPath(
-        "メールアドレスまたはパスワードが正しくありません。初めての方、またはパスワードを忘れた方は「パスワードをお忘れの方」からパスワードを設定してください。",
+        "メールアドレスまたはパスワードが正しくありません。パスワードを忘れた方は「パスワードをお忘れの方」からリセットしてください。",
         next,
       ),
     );

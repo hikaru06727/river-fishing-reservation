@@ -94,7 +94,7 @@ export default async function LoginPage({
         </form>
 
         <p className="mt-4 text-center text-sm text-muted">
-          パスワードをお忘れの方・初めてログインする方は{" "}
+          パスワードをお忘れの方は{" "}
           <Link
             href={`/login/reset${next !== "/my/reservations" ? `?next=${encodeURIComponent(next)}` : ""}`}
             className="text-primary hover:underline"

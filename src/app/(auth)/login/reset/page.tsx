@@ -17,8 +17,6 @@ export default async function PasswordResetRequestPage({
         <h1 className="text-2xl font-bold">パスワードの設定</h1>
         <p className="mt-2 text-sm text-muted">
           登録済みのメールアドレスを入力してください。パスワード設定用のリンクをお送りします。
-          <br />
-          初めてログインする方も、こちらから初回パスワードを設定できます。
         </p>
 
         {error && (
