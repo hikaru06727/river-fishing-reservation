@@ -11,7 +11,7 @@ export async function createSaleSessionAction(
   formData: FormData,
 ): Promise<PosActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/pos");
+  if (!session) redirect("/login?next=/admin/pos");
 
   const parsed = parsePosForm(formData);
   if (!parsed.success) {

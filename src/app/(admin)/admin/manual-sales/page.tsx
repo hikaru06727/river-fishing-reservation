@@ -36,7 +36,7 @@ interface PageProps {
 
 export default async function AdminManualSalesPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/manual-sales");
+  if (!session) redirect("/login?next=/admin/manual-sales");
 
   if (!isAdminRole(session.profile.role) && !isBusinessAdminRole(session.profile.role)) {
     redirect("/admin");

@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { isManagementRole } from "@/lib/auth/role";
 import { createClient } from "@/lib/supabase/server";
 import {
   loginSchema,
@@ -43,18 +44,28 @@ export async function login(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data: signInData, error } = await supabase.auth.signInWithPassword({
     email: parsed.data.email,
     password: parsed.data.password,
   });
 
-  if (error) {
+  if (error || !signInData.user) {
     redirect(
       loginRedirectPath(
         "メールアドレスまたはパスワードが正しくありません。パスワードを忘れた方は「パスワードをお忘れの方」からリセットしてください。",
         next,
       ),
     );
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", signInData.user.id)
+    .maybeSingle();
+
+  if (isManagementRole(profile?.role)) {
+    redirect(next && next.startsWith("/admin") ? next : "/admin/reservations");
   }
 
   redirect(safeNextPath(next));

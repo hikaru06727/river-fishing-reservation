@@ -17,7 +17,7 @@ interface PageProps {
 
 export default async function AdminProductsNewPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products/new");
+  if (!session) redirect("/login?next=/admin/products/new");
 
   const { businessId } = await searchParams;
 

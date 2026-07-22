@@ -36,7 +36,7 @@ export default async function AdminOrderDetailPage({ params }: AdminOrderDetailP
   const { id } = await params;
 
   const session = await getAuthenticatedManagement();
-  if (!session) redirect(`/admin/login?next=/admin/orders/${id}`);
+  if (!session) redirect(`/login?next=/admin/orders/${id}`);
 
   const canManage = await canCurrentUserManageOnlineOrder(id);
   if (!canManage) {

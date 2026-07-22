@@ -42,7 +42,7 @@ interface AdminOrdersPageProps {
 
 export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/orders");
+  if (!session) redirect("/login?next=/admin/orders");
 
   const { businessId, tab, status, fulfillmentType, paymentMethod } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);

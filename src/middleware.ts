@@ -5,8 +5,6 @@ import { fetchProfileRoleByUserId } from "@/lib/auth/fetch-profile-role";
 import { isManagementRole } from "@/lib/auth/role";
 import type { Database } from "@/types/database";
 
-const ADMIN_LOGIN_PATH = "/admin/login";
-
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
@@ -49,28 +47,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (pathname === ADMIN_LOGIN_PATH) {
-    if (user) {
-      const profileRole = await fetchProfileRoleByUserId(
-        supabase as unknown as SupabaseClient,
-        user.id,
-      );
-      if (isManagementRole(profileRole)) {
-        const url = request.nextUrl.clone();
-        const next = url.searchParams.get("next");
-        url.pathname =
-          next && next.startsWith("/admin") ? next : "/admin/reservations";
-        url.search = "";
-        return NextResponse.redirect(url);
-      }
-    }
-    return supabaseResponse;
-  }
-
   if (pathname.startsWith("/admin")) {
     if (!user) {
       const url = request.nextUrl.clone();
-      url.pathname = ADMIN_LOGIN_PATH;
+      url.pathname = "/login";
       url.searchParams.set("next", pathname + request.nextUrl.search);
       return NextResponse.redirect(url);
     }
@@ -87,8 +67,12 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && (pathname === "/login" || pathname === "/signup")) {
+    const profileRole = await fetchProfileRoleByUserId(
+      supabase as unknown as SupabaseClient,
+      user.id,
+    );
     const url = request.nextUrl.clone();
-    url.pathname = "/my/reservations";
+    url.pathname = isManagementRole(profileRole) ? "/admin/reservations" : "/my/reservations";
     return NextResponse.redirect(url);
   }
 

@@ -75,7 +75,7 @@ export default async function AdminLayout({
 
   if (!session) {
     const user = await getUser();
-    redirect(user ? "/" : "/admin/login?next=/admin");
+    redirect(user ? "/" : "/login?next=/admin");
   }
 
   const role = session.profile.role;

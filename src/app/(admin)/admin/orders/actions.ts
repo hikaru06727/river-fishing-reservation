@@ -25,7 +25,7 @@ export async function adminAdvanceOrderStatusAction(
 ): Promise<AdminAdvanceOrderStatusState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/orders");
+    redirect("/login?next=/admin/orders");
   }
 
   const orderId = formData.get("orderId");
@@ -47,7 +47,7 @@ export async function adminConfirmOrderPickupAction(
 ): Promise<AdminConfirmOrderPickupState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/orders");
+    redirect("/login?next=/admin/orders");
   }
 
   const orderId = formData.get("orderId");

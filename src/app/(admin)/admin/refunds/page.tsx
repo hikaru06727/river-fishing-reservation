@@ -17,7 +17,7 @@ interface PageProps {
 
 export default async function AdminRefundsPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/refunds");
+  if (!session) redirect("/login?next=/admin/refunds");
 
   if (!hasPermission(session.profile.role, "REFUND_MANAGE")) {
     redirect("/admin");

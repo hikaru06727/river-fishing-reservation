@@ -22,7 +22,7 @@ interface PageProps {
 
 export default async function AdminRegisterClosingPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/register-closing");
+  if (!session) redirect("/login?next=/admin/register-closing");
 
   if (!hasPermission(session.profile.role, "POS_CLOSE")) {
     redirect("/admin");

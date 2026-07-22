@@ -91,7 +91,8 @@ Stripe webhooks require `stripe listen --forward-to localhost:3000/api/webhooks/
 Phase 20：顧客アカウント機能（完了）
 
 実装済み：
-- 認証方式をマジックリンクからメール＋パスワードに変更（`signInWithPassword` / `signUp`）。`/login`, `/signup` はパスワード方式のみ表示、管理画面側（`/admin/login`）は変更なし
+- 認証方式をマジックリンクからメール＋パスワードに変更（`signInWithPassword` / `signUp`）。`/login`, `/signup` はパスワード方式のみ表示
+- `/admin/login` を廃止し、管理者ログインを `/login` に統合。`login()`（`src/app/(auth)/actions.ts`）がログイン成功後に `profiles.role` を判定し、管理系ロール（`isManagementRole`）なら `/admin/reservations`（または `next` が `/admin` 始まりならその `next`）へ、一般顧客なら従来通り `safeNextPath(next)` へリダイレクト
 - パスワードリセットフロー（`resetPasswordForEmail` → `/login/reset` → `/login/reset/confirm`）
 - signup確認メールのエラーハンドリング強化（`/auth/callback` でリンク期限切れ／使用済み／不明を判定、確認メール再送導線）
 - `online_orders.user_id`（migration 064）+ RLS（`online_orders_owner_select`）で注文にログインユーザーを紐付け

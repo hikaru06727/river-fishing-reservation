@@ -23,7 +23,7 @@ interface PageProps {
 
 export default async function AdminProductsEditPage({ params }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products");
+  if (!session) redirect("/login?next=/admin/products");
 
   const { id } = await params;
 

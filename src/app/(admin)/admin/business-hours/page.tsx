@@ -33,7 +33,7 @@ export default async function AdminBusinessHoursPage({
   searchParams,
 }: AdminBusinessHoursPageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/business-hours");
+  if (!session) redirect("/login?next=/admin/business-hours");
   if (!hasPermission(session.profile.role, "BUSINESS_SETTINGS")) redirect("/admin");
 
   const params = await searchParams;

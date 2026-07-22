@@ -20,7 +20,7 @@ export async function refundCashAction(
   formData: FormData,
 ): Promise<RefundActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/refunds");
+  if (!session) redirect("/login?next=/admin/refunds");
 
   const parsed = baseSchema.safeParse({
     businessId: formData.get("businessId"),
@@ -66,7 +66,7 @@ export async function refundCardAction(
   formData: FormData,
 ): Promise<RefundActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/refunds");
+  if (!session) redirect("/login?next=/admin/refunds");
 
   const schema = baseSchema.extend({
     stripePaymentIntentId: z.string().optional().nullable(),

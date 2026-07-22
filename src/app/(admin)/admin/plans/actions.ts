@@ -37,7 +37,7 @@ export async function createAdminPlanAction(
 ): Promise<AdminPlanActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/plans/new");
+    redirect("/login?next=/admin/plans/new");
   }
 
   const validationError = firstValidationError(formData);
@@ -64,7 +64,7 @@ export async function updateAdminPlanAction(
 ): Promise<AdminPlanActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/plans");
+    redirect("/login?next=/admin/plans");
   }
 
   const planId = formData.get("planId");
@@ -97,7 +97,7 @@ export async function togglePlanVisibilityAction(
 ): Promise<AdminPlanActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/plans");
+    redirect("/login?next=/admin/plans");
   }
 
   const planId = formData.get("planId");
@@ -122,7 +122,7 @@ export async function togglePlanAcceptingReservationsAction(
 ): Promise<AdminPlanActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/plans");
+    redirect("/login?next=/admin/plans");
   }
 
   const planId = formData.get("planId");

@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         const params = new URLSearchParams({
           error: "管理者アカウントはこちらのログインをご利用できません。管理者ログインをご利用ください。",
         });
-        return NextResponse.redirect(`${origin}/admin/login?${params.toString()}`);
+        return NextResponse.redirect(`${origin}/login?${params.toString()}`);
       }
 
       const safeNext = next.startsWith("/") ? next : "/my/reservations";
