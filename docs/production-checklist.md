@@ -151,7 +151,7 @@
 
 詳細: [管理者向け運用手順](./admin-operations.md)
 
-- [ ] `/admin/login` から admin / business_admin でログイン
+- [ ] `/login` から admin / business_admin でログインし、自動的に `/admin/reservations` へ遷移することを確認
 - [ ] 一般 user は `/admin` にアクセス不可（トップへリダイレクト）
 - [ ] admin: 全予約閲覧・操作
 - [ ] business_admin: 担当事業の予約のみ

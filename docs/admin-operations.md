@@ -12,8 +12,9 @@
 
 ## ログイン
 
-- URL: `/admin/login`
-- Supabase Auth（メールリンク）でログイン
+- URL: `/login`（通常のログイン画面に統合済み。旧`/admin/login`は廃止）
+- Supabase Auth（メールアドレス＋パスワード）でログイン
+- ログイン成功後、管理ロール（admin/business_admin/staff等）は自動的に `/admin/reservations` へ遷移
 - 管理ロール以外は `/` にリダイレクト
 
 ## 日常操作
