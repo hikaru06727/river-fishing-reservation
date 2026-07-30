@@ -50,7 +50,7 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
 
   let sessions: SaleSessionListRow[] | null = null;
   let sessionsError: string | null = null;
-  let settledIds = new Set<string>();
+  const settledIds = new Set<string>();
 
   if (businessId) {
     const result = await getSaleSessionsForBusiness(session.profile, businessId, {
