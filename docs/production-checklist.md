@@ -28,6 +28,7 @@
 ### 本番で設定しない / 注意
 
 - [ ] `ADMIN_SECRET` — **本番では未設定推奨**（`/api/admin/set-role` 等は production では無効だが、念のため Secret に載せない）
+- [ ] `E2E_TEST_LOGIN_SECRET` / `E2E_TEST_LOGIN_ENABLED` — **本番では未設定・未設定(false)推奨**。`/api/test/login`（Playwright E2E専用、Magic Link を経由せずセッション発行）は production / Vercel では常に無効だが、念のため Secret に載せず `E2E_TEST_LOGIN_ENABLED` も設定しない
 - [ ] `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` — 現行実装では未使用（Stripe Checkout リダイレクト方式）
 
 ### 設定漏れしやすい項目
@@ -46,7 +47,23 @@
 
 手順詳細: [Supabase 適用手順](./supabase-setup.md)
 
-- [ ] migration **001〜008** を順番通り適用済み
+- [ ] **migration 001〜063（Phase 19E時点の最新。以降のPhaseで増える）が全て漏れなく適用済み** — 確認手順:
+  1. 本番プロジェクトを CLI にリンクする: `supabase link --project-ref <本番project-ref>`
+  2. `supabase migration list` を実行し、`Local` 列と `Remote` 列を突き合わせる。
+     `Remote` 列が空の行があれば、そのmigrationが本番に未適用ということ
+     （`supabase/migrations/` 配下の実ファイル数と、`Remote` 列が埋まっている行数が
+     一致することを確認する — 本番プロジェクトが新規作成の場合は当然全行が未適用）
+  3. 未適用分がある場合、まず `supabase db push --dry-run` で「これから適用される
+     migrationファイル一覧」を確認してから、想定と一致していれば `supabase db push`
+     を実行する（`--dry-run` は実際には何も変更しない）
+  4. 適用後、再度 `supabase migration list` を実行し、`Local`/`Remote` が完全に
+     一致していることを確認する
+  - 特に注意: migration 062・063（Phase 19E, `online_orders.linked_reservation_id`
+    等の追加・`sale_refunds`返金対応拡張・businesses RLS修正）は、開発用プロジェクト
+    （`pykgvelfklzhidyazkpm`）には適用済みだが、これは本番環境ではない。
+    本番プロジェクトが分離された時点で、001から改めて全て適用する必要がある
+    （本番は今のところ開発用プロジェクトと同一のため、新規に本番プロジェクトを
+    作成した場合はゼロから全migrationの適用が必要）
 - [ ] `supabase/seed.sql` または本番用マスタデータ投入済み
 - [ ] RLS が全対象テーブルで有効（001/002 + 006/007）
 - [ ] `create_reservation_atomic` / `cancel_reservation_atomic` / `expire_pending_reservations` が存在
@@ -134,7 +151,7 @@
 
 詳細: [管理者向け運用手順](./admin-operations.md)
 
-- [ ] `/admin/login` から admin / business_admin でログイン
+- [ ] `/login` から admin / business_admin でログインし、自動的に `/admin/reservations` へ遷移することを確認
 - [ ] 一般 user は `/admin` にアクセス不可（トップへリダイレクト）
 - [ ] admin: 全予約閲覧・操作
 - [ ] business_admin: 担当事業の予約のみ
@@ -218,4 +235,5 @@
 □ admin / business_admin アカウント作成済み
 □ npm run build 成功
 □ テスト決済 1 件成功（本番 or テストモード）
+□ E2E_TEST_LOGIN_SECRET / E2E_TEST_LOGIN_ENABLED が本番環境変数に存在しないこと（/api/test/login 無効化確認）
 ```

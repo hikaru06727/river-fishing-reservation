@@ -5,7 +5,7 @@ import { isAdminRole } from "@/lib/auth/role";
 
 export default async function AdminBlogPage() {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/blog");
+  if (!session) redirect("/login?next=/admin/blog");
 
   if (!isAdminRole(session.profile.role)) {
     redirect("/admin");

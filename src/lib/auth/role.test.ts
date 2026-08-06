@@ -16,6 +16,12 @@ function makeProfile(role: Profile["role"]): Profile {
     email: "test@example.com",
     full_name: null,
     role,
+    is_system: false,
+    phone: null,
+    postal_code: null,
+    prefecture: null,
+    address_line1: null,
+    address_line2: null,
     created_at: "2026-01-01T00:00:00.000Z",
     updated_at: "2026-01-01T00:00:00.000Z",
   };
@@ -65,6 +71,16 @@ describe("isManagementRole / isManagementProfile", () => {
   it("user は管理ロールではない", () => {
     expect(isManagementRole("user")).toBe(false);
     expect(isManagementProfile(makeProfile("user"))).toBe(false);
+  });
+
+  it("system（自動返金プレースホルダー profile 用ロール）は管理ロールではない", () => {
+    // profiles.role='system' は is_system=true のプレースホルダー専用（migration 061）。
+    // isAdminRole 等は単純な文字列一致のため、admin/business_admin/staff の
+    // いずれとも一致しないことをここで固定する（万一セッションが確立されても
+    // 管理者権限を持たないことの回帰テスト）。
+    expect(isAdminRole("system")).toBe(false);
+    expect(isBusinessAdminRole("system")).toBe(false);
+    expect(isManagementRole("system")).toBe(false);
   });
 });
 

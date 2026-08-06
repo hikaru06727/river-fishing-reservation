@@ -5,8 +5,10 @@ import { inferPaymentMethod } from "@/lib/reservations/payment-method";
 import { getReservationById } from "@/lib/reservations/get-reservation";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
 import { updateReservationStripeCheckoutSessionId } from "@/lib/repositories/reservations.repository";
+import { getActiveAddonAmountSummary } from "@/lib/services/reservation-addon.service";
 import { getStripe } from "@/lib/stripe/server";
 import { checkoutSchema } from "@/validations/reservation";
+import type Stripe from "stripe";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +53,24 @@ export async function POST(request: Request) {
     const spotName = reservation.locations?.name ?? "釣り場";
     const planName = getReservationPlanDisplay(reservation, { nameFallback: "プラン" }).name;
 
+    // アドオン（同時購入商品）は決済方法を予約と2重に選ばせないため、同じ
+    // Checkout Session に1行にまとめて含める（product_id ごとの line_item に
+    // 分けると単価の税込み丸めが数量倍で誤差を生むため、合計額で1行にする）。
+    const addonSummary = await getActiveAddonAmountSummary(reservation.id);
+    const addonLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+      addonSummary.totalAmount > 0
+        ? [
+            {
+              price_data: {
+                currency: "jpy",
+                product_data: { name: "追加商品（同時購入）" },
+                unit_amount: addonSummary.totalAmount,
+              },
+              quantity: 1,
+            },
+          ]
+        : [];
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       payment_method_types: ["card"],
@@ -66,6 +86,7 @@ export async function POST(request: Request) {
           },
           quantity: 1,
         },
+        ...addonLineItems,
       ],
       metadata: {
         reservationId: reservation.id,

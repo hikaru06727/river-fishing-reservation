@@ -3,8 +3,9 @@ import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/permissions";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import { isAdminRole } from "@/lib/auth/role";
-import { listRefunds } from "@/lib/services/refund.service";
+import { listRefunds, listUnresolvedFailedRefunds } from "@/lib/services/refund.service";
 import { RefundListView } from "@/components/refund/RefundListView";
+import { FailedRefundsPanel } from "@/components/refund/FailedRefundsPanel";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -17,7 +18,7 @@ interface PageProps {
 
 export default async function AdminRefundsPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/refunds");
+  if (!session) redirect("/login?next=/admin/refunds");
 
   if (!hasPermission(session.profile.role, "REFUND_MANAGE")) {
     redirect("/admin");
@@ -33,9 +34,13 @@ export default async function AdminRefundsPage({ searchParams }: PageProps) {
   }
 
   let refundsResult = null;
+  let failedRefunds = null;
   if (businessId) {
     const result = await listRefunds(session.profile, { businessId });
     if (result.ok) refundsResult = result.data;
+
+    const failedResult = await listUnresolvedFailedRefunds(session.profile, { businessId });
+    if (failedResult.ok) failedRefunds = failedResult.data;
   }
 
   const selectedBusiness = businesses.find((b) => b.id === businessId);
@@ -88,6 +93,10 @@ export default async function AdminRefundsPage({ searchParams }: PageProps) {
               事業:{" "}
               <span className="font-medium text-foreground">{selectedBusiness.name}</span>
             </p>
+          )}
+
+          {failedRefunds !== null && (
+            <FailedRefundsPanel businessId={businessId} refunds={failedRefunds} />
           )}
 
           {refundsResult === null ? (

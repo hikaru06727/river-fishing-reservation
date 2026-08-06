@@ -9,7 +9,8 @@ import {
 
 export type RefundTarget =
   | { type: "saleSession"; id: string }
-  | { type: "reservation"; id: string; stripePaymentIntentId?: string | null };
+  | { type: "reservation"; id: string; stripePaymentIntentId?: string | null }
+  | { type: "onlineOrder"; id: string; stripePaymentIntentId?: string | null };
 
 interface RefundModalProps {
   businessId: string;
@@ -38,7 +39,8 @@ export function RefundModal({ businessId, target, maxAmount, onClose, closingWar
   const formAction = method === "cash" ? cashAction : cardAction;
 
   const hasStripe =
-    target.type === "reservation" && !!target.stripePaymentIntentId;
+    (target.type === "reservation" || target.type === "onlineOrder") &&
+    !!target.stripePaymentIntentId;
   const amountNum = parseFloat(amount);
   const isValid = !isNaN(amountNum) && amountNum > 0 && amountNum <= maxAmount && reason.trim();
 
@@ -72,6 +74,18 @@ export function RefundModal({ businessId, target, maxAmount, onClose, closingWar
           {target.type === "reservation" && (
             <>
               <input type="hidden" name="reservationId" value={target.id} />
+              {target.stripePaymentIntentId && (
+                <input
+                  type="hidden"
+                  name="stripePaymentIntentId"
+                  value={target.stripePaymentIntentId}
+                />
+              )}
+            </>
+          )}
+          {target.type === "onlineOrder" && (
+            <>
+              <input type="hidden" name="onlineOrderId" value={target.id} />
               {target.stripePaymentIntentId && (
                 <input
                   type="hidden"

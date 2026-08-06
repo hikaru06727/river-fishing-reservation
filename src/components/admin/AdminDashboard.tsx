@@ -17,6 +17,7 @@ interface AdminDashboardProps {
   recentReservations: AdminReservationRow[];
   manageableSpots: ManageableSpot[];
   isAdmin: boolean;
+  shopSlug: string | null;
 }
 
 const STATUS_ORDER: ReservationStatus[] = [
@@ -40,17 +41,30 @@ export function AdminDashboard({
   recentReservations,
   manageableSpots,
   isAdmin,
+  shopSlug,
 }: AdminDashboardProps) {
   const today = toISODate(new Date());
   const week = getWeekDateRange();
 
   return (
     <div className="space-y-8">
-      <header>
-        <h2 className="text-lg font-semibold text-foreground">ダッシュボード</h2>
-        <p className="mt-1 text-sm text-muted">
-          {isAdmin ? "全体の予約状況" : "担当事業の予約状況"}
-        </p>
+      <header className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">ダッシュボード</h2>
+          <p className="mt-1 text-sm text-muted">
+            {isAdmin ? "全体の予約状況" : "担当事業の予約状況"}
+          </p>
+        </div>
+        {shopSlug && (
+          <a
+            href={`/shop/${shopSlug}/products`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 rounded-lg border border-border bg-card px-4 py-2 text-sm font-medium text-foreground hover:bg-slate-50"
+          >
+            ショップを見る（新しいタブで開く）↗
+          </a>
+        )}
       </header>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

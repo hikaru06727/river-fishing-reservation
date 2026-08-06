@@ -17,7 +17,7 @@ interface PageProps {
 
 export default async function AdminStaffPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/staff");
+  if (!session) redirect("/login?next=/admin/staff");
 
   if (!hasPermission(session.profile.role, "STAFF_MANAGE")) {
     redirect("/admin");

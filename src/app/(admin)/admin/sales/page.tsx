@@ -21,7 +21,7 @@ export default async function AdminSalesPage({ searchParams }: AdminSalesPagePro
   const result = await getSalesDashboard(params);
 
   if (!result) {
-    redirect("/admin/login?next=/admin/sales");
+    redirect("/login?next=/admin/sales");
   }
 
   return (
@@ -31,6 +31,7 @@ export default async function AdminSalesPage({ searchParams }: AdminSalesPagePro
       isAdmin={result.isAdmin}
       scopedBusinessNames={result.scopedBusinessNames}
       productSalesYen={result.productSalesYen}
+      onlineOrderSalesYen={result.onlineOrderSalesYen}
       todaySummary={result.todaySummary}
     />
   );

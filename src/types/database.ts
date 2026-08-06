@@ -2,6 +2,10 @@ import type {
   AppUserRole,
   ClosingCorrectionStatus,
   ContentStatus,
+  OnlineOrderFulfillmentType,
+  OnlineOrderPaymentMethod,
+  OnlineOrderPaymentStatus,
+  OnlineOrderStatus,
   PaymentLedgerPaymentMethod,
   PaymentLedgerSourceType,
   PaymentLedgerStatus,
@@ -10,6 +14,7 @@ import type {
   ProductSaleStatus,
   ProductStatus,
   RegisterClosingStatus,
+  ReservationAddonItemStatus,
   ReservationStatus,
   SaleRefundPaymentMethod,
   SaleRefundStatus,
@@ -30,11 +35,16 @@ export type {
   AppUserRole,
   ClosingCorrectionStatus,
   ContentStatus,
+  OnlineOrderFulfillmentType,
+  OnlineOrderPaymentMethod,
+  OnlineOrderPaymentStatus,
+  OnlineOrderStatus,
   PaymentMethod,
   PaymentStatus,
   ProductSaleStatus,
   ProductStatus,
   RegisterClosingStatus,
+  ReservationAddonItemStatus,
   ReservationStatus,
   SaleRefundPaymentMethod,
   SaleRefundStatus,
@@ -51,6 +61,12 @@ export interface Database {
           email: string;
           full_name: string | null;
           role: UserRole;
+          is_system: boolean;
+          phone: string | null;
+          postal_code: string | null;
+          prefecture: string | null;
+          address_line1: string | null;
+          address_line2: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -59,6 +75,12 @@ export interface Database {
           email: string;
           full_name?: string | null;
           role?: UserRole;
+          is_system?: boolean;
+          phone?: string | null;
+          postal_code?: string | null;
+          prefecture?: string | null;
+          address_line1?: string | null;
+          address_line2?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -67,6 +89,12 @@ export interface Database {
           email?: string;
           full_name?: string | null;
           role?: UserRole;
+          is_system?: boolean;
+          phone?: string | null;
+          postal_code?: string | null;
+          prefecture?: string | null;
+          address_line1?: string | null;
+          address_line2?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1080,6 +1108,7 @@ export interface Database {
           reservation_id: string | null;
           stripe_refund_id: string | null;
           stripe_payment_intent_id: string | null;
+          online_order_id: string | null;
           amount: number;
           payment_method: SaleRefundPaymentMethod;
           reason: string | null;
@@ -1088,6 +1117,9 @@ export interface Database {
           status: SaleRefundStatus;
           note: string | null;
           created_at: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          resolution_note: string | null;
         };
         Insert: {
           id?: string;
@@ -1096,6 +1128,7 @@ export interface Database {
           reservation_id?: string | null;
           stripe_refund_id?: string | null;
           stripe_payment_intent_id?: string | null;
+          online_order_id?: string | null;
           amount: number;
           payment_method: SaleRefundPaymentMethod;
           reason?: string | null;
@@ -1104,6 +1137,9 @@ export interface Database {
           status?: SaleRefundStatus;
           note?: string | null;
           created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          resolution_note?: string | null;
         };
         Update: {
           id?: string;
@@ -1112,6 +1148,7 @@ export interface Database {
           reservation_id?: string | null;
           stripe_refund_id?: string | null;
           stripe_payment_intent_id?: string | null;
+          online_order_id?: string | null;
           amount?: number;
           payment_method?: SaleRefundPaymentMethod;
           reason?: string | null;
@@ -1120,6 +1157,9 @@ export interface Database {
           status?: SaleRefundStatus;
           note?: string | null;
           created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          resolution_note?: string | null;
         };
         Relationships: [];
       };
@@ -1193,6 +1233,174 @@ export interface Database {
           payment_method?: PaymentLedgerPaymentMethod;
           status?: PaymentLedgerStatus;
           paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      online_orders: {
+        Row: {
+          id: string;
+          business_id: string;
+          user_id: string | null;
+          status: OnlineOrderStatus;
+          fulfillment_type: OnlineOrderFulfillmentType;
+          payment_method: OnlineOrderPaymentMethod;
+          payment_status: OnlineOrderPaymentStatus;
+          stripe_checkout_session_id: string | null;
+          subtotal_amount: number;
+          tax_amount: number;
+          total_amount: number;
+          customer_name: string;
+          customer_email: string;
+          customer_phone: string | null;
+          shipping_postal_code: string | null;
+          shipping_prefecture: string | null;
+          shipping_address_line1: string | null;
+          shipping_address_line2: string | null;
+          notes: string | null;
+          pickup_date: string | null;
+          pickup_deadline: string | null;
+          confirmation_code: string | null;
+          shipped_at: string | null;
+          delivered_at: string | null;
+          linked_reservation_id: string | null;
+          stripe_payment_intent_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          business_id: string;
+          user_id?: string | null;
+          status?: OnlineOrderStatus;
+          fulfillment_type: OnlineOrderFulfillmentType;
+          payment_method: OnlineOrderPaymentMethod;
+          payment_status?: OnlineOrderPaymentStatus;
+          stripe_checkout_session_id?: string | null;
+          subtotal_amount: number;
+          tax_amount: number;
+          total_amount: number;
+          customer_name: string;
+          customer_email: string;
+          customer_phone?: string | null;
+          shipping_postal_code?: string | null;
+          shipping_prefecture?: string | null;
+          shipping_address_line1?: string | null;
+          shipping_address_line2?: string | null;
+          notes?: string | null;
+          pickup_date?: string | null;
+          pickup_deadline?: string | null;
+          confirmation_code?: string | null;
+          shipped_at?: string | null;
+          delivered_at?: string | null;
+          linked_reservation_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          business_id?: string;
+          user_id?: string | null;
+          status?: OnlineOrderStatus;
+          fulfillment_type?: OnlineOrderFulfillmentType;
+          payment_method?: OnlineOrderPaymentMethod;
+          payment_status?: OnlineOrderPaymentStatus;
+          stripe_checkout_session_id?: string | null;
+          subtotal_amount?: number;
+          tax_amount?: number;
+          total_amount?: number;
+          customer_name?: string;
+          customer_email?: string;
+          customer_phone?: string | null;
+          shipping_postal_code?: string | null;
+          shipping_prefecture?: string | null;
+          shipping_address_line1?: string | null;
+          shipping_address_line2?: string | null;
+          notes?: string | null;
+          pickup_date?: string | null;
+          pickup_deadline?: string | null;
+          confirmation_code?: string | null;
+          shipped_at?: string | null;
+          delivered_at?: string | null;
+          linked_reservation_id?: string | null;
+          stripe_payment_intent_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      online_order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          product_id?: string;
+          product_name?: string;
+          unit_price?: number;
+          tax_rate?: number;
+          quantity?: number;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      reservation_addon_items: {
+        Row: {
+          id: string;
+          reservation_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          status: ReservationAddonItemStatus;
+          stock_decremented_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          reservation_id: string;
+          product_id: string;
+          product_name: string;
+          unit_price: number;
+          tax_rate: number;
+          quantity: number;
+          status?: ReservationAddonItemStatus;
+          stock_decremented_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          reservation_id?: string;
+          product_id?: string;
+          product_name?: string;
+          unit_price?: number;
+          tax_rate?: number;
+          quantity?: number;
+          status?: ReservationAddonItemStatus;
+          stock_decremented_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1296,3 +1504,6 @@ export type RegisterClosingRow = Database["public"]["Tables"]["register_closings
 export type RegisterClosingCorrectionRow = Database["public"]["Tables"]["register_closing_corrections"]["Row"];
 export type SaleRefundRow = Database["public"]["Tables"]["sale_refunds"]["Row"];
 export type PaymentLedgerRow = Database["public"]["Tables"]["payment_ledger"]["Row"];
+export type OnlineOrderRow = Database["public"]["Tables"]["online_orders"]["Row"];
+export type OnlineOrderItemRow = Database["public"]["Tables"]["online_order_items"]["Row"];
+export type ReservationAddonItemRow = Database["public"]["Tables"]["reservation_addon_items"]["Row"];

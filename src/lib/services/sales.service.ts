@@ -3,7 +3,12 @@ import { getProfile, getUser } from "@/lib/auth/get-user";
 import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
 import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
-import { findProductSalesTotalYen, findSalesReservationRows, findTodaySalesRows } from "@/lib/repositories/sales.repository";
+import {
+  findOnlineOrderSalesTotalYen,
+  findProductSalesTotalYen,
+  findSalesReservationRows,
+  findTodaySalesRows,
+} from "@/lib/repositories/sales.repository";
 import { aggregateSalesReport } from "@/lib/sales/sales-aggregation";
 import { filterSalesRowsForProfile } from "@/lib/sales/sales-access";
 import { computeSalesInsights, type SalesInsights } from "@/lib/sales/sales-insights";
@@ -11,10 +16,7 @@ import { resolveBusinessDayCountForSales } from "@/lib/sales/sales-insights-cont
 import { parseSalesDateRange } from "@/lib/sales/sales-period";
 import { aggregateTodaySummary } from "@/lib/sales/today-summary";
 import type { SalesDateRange, SalesReport, TodaySalesSummary } from "@/lib/sales/sales-types";
-
-function getTodayJst(): string {
-  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
-}
+import { getTodayJst } from "@/lib/utils/date";
 
 export type SalesDashboardResult = {
   report: SalesReport;
@@ -22,6 +24,7 @@ export type SalesDashboardResult = {
   isAdmin: boolean;
   scopedBusinessNames: string[] | null;
   productSalesYen: number;
+  onlineOrderSalesYen: number;
   todaySummary: TodaySalesSummary;
 };
 
@@ -63,15 +66,18 @@ export async function getSalesDashboard(
   const todayJst = getTodayJst();
   let rows;
   let productSalesYen = 0;
+  let onlineOrderSalesYen = 0;
   let todaySummary: TodaySalesSummary;
   try {
-    const [reservationRows, productYen, todayRaw] = await Promise.all([
+    const [reservationRows, productYen, onlineOrderYen, todayRaw] = await Promise.all([
       findSalesReservationRows(range),
       findProductSalesTotalYen(range).catch(() => 0),
+      findOnlineOrderSalesTotalYen(range).catch(() => 0),
       findTodaySalesRows(todayJst).catch(() => []),
     ]);
     rows = reservationRows;
     productSalesYen = productYen;
+    onlineOrderSalesYen = onlineOrderYen;
     todaySummary = aggregateTodaySummary(todayRaw, todayJst);
   } catch (error) {
     console.error("[getSalesDashboard]", error instanceof Error ? error.message : error);
@@ -102,6 +108,7 @@ export async function getSalesDashboard(
     isAdmin,
     scopedBusinessNames,
     productSalesYen,
+    onlineOrderSalesYen,
     todaySummary,
   };
 }

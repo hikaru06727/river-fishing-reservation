@@ -124,7 +124,8 @@ export async function findBusinessAdminEmailsByBusinessId(
     .from("profiles")
     .select("email")
     .in("id", userIds)
-    .eq("role", "business_admin");
+    .eq("role", "business_admin")
+    .eq("is_system", false);
 
   if (profileError) {
     throw new Error(profileError.message);
@@ -135,5 +136,52 @@ export async function findBusinessAdminEmailsByBusinessId(
     .filter((email): email is string => Boolean(email?.trim()));
 }
 
+export type ProfileAddressFields = {
+  full_name?: string;
+  phone?: string | null;
+  postal_code?: string | null;
+  prefecture?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+};
+
+/**
+ * チェックアウトの「この住所を今後のために保存する」チェック時に呼ぶ（Phase 20）。
+ * RLS の profiles_update_own ポリシー（auth.uid() = id かつ role 不変）に依存するため、
+ * 呼び出し元は必ずログイン中の本人の userId を渡すこと。
+ */
+export async function updateProfileAddress(
+  userId: string,
+  fields: ProfileAddressFields,
+): Promise<void> {
+  const supabase = await createClient();
+
+  const { error } = await supabase.from("profiles").update(fields).eq("id", userId);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 /** @deprecated findProfileEmailByUserIdAdmin を使用 */
 export const findProfileEmailByUserId = findProfileEmailByUserIdAdmin;
+
+/**
+ * 自動返金の refunded_by に使う system プレースホルダー profile の id を取得する。
+ * scripts/setup-system-profile.mjs が環境ごとに1回作成する（is_system = true、高々1件）。
+ */
+export async function findSystemProfileId(): Promise<string | null> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("is_system", true)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data?.id ?? null;
+}

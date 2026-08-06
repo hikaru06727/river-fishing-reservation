@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { PaymentLedgerRow } from "@/types/database";
 import type {
   PaymentLedgerPaymentMethod,
@@ -24,6 +25,27 @@ export async function findBySource(
   const supabase = await createClient();
 
   const { data, error } = await supabase
+    .from("payment_ledger")
+    .select("*")
+    .eq("source_type", sourceType)
+    .eq("source_id", sourceId)
+    .maybeSingle();
+
+  if (error) throw new Error(error.message);
+  return data as PaymentLedgerRow | null;
+}
+
+/**
+ * service_role での取得（顧客自身のキャンセル操作等、payment_ledger への
+ * RLS アクセス権を持たないコンテキストから呼ぶ）。
+ */
+export async function findBySourceAdmin(
+  sourceType: PaymentLedgerSourceType,
+  sourceId: string,
+): Promise<PaymentLedgerRow | null> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
     .from("payment_ledger")
     .select("*")
     .eq("source_type", sourceType)
@@ -95,12 +117,12 @@ export async function findUnsettledInPeriod(
 ): Promise<UnsettledItem[]> {
   const supabase = await createClient();
 
-  // 1. POS・手動売上の未精算エントリ（source_type='reservation' は別クエリで処理）
+  // 1. POS・手動売上・オンライン注文の未精算エントリ（source_type='reservation' は別クエリで処理）
   const { data: ledgerData, error: ledgerError } = await supabase
     .from("payment_ledger")
     .select("source_type, source_id")
     .eq("business_id", businessId)
-    .in("source_type", ["pos", "manual"])
+    .in("source_type", ["pos", "manual", "online_order"])
     .in("status", ["pending", "refunded", "partially_refunded"])
     .order("created_at", { ascending: true });
 
@@ -174,6 +196,37 @@ export async function upsertPaymentLedger(
   return data as PaymentLedgerRow;
 }
 
+/**
+ * service_role での台帳エントリ作成・更新（Stripe Webhook 用・セッション/RLS なし）。
+ * upsertPaymentLedger と異なり anon 実行コンテキストから呼ばれる。
+ */
+export async function recordPaymentLedgerAdmin(
+  input: UpsertPaymentLedgerInput,
+): Promise<PaymentLedgerRow> {
+  const admin = createAdminClient();
+
+  const { data, error } = await admin
+    .from("payment_ledger")
+    .upsert(
+      {
+        business_id: input.business_id,
+        source_type: input.source_type,
+        source_id: input.source_id,
+        amount: input.amount,
+        payment_method: input.payment_method,
+        status: input.status ?? "pending",
+        paid_at: input.paid_at ?? null,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "source_type,source_id" },
+    )
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data as PaymentLedgerRow;
+}
+
 /** 支払いステータスを更新する */
 export async function updatePaymentLedgerStatus(
   id: string,
@@ -189,6 +242,31 @@ export async function updatePaymentLedgerStatus(
   if (paidAt !== undefined) patch.paid_at = paidAt;
 
   const { error } = await supabase
+    .from("payment_ledger")
+    .update(patch)
+    .eq("id", id);
+
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * service_role での支払いステータス更新（顧客自身のキャンセル操作等、
+ * payment_ledger への RLS アクセス権を持たないコンテキストから呼ぶ）。
+ */
+export async function updatePaymentLedgerStatusAdmin(
+  id: string,
+  status: PaymentLedgerStatus,
+  paidAt?: string | null,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const patch: { status: PaymentLedgerStatus; paid_at?: string | null; updated_at: string } = {
+    status,
+    updated_at: new Date().toISOString(),
+  };
+  if (paidAt !== undefined) patch.paid_at = paidAt;
+
+  const { error } = await admin
     .from("payment_ledger")
     .update(patch)
     .eq("id", id);

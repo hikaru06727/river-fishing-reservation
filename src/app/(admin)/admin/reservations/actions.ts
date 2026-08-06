@@ -23,7 +23,7 @@ export async function adminCancelReservationAction(
 ): Promise<AdminCancelReservationState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/reservations");
+    redirect("/login?next=/admin/reservations");
   }
 
   const reservationId = formData.get("reservationId");
@@ -58,7 +58,7 @@ export async function adminMarkCashPaymentReceivedAction(
 ): Promise<AdminMarkCashPaymentReceivedState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/reservations");
+    redirect("/login?next=/admin/reservations");
   }
 
   const reservationId = formData.get("reservationId");

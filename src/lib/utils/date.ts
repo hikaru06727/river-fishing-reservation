@@ -68,3 +68,8 @@ export function isBeforeUserCancelDeadline(
 ): boolean {
   return now.getTime() < getUserCancelDeadline(startAt).getTime();
 }
+
+/** サーバー実行環境のタイムゾーンに依存しない JST 基準の "今日"（YYYY-MM-DD） */
+export function getTodayJst(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" });
+}

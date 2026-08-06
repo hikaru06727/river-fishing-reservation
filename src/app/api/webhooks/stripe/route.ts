@@ -13,7 +13,9 @@ import {
   findReservationPaymentEmailMetaById,
   findReservationStatusForStripeWebhook,
 } from "@/lib/repositories/reservations.repository";
-import { upsertPaymentLedger } from "@/lib/repositories/payment-ledger.repository";
+import { recordPaymentLedgerAdmin } from "@/lib/repositories/payment-ledger.repository";
+import { handleOnlineOrderCheckoutCompleted } from "@/lib/services/online-order.service";
+import { confirmAddonPaymentAndStock } from "@/lib/services/reservation-addon.service";
 import { getStripe } from "@/lib/stripe/server";
 import type { ReservationStatus } from "@/types/database";
 
@@ -63,6 +65,17 @@ export async function POST(request: Request) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
+
+    if (session.metadata?.orderId) {
+      try {
+        await handleOnlineOrderCheckoutCompleted(session);
+      } catch (err) {
+        console.error("[stripe webhook] online order handling failed:", err);
+        return NextResponse.json({ error: "Failed to process online order" }, { status: 500 });
+      }
+      return NextResponse.json({ received: true, confirmed: true, orderId: session.metadata.orderId });
+    }
+
     const reservationId = session.metadata?.reservationId;
     const userId = session.metadata?.userId;
 
@@ -136,6 +149,10 @@ export async function POST(request: Request) {
       await upsertStripePaymentFromWebhook({
         reservation_id: reservationId,
         stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id:
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : (session.payment_intent?.id ?? null),
         amount_yen: session.amount_total ?? reservation.total_amount_yen,
         currency: session.currency ?? "jpy",
         paid_at: new Date().toISOString(),
@@ -149,11 +166,14 @@ export async function POST(request: Request) {
 
     if (emailMeta?.businessId) {
       try {
-        await upsertPaymentLedger({
+        await recordPaymentLedgerAdmin({
           business_id: emailMeta.businessId,
           source_type: "reservation",
+          // session.amount_total には同時決済したアドオン分も含まれるため、
+          // 予約分の payment_ledger には予約自体の確定金額のみを記録する
+          // （アドオン分は confirmAddonPaymentAndStock が別レコードで記録する）。
           source_id: reservationId,
-          amount: session.amount_total ?? emailMeta.totalAmountYen,
+          amount: emailMeta.totalAmountYen,
           payment_method: "card",
           status: "succeeded",
           paid_at: new Date().toISOString(),
@@ -161,6 +181,15 @@ export async function POST(request: Request) {
       } catch (ledgerError) {
         console.error("[stripe webhook] payment_ledger upsert failed:", ledgerError);
       }
+
+      await confirmAddonPaymentAndStock({
+        reservationId,
+        businessId: emailMeta.businessId,
+        paymentMethod: "card",
+        paidAtIso: new Date().toISOString(),
+      }).catch((err) => {
+        console.error("[stripe webhook] addon stock/ledger confirmation failed:", err);
+      });
     }
 
     if (emailMeta) {

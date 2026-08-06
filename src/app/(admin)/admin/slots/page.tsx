@@ -9,7 +9,7 @@ export const metadata = { title: "予約枠管理" };
 
 export default async function AdminSlotsPage() {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/slots");
+  if (!session) redirect("/login?next=/admin/slots");
 
   if (!hasPermission(session.profile.role, "BUSINESS_SETTINGS")) {
     redirect("/admin");

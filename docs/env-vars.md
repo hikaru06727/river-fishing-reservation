@@ -33,6 +33,8 @@
 | 変数 | 用途 |
 |------|------|
 | `ADMIN_SECRET` | `/api/admin/set-role`, `set-password`, `/api/dev/send-test-email` の保護。**本番では未設定推奨**（production では API 自体が 403） |
+| `E2E_TEST_LOGIN_ENABLED` | `true` の場合のみ `/api/test/login` を有効化。**本番では未設定推奨**（production / Vercel では常に 403） |
+| `E2E_TEST_LOGIN_SECRET` | `/api/test/login` の `x-e2e-test-secret` ヘッダー検証用シークレット。Playwright から Magic Link ログインをメール受信なしで再現するための専用トークン（`ADMIN_SECRET` とは別管理） |
 
 ## 未使用 / 任意
 

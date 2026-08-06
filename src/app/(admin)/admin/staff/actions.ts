@@ -16,7 +16,7 @@ export async function inviteStaffAction(
   formData: FormData,
 ): Promise<StaffActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/staff");
+  if (!session) redirect("/login?next=/admin/staff");
 
   if (!hasPermission(session.profile.role, "STAFF_MANAGE")) {
     return { error: "スタッフ管理の権限がありません。" };
@@ -53,7 +53,7 @@ export async function disableStaffAction(
   formData: FormData,
 ): Promise<StaffActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/staff");
+  if (!session) redirect("/login?next=/admin/staff");
 
   const staffMemberId = formData.get("staffMemberId") as string | null;
   if (!staffMemberId) return { error: "対象が指定されていません。" };
@@ -70,7 +70,7 @@ export async function enableStaffAction(
   formData: FormData,
 ): Promise<StaffActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/staff");
+  if (!session) redirect("/login?next=/admin/staff");
 
   const staffMemberId = formData.get("staffMemberId") as string | null;
   if (!staffMemberId) return { error: "対象が指定されていません。" };

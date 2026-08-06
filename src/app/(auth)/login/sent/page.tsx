@@ -15,18 +15,18 @@ export default async function SentPage({
         <div className="text-5xl" aria-hidden="true">
           📧
         </div>
-        <h1 className="mt-4 text-2xl font-bold">メールを送信しました</h1>
+        <h1 className="mt-4 text-2xl font-bold">確認メールを送信しました</h1>
         <p className="mt-4 text-sm text-muted">
           {email ? (
             <>
               <span className="font-medium text-foreground">{email}</span> に
-              ログインリンクをお送りしました。
+              確認メールをお送りしました。
             </>
           ) : (
-            "ログインリンクをお送りしました。"
+            "確認メールをお送りしました。"
           )}
           <br />
-          メール内のリンクをクリックしてください。
+          メール内のリンクをクリックして登録を完了してください。
         </p>
       </div>
     </div>

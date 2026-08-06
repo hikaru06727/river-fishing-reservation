@@ -2,16 +2,25 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getSalesDashboard } from "@/lib/services/sales.service";
 import type { SalesReservationRow } from "@/lib/sales/sales-types";
 
-const { getUserMock, getProfileMock, findAssignedBusinessIdsByUserIdMock, findSalesReservationRowsMock, findProductSalesTotalYenMock, findTodaySalesRowsMock, resolveBusinessDayCountForSalesMock } =
-  vi.hoisted(() => ({
-    getUserMock: vi.fn(),
-    getProfileMock: vi.fn(),
-    findAssignedBusinessIdsByUserIdMock: vi.fn(),
-    findSalesReservationRowsMock: vi.fn(),
-    findProductSalesTotalYenMock: vi.fn(),
-    findTodaySalesRowsMock: vi.fn(),
-    resolveBusinessDayCountForSalesMock: vi.fn(),
-  }));
+const {
+  getUserMock,
+  getProfileMock,
+  findAssignedBusinessIdsByUserIdMock,
+  findSalesReservationRowsMock,
+  findProductSalesTotalYenMock,
+  findOnlineOrderSalesTotalYenMock,
+  findTodaySalesRowsMock,
+  resolveBusinessDayCountForSalesMock,
+} = vi.hoisted(() => ({
+  getUserMock: vi.fn(),
+  getProfileMock: vi.fn(),
+  findAssignedBusinessIdsByUserIdMock: vi.fn(),
+  findSalesReservationRowsMock: vi.fn(),
+  findProductSalesTotalYenMock: vi.fn(),
+  findOnlineOrderSalesTotalYenMock: vi.fn(),
+  findTodaySalesRowsMock: vi.fn(),
+  resolveBusinessDayCountForSalesMock: vi.fn(),
+}));
 
 vi.mock("next/cache", () => ({
   unstable_noStore: vi.fn(),
@@ -29,6 +38,7 @@ vi.mock("@/lib/repositories/businesses.repository", () => ({
 vi.mock("@/lib/repositories/sales.repository", () => ({
   findSalesReservationRows: findSalesReservationRowsMock,
   findProductSalesTotalYen: findProductSalesTotalYenMock,
+  findOnlineOrderSalesTotalYen: findOnlineOrderSalesTotalYenMock,
   findTodaySalesRows: findTodaySalesRowsMock,
 }));
 
@@ -63,6 +73,8 @@ describe("getSalesDashboard", () => {
     findSalesReservationRowsMock.mockReset();
     findProductSalesTotalYenMock.mockReset();
     findProductSalesTotalYenMock.mockResolvedValue(0);
+    findOnlineOrderSalesTotalYenMock.mockReset();
+    findOnlineOrderSalesTotalYenMock.mockResolvedValue(0);
     findTodaySalesRowsMock.mockReset();
     findTodaySalesRowsMock.mockResolvedValue([]);
     resolveBusinessDayCountForSalesMock.mockReset();
@@ -84,6 +96,23 @@ describe("getSalesDashboard", () => {
     expect(result?.report.projectedRevenueYen).toBe(20000);
     expect(result?.insights.businessDayCount).toBe(1);
     expect(findAssignedBusinessIdsByUserIdMock).not.toHaveBeenCalled();
+  });
+
+  it("オンライン注文売上合計を POS 売上合計とは別に返す", async () => {
+    getUserMock.mockResolvedValue({ id: "admin-user" });
+    getProfileMock.mockResolvedValue({ id: "admin-user", role: "admin" });
+    findSalesReservationRowsMock.mockResolvedValue([]);
+    findProductSalesTotalYenMock.mockResolvedValue(5000);
+    findOnlineOrderSalesTotalYenMock.mockResolvedValue(2200);
+
+    const result = await getSalesDashboard({ dateFrom: "2026-06-22", dateTo: "2026-06-22" });
+
+    expect(result?.productSalesYen).toBe(5000);
+    expect(result?.onlineOrderSalesYen).toBe(2200);
+    expect(findOnlineOrderSalesTotalYenMock).toHaveBeenCalledWith({
+      dateFrom: "2026-06-22",
+      dateTo: "2026-06-22",
+    });
   });
 
   it("business_admin は担当 business の売上だけ取得できる", async () => {

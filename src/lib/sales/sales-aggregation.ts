@@ -34,6 +34,11 @@ export function resolveConfirmedPaymentAmountYen(row: SalesReservationRow): numb
 }
 
 export function isConfirmedRevenue(row: SalesReservationRow): boolean {
+  // payments.status はキャンセル・返金時に更新されないため、
+  // reservations.status を併せて見て cancelled は確定売上から除外する。
+  if (row.status === "cancelled") {
+    return false;
+  }
   return resolveReservationPaymentStatus(row.payments) === "succeeded";
 }
 

@@ -15,7 +15,7 @@ export async function createManualSaleAction(
   formData: FormData,
 ): Promise<ManualSaleActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/manual-sales/new");
+  if (!session) redirect("/login?next=/admin/manual-sales/new");
 
   const parsed = parseManualSaleForm(formData);
   if (!parsed.success) {
@@ -47,7 +47,7 @@ export async function updateManualSaleAction(
   formData: FormData,
 ): Promise<ManualSaleActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/manual-sales");
+  if (!session) redirect("/login?next=/admin/manual-sales");
 
   const id = formData.get("id");
   if (typeof id !== "string" || !id) {
@@ -80,7 +80,7 @@ export async function updateManualSaleAction(
 
 export async function deleteManualSaleAction(formData: FormData): Promise<void> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/manual-sales");
+  if (!session) redirect("/login?next=/admin/manual-sales");
 
   const id = formData.get("id");
   const businessId = formData.get("businessId");

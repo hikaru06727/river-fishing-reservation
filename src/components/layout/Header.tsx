@@ -6,6 +6,7 @@ const mainNavLinks = [
   { href: "/spots", label: "釣り場" },
   { href: "/catches", label: "釣果" },
   { href: "/blog", label: "ブログ" },
+  { href: "/shop", label: "ショップ" },
 ];
 
 export async function Header() {

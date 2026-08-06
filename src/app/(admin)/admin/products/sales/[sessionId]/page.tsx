@@ -38,7 +38,7 @@ interface PageProps {
 
 export default async function AdminSaleSessionDetailPage({ params }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products/sales");
+  if (!session) redirect("/login?next=/admin/products/sales");
 
   const { sessionId } = await params;
 

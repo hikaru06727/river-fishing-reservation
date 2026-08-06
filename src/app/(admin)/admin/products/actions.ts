@@ -17,7 +17,7 @@ export async function createProductAction(
   formData: FormData,
 ): Promise<ProductActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products/new");
+  if (!session) redirect("/login?next=/admin/products/new");
 
   const parsed = parseProductForm(formData);
   if (!parsed.success) {
@@ -68,7 +68,7 @@ export async function updateProductAction(
   formData: FormData,
 ): Promise<ProductActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products");
+  if (!session) redirect("/login?next=/admin/products");
 
   const id = formData.get("id");
   if (typeof id !== "string" || !id) {
@@ -120,7 +120,7 @@ export async function updateProductAction(
 
 export async function deleteProductAction(formData: FormData): Promise<void> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products");
+  if (!session) redirect("/login?next=/admin/products");
 
   const id = formData.get("id");
   const businessId = formData.get("businessId");
@@ -141,7 +141,7 @@ export async function createProductSaleAction(
   formData: FormData,
 ): Promise<ProductActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products/sales");
+  if (!session) redirect("/login?next=/admin/products/sales");
 
   const parsed = parseProductSaleForm(formData);
   if (!parsed.success) {
@@ -167,7 +167,7 @@ export async function createProductSaleAction(
 
 export async function deleteProductSaleAction(formData: FormData): Promise<void> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products/sales");
+  if (!session) redirect("/login?next=/admin/products/sales");
 
   const id = formData.get("id");
   const businessId = formData.get("businessId");

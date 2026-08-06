@@ -30,7 +30,7 @@ interface PageProps {
 
 export default async function AdminProductsPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products");
+  if (!session) redirect("/login?next=/admin/products");
 
   if (!hasPermission(session.profile.role, "PRODUCT_MANAGE")) {
     redirect("/admin");

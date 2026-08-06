@@ -113,6 +113,7 @@ export async function markCashPaymentSucceededByReservationId(
 export type StripePaymentUpsertInput = {
   reservation_id: string;
   stripe_checkout_session_id: string;
+  stripe_payment_intent_id: string | null;
   amount_yen: number;
   currency: string;
   paid_at: string;
@@ -128,6 +129,7 @@ export async function upsertStripePaymentFromWebhook(
     {
       reservation_id: input.reservation_id,
       stripe_checkout_session_id: input.stripe_checkout_session_id,
+      stripe_payment_intent_id: input.stripe_payment_intent_id,
       amount_yen: input.amount_yen,
       currency: input.currency,
       status: "succeeded",

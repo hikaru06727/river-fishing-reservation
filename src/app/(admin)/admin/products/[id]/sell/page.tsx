@@ -10,7 +10,7 @@ interface PageProps {
 
 export default async function AdminProductSellPage({ params }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products");
+  if (!session) redirect("/login?next=/admin/products");
 
   const { id } = await params;
   const product = await findProductById(id);

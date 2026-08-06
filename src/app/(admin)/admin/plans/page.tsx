@@ -30,7 +30,7 @@ interface AdminPlansPageProps {
 
 export default async function AdminPlansPage({ searchParams }: AdminPlansPageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/plans");
+  if (!session) redirect("/login?next=/admin/plans");
   if (!hasPermission(session.profile.role, "PRODUCT_MANAGE")) redirect("/admin");
 
   const params = await searchParams;

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { Database, Product } from "@/types/database";
 import type { ProductStatus } from "@/types/domain";
 
@@ -212,4 +213,81 @@ export async function findPublishedProductById(
 
   if (error) throw new Error(error.message);
   return data as PublicProductRow | null;
+}
+
+/**
+ * チェックアウト時の最終確認用。指定 id のうち、公開中かつ販売中の商品のみ返す
+ * （非公開・非販売中・他事業の商品は結果から自然に除外される）。
+ */
+export async function findProductsByIds(
+  ids: string[],
+  businessId: string,
+): Promise<PublicProductRow[]> {
+  if (ids.length === 0) return [];
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("products")
+    .select(PUBLIC_PRODUCT_COLUMNS)
+    .in("id", ids)
+    .eq("business_id", businessId)
+    .eq("is_published_online", true)
+    .eq("status", "on_sale");
+
+  if (error) throw new Error(error.message);
+  return (data ?? []) as PublicProductRow[];
+}
+
+/**
+ * Stripe Webhook（service_role）からの在庫減算。track_inventory=false または
+ * stock_quantity=null（無制限在庫）の商品は何もしない。0未満にはならない。
+ */
+export async function decrementProductStockAdmin(
+  productId: string,
+  quantity: number,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: product, error: fetchError } = await admin
+    .from("products")
+    .select("stock_quantity, track_inventory")
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!product || !product.track_inventory || product.stock_quantity === null) return;
+
+  const { error } = await admin
+    .from("products")
+    .update({ stock_quantity: Math.max(0, product.stock_quantity - quantity) })
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
+}
+
+/**
+ * 予約キャンセルに伴う在庫復元（service_role）。decrementProductStockAdmin の逆操作。
+ * track_inventory=false または stock_quantity=null（無制限在庫）の商品は何もしない。
+ */
+export async function incrementProductStockAdmin(
+  productId: string,
+  quantity: number,
+): Promise<void> {
+  const admin = createAdminClient();
+
+  const { data: product, error: fetchError } = await admin
+    .from("products")
+    .select("stock_quantity, track_inventory")
+    .eq("id", productId)
+    .maybeSingle();
+
+  if (fetchError) throw new Error(fetchError.message);
+  if (!product || !product.track_inventory || product.stock_quantity === null) return;
+
+  const { error } = await admin
+    .from("products")
+    .update({ stock_quantity: product.stock_quantity + quantity })
+    .eq("id", productId);
+
+  if (error) throw new Error(error.message);
 }

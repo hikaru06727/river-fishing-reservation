@@ -8,6 +8,7 @@ import {
   isCashPaymentAlreadyReceived,
 } from "@/lib/reservations/mark-cash-payment-received";
 import { recordPaymentLedger } from "@/lib/services/payment-ledger.service";
+import { confirmAddonPaymentAndStock } from "@/lib/services/reservation-addon.service";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
@@ -92,6 +93,17 @@ export async function markCashPaymentReceived(
       } catch (e) {
         console.error("[markCashPaymentReceived] payment_ledger write failed:", e);
       }
+
+      // 現地精算確定のこのタイミングで、同時購入したアドオンの在庫を引当てる
+      // （予約時点では在庫を長期間ブロックしないため未引当のまま）。
+      await confirmAddonPaymentAndStock({
+        reservationId,
+        businessId: meta.business_id,
+        paymentMethod: "cash",
+        paidAtIso: paidAt,
+      }).catch((e) => {
+        console.error("[markCashPaymentReceived] addon stock/ledger confirmation failed:", e);
+      });
     }
 
     revalidateAdminReservationPaths(reservationId);

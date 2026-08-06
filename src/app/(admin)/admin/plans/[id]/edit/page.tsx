@@ -31,7 +31,7 @@ export default async function AdminPlanEditPage({
 }: AdminPlanEditPageProps) {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/plans");
+    redirect("/login?next=/admin/plans");
   }
 
   const { id } = await params;

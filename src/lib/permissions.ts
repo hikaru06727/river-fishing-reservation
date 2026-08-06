@@ -24,6 +24,10 @@ export const PERMISSIONS = {
   BUSINESS_SETTINGS: ["business_admin"],
   /** 税率設定 */
   TAX_SETTINGS: ["business_admin"],
+  /** 注文閲覧 */
+  ORDER_VIEW: ["business_admin", "staff"],
+  /** 注文ステータス変更・受け取り確認 */
+  ORDER_STATUS_MANAGE: ["business_admin"],
 } as const;
 
 export type PermissionKey = keyof typeof PERMISSIONS;

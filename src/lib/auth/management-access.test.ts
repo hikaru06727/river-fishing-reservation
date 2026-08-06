@@ -31,6 +31,18 @@ describe("canManageBusinessForProfile", () => {
   it("user は不可", () => {
     expect(canManageBusinessForProfile(profile("user"), bizA, assigned)).toBe(false);
   });
+
+  it("system（自動返金プレースホルダー profile 用ロール）は業務権限を一切持たない", () => {
+    // profiles.role='system'（migration 061）は isAdminRole/isBusinessAdminRole/isStaffRole
+    // のいずれにも一致しないため、assignedBusinessIds に含まれていても不可であることを固定する。
+    expect(
+      canManageBusinessForProfile(
+        { id: "system-user", role: "system" as unknown as Profile["role"] },
+        bizA,
+        assigned,
+      ),
+    ).toBe(false);
+  });
 });
 
 describe("canManageSpotForProfile", () => {

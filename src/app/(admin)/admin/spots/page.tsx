@@ -4,7 +4,7 @@ import { hasPermission } from "@/lib/permissions";
 
 export default async function AdminSpotsPage() {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/spots");
+  if (!session) redirect("/login?next=/admin/spots");
 
   if (!hasPermission(session.profile.role, "BUSINESS_SETTINGS")) {
     redirect("/admin");

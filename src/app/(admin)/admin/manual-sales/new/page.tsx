@@ -21,7 +21,7 @@ interface PageProps {
 
 export default async function AdminManualSalesNewPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/manual-sales/new");
+  if (!session) redirect("/login?next=/admin/manual-sales/new");
 
   const { businessId } = await searchParams;
 

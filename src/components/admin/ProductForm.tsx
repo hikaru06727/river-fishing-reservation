@@ -92,6 +92,19 @@ export function ProductForm({
         />
       </div>
 
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium">
+          <input
+            type="checkbox"
+            checked={!trackInventory}
+            onChange={(e) => setTrackInventory(!e.target.checked)}
+            className="h-4 w-4 rounded border-border"
+          />
+          在庫管理しない
+        </label>
+        {trackInventory && <input type="hidden" name="trackInventory" value="on" />}
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="priceExcludingTax" className="block text-sm font-medium">
@@ -202,17 +215,6 @@ export function ProductForm({
             className="h-4 w-4 rounded border-border"
           />
           オンライン公開する（顧客向け商品一覧・詳細に表示）
-        </label>
-
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            name="trackInventory"
-            checked={trackInventory}
-            onChange={(e) => setTrackInventory(e.target.checked)}
-            className="h-4 w-4 rounded border-border"
-          />
-          在庫数を管理する（OFFの場合は在庫切れ表示をしない）
         </label>
 
         <label className="flex items-center gap-2 text-sm">

@@ -89,11 +89,18 @@ export function RefundListView({ refunds }: RefundListViewProps) {
                     {r.reason ?? "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span
-                      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[r.status]}`}
-                    >
-                      {STATUS_LABELS[r.status]}
-                    </span>
+                    <div className="flex items-center justify-center gap-1">
+                      <span
+                        className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLES[r.status]}`}
+                      >
+                        {STATUS_LABELS[r.status]}
+                      </span>
+                      {r.status === "failed" && r.resolved_at && (
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                          対応済み
+                        </span>
+                      )}
+                    </div>
                   </td>
                 </tr>
               );

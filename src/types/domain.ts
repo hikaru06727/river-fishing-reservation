@@ -15,8 +15,15 @@ export type ClosingCorrectionStatus = "pending" | "approved" | "rejected";
 export type SaleRefundStatus = "pending" | "completed" | "failed";
 export type SaleRefundPaymentMethod = "cash" | "card" | "other";
 
-export type PaymentLedgerSourceType = "pos" | "reservation" | "manual";
-export type PaymentLedgerPaymentMethod = "cash" | "card" | "other";
+export type PaymentLedgerSourceType =
+  | "pos"
+  | "reservation"
+  | "manual"
+  | "online_order"
+  | "reservation_addon";
+
+export type ReservationAddonItemStatus = "active" | "cancelled";
+export type PaymentLedgerPaymentMethod = "cash" | "card" | "other" | "qr";
 export type PaymentLedgerStatus =
   | "pending"
   | "succeeded"
@@ -52,6 +59,19 @@ export type SlotStatus = "open" | "closed";
 export type ProductStatus = "on_sale" | "off_sale" | "archived";
 export type ProductSaleStatus = "pending" | "completed" | "refunded";
 
+export type OnlineOrderStatus =
+  | "pending_payment"
+  | "paid"
+  | "preparing"
+  | "ready"
+  | "shipped"
+  | "delivered"
+  | "cancelled"
+  | "refunded";
+export type OnlineOrderFulfillmentType = "shipping" | "pickup";
+export type OnlineOrderPaymentMethod = "stripe" | "in_person";
+export type OnlineOrderPaymentStatus = "pending" | "paid" | "failed" | "refunded";
+
 /** 認証済みユーザーのアプリ内表現（Supabase User 型に非依存） */
 export type AuthUser = {
   id: string;
@@ -64,8 +84,24 @@ export type UserProfile = {
   email: string;
   full_name: string | null;
   role: UserRole;
+  phone: string | null;
+  postal_code: string | null;
+  prefecture: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
   created_at: string;
   updated_at: string;
+};
+
+/** チェックアウトフォームの自動入力に使う住所情報（Phase 20） */
+export type CheckoutContactPrefill = {
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  postalCode: string | null;
+  prefecture: string | null;
+  addressLine1: string | null;
+  addressLine2: string | null;
 };
 
 /** UI / API で使うプラン概要 */

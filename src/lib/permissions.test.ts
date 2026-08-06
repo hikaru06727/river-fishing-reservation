@@ -35,6 +35,11 @@ describe("PERMISSIONS", () => {
   it("staff は RESERVATION_VIEW を持つ", () => {
     expect(PERMISSIONS.RESERVATION_VIEW).toContain("staff");
   });
+
+  it("staff は ORDER_VIEW を持つが ORDER_STATUS_MANAGE は持たない", () => {
+    expect(PERMISSIONS.ORDER_VIEW).toContain("staff");
+    expect(PERMISSIONS.ORDER_STATUS_MANAGE).not.toContain("staff");
+  });
 });
 
 describe("hasPermission", () => {

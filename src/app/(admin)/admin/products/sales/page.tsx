@@ -36,7 +36,7 @@ function isSettled(
 
 export default async function AdminProductSalesPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/products/sales");
+  if (!session) redirect("/login?next=/admin/products/sales");
 
   const { businessId, dateFrom, dateTo, paymentMethod, includeSettled } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);
@@ -50,7 +50,7 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
 
   let sessions: SaleSessionListRow[] | null = null;
   let sessionsError: string | null = null;
-  let settledIds = new Set<string>();
+  const settledIds = new Set<string>();
 
   if (businessId) {
     const result = await getSaleSessionsForBusiness(session.profile, businessId, {

@@ -54,6 +54,12 @@ import { createReservationSchema, cancelReservationSchema } from "@/validations/
 import { isAllowedLegacyHourlyStartTimeByDuration } from "@/lib/slots/start-time-rules";
 import { sendReservationCancelledEmails } from "@/lib/email/reservation-cancellation-emails";
 import { sendReservationCreatedEmails } from "@/lib/email/reservation-emails";
+import {
+  cancelAddonItemsAndRestoreStock,
+  createAddonItemsForReservation,
+} from "@/lib/services/reservation-addon.service";
+import { autoRefundReservationOnCancel } from "@/lib/services/refund.service";
+import { findSystemProfileId } from "@/lib/repositories/profiles.repository";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
@@ -62,6 +68,7 @@ export type ServiceResult<T> =
 export type CreateReservationResult = {
   reservationId: string;
   redirectPath: string;
+  addonWarning?: string;
 };
 
 export type CancelReservationResult = {
@@ -122,7 +129,8 @@ export async function createReservation(
     };
   }
 
-  const { spotId, planId, slotId, reservationDate, guestCount, paymentMethod } = parsed.data;
+  const { spotId, planId, slotId, reservationDate, guestCount, paymentMethod, addonItems } =
+    parsed.data;
 
   const plan = await findActivePlanForReservation(planId, spotId);
   if (!plan) {
@@ -309,6 +317,23 @@ export async function createReservation(
     const spotMeta = await findSpotNotificationMetaById(spotId);
     revalidateReservationPaths(spotId, spotMeta?.slug ?? null);
 
+    let addonWarning: string | undefined;
+    if (addonItems && addonItems.length > 0 && spotMeta?.businessId) {
+      const addonResult = await createAddonItemsForReservation(
+        rpcResult.reservation_id,
+        spotMeta.businessId,
+        addonItems.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+      );
+      if (!addonResult.ok) {
+        console.warn(
+          "[createReservation] addon items registration failed:",
+          rpcResult.reservation_id,
+          addonResult.error,
+        );
+        addonWarning = "一部の追加商品の登録に失敗したため、予約のみ確定しました。";
+      }
+    }
+
     if (paymentMethod === "cash_at_venue") {
       try {
         await insertPendingPaymentForReservation(rpcResult.reservation_id, totalAmount);
@@ -365,6 +390,7 @@ export async function createReservation(
       data: {
         reservationId: rpcResult.reservation_id,
         redirectPath: `/reservation/confirm/${rpcResult.reservation_id}`,
+        addonWarning,
       },
     };
   } catch (err) {
@@ -502,13 +528,63 @@ export async function cancelReservation(
       };
     }
 
-    // 将来: Stripe 返金（refunds.create）をここで実行する。
-    // confirmed かつ payments.status === 'succeeded' の場合のみ対象。
-    // 返金失敗時はログ記録 + 管理者通知とし、予約キャンセル自体はロールバックしない。
-    const refundInitiated = false;
-
     const spotMeta = await findSpotNotificationMetaById(reservation.spot_id);
     revalidateReservationPaths(reservation.spot_id, spotMeta?.slug ?? null);
+
+    // 予約 + アドオンの一体キャンセル方針: オンライン決済で支払い済みの場合は
+    // 常に全額（予約分+アドオン分）を自動返金する。現地決済で未精算の場合は
+    // 何も引き落とされていないため対象外（autoRefundReservationOnCancel が
+    // Stripe payment_intent の有無で自然に判定する）。
+    // 返金額計算（findReservationAmountByIdAdmin）は reservation_addon_items の
+    // status='active' な明細を集計するため、明細を cancelled にする
+    // cancelAddonItemsAndRestoreStock より必ず先に実行すること。
+    let refundInitiated = false;
+    if (spotMeta?.businessId) {
+      const refundedBy = isAdmin ? userId : await findSystemProfileId();
+      if (refundedBy) {
+        const refundResult = await autoRefundReservationOnCancel({
+          reservationId,
+          businessId: spotMeta.businessId,
+          refundedBy,
+          reason: `予約キャンセルに伴う自動返金（cancelled_by: ${cancelledBy}）`,
+        }).catch((err) => {
+          console.error("[cancelReservation] auto refund failed:", err);
+          return null;
+        });
+        if (refundResult?.failed) {
+          console.error(
+            "[cancelReservation] Stripe refund failed, requires manual follow-up:",
+            reservationId,
+            refundResult.failureNote,
+          );
+        }
+        refundInitiated = refundResult?.refunded ?? false;
+      } else {
+        console.error(
+          "[cancelReservation] system profile not found; skipping auto refund for",
+          reservationId,
+        );
+      }
+    }
+
+    // アドオン（同時購入商品）も予約と一体でキャンセルする。在庫が引当済み
+    // （オンライン決済Webhook確認済み・または現地精算済み）の分は復元し、
+    // payment_ledger の reservation_addon 行が succeeded なら refunded にする。
+    // 返金額計算より後に実行する（上のコメント参照）。
+    //
+    // 既知の技術的負債: 上の返金処理とこのアドオン後処理は1つのDBトランザクションで
+    // 結ばれておらず、Stripe返金APIもロールバック不可能な外部呼び出しである。
+    // 返金（Stripe API・sale_refunds・予約側 payment_ledger）が成功した直後に
+    // このアドオン後処理が丸ごと失敗すると、返金額自体は正しく確定する一方で、
+    // アドオンの在庫復元・明細のcancelled化・アドオン側 payment_ledger の
+    // refunded化が行われないまま残り得る（在庫・帳簿の不整合）。検知手段は
+    // console.error のログのみで、自動リトライや管理画面上でのアラートは無い。
+    // 完全なアトミック性保証（トランザクション化・補償処理・不整合検知UI等）は
+    // 本修正のスコープ外の別課題として残っている。
+    await cancelAddonItemsAndRestoreStock(reservationId).catch((err) => {
+      console.error("[cancelReservation] addon cancellation/stock restore failed:", err);
+    });
+
     revalidatePath(`/my/reservations/${reservationId}`);
 
     const plan = await findPlanById(reservation.plan_id);

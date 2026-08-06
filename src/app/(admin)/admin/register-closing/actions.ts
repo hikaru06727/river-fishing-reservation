@@ -14,7 +14,7 @@ export async function closeRegisterAction(
   formData: FormData,
 ): Promise<RegisterClosingActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/register-closing");
+  if (!session) redirect("/login?next=/admin/register-closing");
 
   const businessId = formData.get("businessId");
   const locationId = formData.get("locationId") as string | null;
@@ -68,7 +68,7 @@ export async function requestCorrectionAction(
   formData: FormData,
 ): Promise<RegisterClosingActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/register-closing");
+  if (!session) redirect("/login?next=/admin/register-closing");
 
   const closingId = formData.get("closingId");
   const businessId = formData.get("businessId");
@@ -103,7 +103,7 @@ export async function approveCorrectionAction(
   formData: FormData,
 ): Promise<RegisterClosingActionState> {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/register-closing");
+  if (!session) redirect("/login?next=/admin/register-closing");
 
   const correctionId = formData.get("correctionId");
   const businessId = formData.get("businessId");

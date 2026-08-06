@@ -392,7 +392,7 @@ export async function findReservationPaymentEmailMetaById(
 
 const RESERVATION_DETAIL_SELECT = `
   *,
-  locations ( name, slug ),
+  locations ( name, slug, business_id ),
   plans ( name, slug, duration_minutes, price_yen ),
   payments ( status )
 `;
@@ -436,7 +436,7 @@ const ADMIN_RESERVATION_DETAIL_SELECT = `
 
 export type ReservationDetailRow = Reservation & {
   payment_method?: PaymentMethod | null;
-  locations: { name: string; slug: string } | null;
+  locations: { name: string; slug: string; business_id: string } | null;
   plans: { name: string; slug: string; duration_minutes: number; price_yen: number } | null;
   payments: Array<{ status: PaymentStatus }> | null;
 };

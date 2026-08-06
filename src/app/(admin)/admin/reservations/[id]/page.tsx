@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { AdminCancelReservationButton } from "@/components/admin/AdminCancelReservationButton";
 import { AdminMarkCashPaymentReceivedButton } from "@/components/admin/AdminMarkCashPaymentReceivedButton";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
+import { LinkedOrdersCard } from "@/components/reservation/LinkedOrdersCard";
 import {
   buildReservationPaymentInfo,
   ReservationPaymentSummary,
@@ -14,6 +15,7 @@ import { getAdminCashPaymentUiState } from "@/lib/reservations/mark-cash-payment
 import { getLatestReservationPayment } from "@/lib/reservations/payment-status-display";
 import { getAdminReservationById } from "@/lib/reservations/get-admin-reservations";
 import { getReservationPlanDisplay } from "@/lib/reservations/plan-display";
+import { getLinkedOrdersForReservation } from "@/lib/services/online-order.service";
 import { formatDate, formatDateTime, formatTime, formatYen } from "@/lib/utils/format";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/permissions";
@@ -86,6 +88,11 @@ export default async function AdminReservationDetailPage({
   const closingWarning = closingRecord
     ? `この予約は締め済み期間（${formatDateTime(closingRecord.closed_at)} 締め）に含まれています。返金すると締め記録との差異が生じます。続行しますか？`
     : undefined;
+
+  const linkedOrders = await getLinkedOrdersForReservation(reservation.id);
+  const hasUnresolvedLinkedOrder = linkedOrders.some(
+    (order) => order.status !== "cancelled" && order.status !== "delivered",
+  );
 
   return (
     <div className="space-y-6">
@@ -245,6 +252,17 @@ export default async function AdminReservationDetailPage({
           ) : null}
         </Card>
       </div>
+
+      <LinkedOrdersCard
+        orders={linkedOrders}
+        orderHref={(orderId) => `/admin/orders/${orderId}`}
+      />
+
+      {reservation.status === "cancelled" && hasUnresolvedLinkedOrder && (
+        <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+          この予約はキャンセル済みですが、関連する追加購入注文は自動処理されません。必要な場合は個別に対応してください。
+        </p>
+      )}
 
       {cancelPolicy.allowed ? (
         <Card className="border-red-200">

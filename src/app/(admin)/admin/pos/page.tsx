@@ -23,7 +23,7 @@ interface PageProps {
 
 export default async function AdminPosPage({ searchParams }: PageProps) {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/pos");
+  if (!session) redirect("/login?next=/admin/pos");
 
   const { businessId } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);

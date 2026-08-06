@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Card } from "@/components/ui/Card";
+import { AddToCartButton } from "@/components/shop/AddToCartButton";
 import { formatYen } from "@/lib/utils/format";
 import { getPublishedProduct } from "@/lib/products/get-public-product";
 
@@ -88,6 +89,8 @@ export default async function ShopProductDetailPage({ params }: ShopProductDetai
               現在在庫切れです。入荷まで今しばらくお待ちください。
             </p>
           )}
+
+          <AddToCartButton product={product} />
         </div>
       </Card>
 

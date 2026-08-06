@@ -1,36 +1,70 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { refundCash, refundCard, listRefunds } from "@/lib/services/refund.service";
+import {
+  autoRefundReservationOnCancel,
+  refundCash,
+  refundCard,
+  listRefunds,
+  listUnresolvedFailedRefunds,
+  resolveFailedRefund,
+  getRefundedAmountForOnlineOrder,
+} from "@/lib/services/refund.service";
 
 const {
   findAssignedBusinessIdsByUserIdMock,
   findAssignedBusinessIdsByStaffUserIdMock,
   insertSaleRefundMock,
+  insertSaleRefundAdminMock,
   findRefundsByBusinessIdMock,
+  findUnresolvedFailedRefundsByBusinessIdMock,
+  markSaleRefundResolvedMock,
   findSaleSessionAmountByIdMock,
   findReservationAmountByIdMock,
+  findReservationAmountByIdAdminMock,
   findTotalRefundedAmountMock,
+  findTotalRefundedAmountAdminMock,
   findStripePaymentIntentByReservationIdMock,
+  findStripePaymentIntentByReservationIdAdminMock,
+  findStripePaymentIntentByOnlineOrderIdMock,
+  findOnlineOrderAmountByIdMock,
   findSaleSessionSoldAtByIdMock,
   findReservationDateByIdMock,
+  findReservationDateByIdAdminMock,
   stripeRefundsCreateMock,
   findClosingContainingSoldAtMock,
   findClosingContainingReservationDateMock,
+  findClosingContainingReservationDateAdminMock,
   updatePostCloseRefundMock,
+  findBySourceAdminMock,
+  updatePaymentLedgerStatusAdminMock,
+  updateOnlineOrderPaymentStatusMock,
 } = vi.hoisted(() => ({
   findAssignedBusinessIdsByUserIdMock: vi.fn(),
   findAssignedBusinessIdsByStaffUserIdMock: vi.fn(),
   insertSaleRefundMock: vi.fn(),
+  insertSaleRefundAdminMock: vi.fn(),
   findRefundsByBusinessIdMock: vi.fn(),
+  findUnresolvedFailedRefundsByBusinessIdMock: vi.fn(),
+  markSaleRefundResolvedMock: vi.fn(),
   findSaleSessionAmountByIdMock: vi.fn(),
   findReservationAmountByIdMock: vi.fn(),
+  findReservationAmountByIdAdminMock: vi.fn(),
   findTotalRefundedAmountMock: vi.fn(),
+  findTotalRefundedAmountAdminMock: vi.fn(),
   findStripePaymentIntentByReservationIdMock: vi.fn(),
+  findStripePaymentIntentByReservationIdAdminMock: vi.fn(),
+  findStripePaymentIntentByOnlineOrderIdMock: vi.fn(),
+  findOnlineOrderAmountByIdMock: vi.fn(),
   findSaleSessionSoldAtByIdMock: vi.fn(),
   findReservationDateByIdMock: vi.fn(),
+  findReservationDateByIdAdminMock: vi.fn(),
   stripeRefundsCreateMock: vi.fn(),
   findClosingContainingSoldAtMock: vi.fn(),
   findClosingContainingReservationDateMock: vi.fn(),
+  findClosingContainingReservationDateAdminMock: vi.fn(),
   updatePostCloseRefundMock: vi.fn(),
+  findBySourceAdminMock: vi.fn(),
+  updatePaymentLedgerStatusAdminMock: vi.fn(),
+  updateOnlineOrderPaymentStatusMock: vi.fn(),
 }));
 
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -45,20 +79,39 @@ vi.mock("@/lib/repositories/staff-members.repository", () => ({
 
 vi.mock("@/lib/repositories/sale-refunds.repository", () => ({
   insertSaleRefund: insertSaleRefundMock,
+  insertSaleRefundAdmin: insertSaleRefundAdminMock,
   updateSaleRefundStatus: vi.fn(),
   findRefundsByBusinessId: findRefundsByBusinessIdMock,
+  findUnresolvedFailedRefundsByBusinessId: findUnresolvedFailedRefundsByBusinessIdMock,
+  markSaleRefundResolved: markSaleRefundResolvedMock,
   findStripePaymentIntentByReservationId: findStripePaymentIntentByReservationIdMock,
+  findStripePaymentIntentByReservationIdAdmin: findStripePaymentIntentByReservationIdAdminMock,
+  findStripePaymentIntentByOnlineOrderId: findStripePaymentIntentByOnlineOrderIdMock,
   findSaleSessionAmountById: findSaleSessionAmountByIdMock,
   findReservationAmountById: findReservationAmountByIdMock,
+  findReservationAmountByIdAdmin: findReservationAmountByIdAdminMock,
+  findOnlineOrderAmountById: findOnlineOrderAmountByIdMock,
   findTotalRefundedAmount: findTotalRefundedAmountMock,
+  findTotalRefundedAmountAdmin: findTotalRefundedAmountAdminMock,
   findSaleSessionSoldAtById: findSaleSessionSoldAtByIdMock,
   findReservationDateById: findReservationDateByIdMock,
+  findReservationDateByIdAdmin: findReservationDateByIdAdminMock,
 }));
 
 vi.mock("@/lib/repositories/register-closings.repository", () => ({
   findClosingContainingSoldAt: findClosingContainingSoldAtMock,
   findClosingContainingReservationDate: findClosingContainingReservationDateMock,
+  findClosingContainingReservationDateAdmin: findClosingContainingReservationDateAdminMock,
   updatePostCloseRefund: updatePostCloseRefundMock,
+}));
+
+vi.mock("@/lib/repositories/payment-ledger.repository", () => ({
+  findBySourceAdmin: findBySourceAdminMock,
+  updatePaymentLedgerStatusAdmin: updatePaymentLedgerStatusAdminMock,
+}));
+
+vi.mock("@/lib/repositories/online-order.repository", () => ({
+  updateOnlineOrderPaymentStatus: updateOnlineOrderPaymentStatusMock,
 }));
 
 vi.mock("@/lib/stripe/server", () => ({
@@ -92,6 +145,18 @@ const SAMPLE_REFUND = {
   created_at: new Date().toISOString(),
 };
 
+const SAMPLE_FAILED_REFUND = {
+  ...SAMPLE_REFUND,
+  id: "refund-failed-1",
+  reservation_id: RES_ID,
+  sale_session_id: null,
+  status: "failed" as const,
+  note: "Your card was declined.",
+  resolved_at: null,
+  resolved_by: null,
+  resolution_note: null,
+};
+
 const SAMPLE_CLOSING = {
   id: "closing-1",
   business_id: BIZ_A,
@@ -118,11 +183,17 @@ beforeEach(() => {
   findAssignedBusinessIdsByUserIdMock.mockResolvedValue([BIZ_A]);
   findAssignedBusinessIdsByStaffUserIdMock.mockResolvedValue([BIZ_A]);
   findTotalRefundedAmountMock.mockResolvedValue(0);
+  findTotalRefundedAmountAdminMock.mockResolvedValue(0);
   findSaleSessionSoldAtByIdMock.mockResolvedValue(null);
   findReservationDateByIdMock.mockResolvedValue(null);
+  findReservationDateByIdAdminMock.mockResolvedValue(null);
   findClosingContainingSoldAtMock.mockResolvedValue(null);
   findClosingContainingReservationDateMock.mockResolvedValue(null);
+  findClosingContainingReservationDateAdminMock.mockResolvedValue(null);
   updatePostCloseRefundMock.mockResolvedValue(undefined);
+  findBySourceAdminMock.mockResolvedValue(null);
+  updatePaymentLedgerStatusAdminMock.mockResolvedValue(undefined);
+  updateOnlineOrderPaymentStatusMock.mockResolvedValue(undefined);
 });
 
 // ============================================================
@@ -488,6 +559,124 @@ describe("listRefunds", () => {
 });
 
 // ============================================================
+// listUnresolvedFailedRefunds（返金失敗・要対応パネル）
+// ============================================================
+describe("listUnresolvedFailedRefunds", () => {
+  it("business_admin が未対応の失敗返金一覧を取得できる", async () => {
+    findUnresolvedFailedRefundsByBusinessIdMock.mockResolvedValue([SAMPLE_FAILED_REFUND]);
+
+    const result = await listUnresolvedFailedRefunds(PROFILE_BA, { businessId: BIZ_A });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.data).toEqual([SAMPLE_FAILED_REFUND]);
+  });
+
+  it("staff も REFUND_MANAGE を持つため閲覧できる", async () => {
+    findAssignedBusinessIdsByStaffUserIdMock.mockResolvedValue([BIZ_A]);
+    findUnresolvedFailedRefundsByBusinessIdMock.mockResolvedValue([]);
+
+    const result = await listUnresolvedFailedRefunds(PROFILE_STAFF, { businessId: BIZ_A });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it("他事業の一覧は 403 を返す", async () => {
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["other-biz"]);
+
+    const result = await listUnresolvedFailedRefunds(PROFILE_OTHER_BA, { businessId: BIZ_A });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(403);
+  });
+
+  it("一般ユーザーは 403 を返す", async () => {
+    const result = await listUnresolvedFailedRefunds(PROFILE_USER, { businessId: BIZ_A });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(403);
+  });
+
+  it("取得エラー時は 500 を返す", async () => {
+    findUnresolvedFailedRefundsByBusinessIdMock.mockRejectedValue(new Error("DB error"));
+
+    const result = await listUnresolvedFailedRefunds(PROFILE_BA, { businessId: BIZ_A });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(500);
+  });
+});
+
+// ============================================================
+// resolveFailedRefund（返金失敗を対応済みにする）
+// ============================================================
+describe("resolveFailedRefund", () => {
+  it("business_admin が失敗返金を対応済みにできる", async () => {
+    markSaleRefundResolvedMock.mockResolvedValue(true);
+
+    const result = await resolveFailedRefund(PROFILE_BA, {
+      businessId: BIZ_A,
+      refundId: SAMPLE_FAILED_REFUND.id,
+      note: "電話で返金済みを確認",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(markSaleRefundResolvedMock).toHaveBeenCalledWith(
+      SAMPLE_FAILED_REFUND.id,
+      BIZ_A,
+      PROFILE_BA.id,
+      "電話で返金済みを確認",
+    );
+  });
+
+  it("staff は REFUND_MANAGE があっても対応済みにはできない（403）", async () => {
+    const result = await resolveFailedRefund(PROFILE_STAFF, {
+      businessId: BIZ_A,
+      refundId: SAMPLE_FAILED_REFUND.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(403);
+    expect(markSaleRefundResolvedMock).not.toHaveBeenCalled();
+  });
+
+  it("他事業の返金は 403 を返す", async () => {
+    findAssignedBusinessIdsByUserIdMock.mockResolvedValue(["other-biz"]);
+
+    const result = await resolveFailedRefund(PROFILE_OTHER_BA, {
+      businessId: BIZ_A,
+      refundId: SAMPLE_FAILED_REFUND.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(403);
+  });
+
+  it("対象が見つからない・既に対応済みの場合は 404 を返す", async () => {
+    markSaleRefundResolvedMock.mockResolvedValue(false);
+
+    const result = await resolveFailedRefund(PROFILE_BA, {
+      businessId: BIZ_A,
+      refundId: SAMPLE_FAILED_REFUND.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(404);
+  });
+
+  it("更新エラー時は 500 を返す", async () => {
+    markSaleRefundResolvedMock.mockRejectedValue(new Error("DB error"));
+
+    const result = await resolveFailedRefund(PROFILE_BA, {
+      businessId: BIZ_A,
+      refundId: SAMPLE_FAILED_REFUND.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(500);
+  });
+});
+
+// ============================================================
 // 締め前後判定（recordPostCloseRefundIfNeeded）
 // ============================================================
 describe("recordPostCloseRefundIfNeeded — 締め前後タイミング判定", () => {
@@ -562,5 +751,233 @@ describe("recordPostCloseRefundIfNeeded — 締め前後タイミング判定", 
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+// ============================================================
+// autoRefundReservationOnCancel（予約キャンセルに伴う自動全額返金）
+// ============================================================
+describe("autoRefundReservationOnCancel", () => {
+  const PAYMENT_INTENT_ID = "pi_123";
+
+  it("Stripe payment_intent が無い（現地決済・未決済）場合は何もしない", async () => {
+    findStripePaymentIntentByReservationIdAdminMock.mockResolvedValue(null);
+
+    const result = await autoRefundReservationOnCancel({
+      reservationId: RES_ID,
+      businessId: BIZ_A,
+      refundedBy: PROFILE_BA.id,
+      reason: "テスト",
+    });
+
+    expect(result).toEqual({ refunded: false, amount: 0, failed: false, failureNote: null });
+    expect(stripeRefundsCreateMock).not.toHaveBeenCalled();
+  });
+
+  it("予約分＋アドオン分の合計額（未返金残額）で1回だけ Stripe 返金する", async () => {
+    findStripePaymentIntentByReservationIdAdminMock.mockResolvedValue(PAYMENT_INTENT_ID);
+    findReservationAmountByIdAdminMock.mockResolvedValue(12000); // 予約10000+アドオン2000
+    findTotalRefundedAmountAdminMock.mockResolvedValue(0);
+    stripeRefundsCreateMock.mockResolvedValue({ id: "re_1" });
+    insertSaleRefundAdminMock.mockResolvedValue(SAMPLE_REFUND);
+    findBySourceAdminMock.mockResolvedValue({ id: "ledger-1", status: "succeeded" });
+
+    const result = await autoRefundReservationOnCancel({
+      reservationId: RES_ID,
+      businessId: BIZ_A,
+      refundedBy: PROFILE_BA.id,
+      reason: "予約キャンセルに伴う自動返金",
+    });
+
+    expect(stripeRefundsCreateMock).toHaveBeenCalledWith({
+      payment_intent: PAYMENT_INTENT_ID,
+      amount: 12000,
+      reason: "requested_by_customer",
+    });
+    expect(insertSaleRefundAdminMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        business_id: BIZ_A,
+        reservation_id: RES_ID,
+        amount: 12000,
+        payment_method: "card",
+        refunded_by: PROFILE_BA.id,
+        status: "completed",
+      }),
+    );
+    expect(updatePaymentLedgerStatusAdminMock).toHaveBeenCalledWith("ledger-1", "refunded");
+    expect(result).toEqual({ refunded: true, amount: 12000, failed: false, failureNote: null });
+  });
+
+  it("既に一部返金済みの場合は残額のみ返金する", async () => {
+    findStripePaymentIntentByReservationIdAdminMock.mockResolvedValue(PAYMENT_INTENT_ID);
+    findReservationAmountByIdAdminMock.mockResolvedValue(12000);
+    findTotalRefundedAmountAdminMock.mockResolvedValue(5000);
+    stripeRefundsCreateMock.mockResolvedValue({ id: "re_2" });
+    insertSaleRefundAdminMock.mockResolvedValue(SAMPLE_REFUND);
+
+    const result = await autoRefundReservationOnCancel({
+      reservationId: RES_ID,
+      businessId: BIZ_A,
+      refundedBy: PROFILE_BA.id,
+      reason: "テスト",
+    });
+
+    expect(stripeRefundsCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 7000 }),
+    );
+    expect(result.amount).toBe(7000);
+  });
+
+  it("返金済み金額が確定金額に達している場合は何もしない", async () => {
+    findStripePaymentIntentByReservationIdAdminMock.mockResolvedValue(PAYMENT_INTENT_ID);
+    findReservationAmountByIdAdminMock.mockResolvedValue(12000);
+    findTotalRefundedAmountAdminMock.mockResolvedValue(12000);
+
+    const result = await autoRefundReservationOnCancel({
+      reservationId: RES_ID,
+      businessId: BIZ_A,
+      refundedBy: PROFILE_BA.id,
+      reason: "テスト",
+    });
+
+    expect(stripeRefundsCreateMock).not.toHaveBeenCalled();
+    expect(result.refunded).toBe(false);
+  });
+
+  it("Stripe 返金APIが失敗した場合は failed=true を返し、payment_ledger は更新しない", async () => {
+    findStripePaymentIntentByReservationIdAdminMock.mockResolvedValue(PAYMENT_INTENT_ID);
+    findReservationAmountByIdAdminMock.mockResolvedValue(12000);
+    findTotalRefundedAmountAdminMock.mockResolvedValue(0);
+    stripeRefundsCreateMock.mockRejectedValue(new Error("card_declined"));
+    insertSaleRefundAdminMock.mockResolvedValue({ ...SAMPLE_REFUND, status: "failed" });
+
+    const result = await autoRefundReservationOnCancel({
+      reservationId: RES_ID,
+      businessId: BIZ_A,
+      refundedBy: PROFILE_BA.id,
+      reason: "テスト",
+    });
+
+    expect(result.failed).toBe(true);
+    expect(result.refunded).toBe(false);
+    expect(updatePaymentLedgerStatusAdminMock).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// 追加購入注文（online_orders）への返金（Phase 19E）
+// ============================================================
+describe("refundCash / refundCard — onlineOrderId ターゲット", () => {
+  const ORDER_ID = "order-3333-3333-3333-333333333333";
+
+  it("refundCash: 追加購入注文への現金返金を実行できる", async () => {
+    findOnlineOrderAmountByIdMock.mockResolvedValue(3000);
+    insertSaleRefundMock.mockResolvedValue({ ...SAMPLE_REFUND, online_order_id: ORDER_ID });
+
+    const result = await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      onlineOrderId: ORDER_ID,
+      amount: 3000,
+      reason: "商品不良",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(insertSaleRefundMock).toHaveBeenCalledWith(
+      expect.objectContaining({ online_order_id: ORDER_ID, sale_session_id: null, reservation_id: null }),
+    );
+  });
+
+  it("refundCash: 全額返金の場合は online_orders.payment_status を refunded に更新する", async () => {
+    findOnlineOrderAmountByIdMock.mockResolvedValue(3000);
+    findTotalRefundedAmountMock.mockResolvedValue(0);
+    insertSaleRefundMock.mockResolvedValue({ ...SAMPLE_REFUND, online_order_id: ORDER_ID });
+
+    await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      onlineOrderId: ORDER_ID,
+      amount: 3000,
+      reason: "全額返金",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(updateOnlineOrderPaymentStatusMock).toHaveBeenCalledWith(ORDER_ID, "refunded");
+  });
+
+  it("refundCash: 部分返金の場合は payment_status を更新しない", async () => {
+    findOnlineOrderAmountByIdMock.mockResolvedValue(3000);
+    findTotalRefundedAmountMock.mockResolvedValue(0);
+    insertSaleRefundMock.mockResolvedValue({ ...SAMPLE_REFUND, online_order_id: ORDER_ID, amount: 1000 });
+
+    await refundCash(PROFILE_BA, {
+      businessId: BIZ_A,
+      onlineOrderId: ORDER_ID,
+      amount: 1000,
+      reason: "部分返金",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(updateOnlineOrderPaymentStatusMock).not.toHaveBeenCalled();
+  });
+
+  it("refundCard: onlineOrderId から Stripe payment_intent_id を自動取得する", async () => {
+    findOnlineOrderAmountByIdMock.mockResolvedValue(3000);
+    findStripePaymentIntentByOnlineOrderIdMock.mockResolvedValue("pi_order_789");
+    stripeRefundsCreateMock.mockResolvedValue({ id: "re_order_789" });
+    insertSaleRefundMock.mockResolvedValue({
+      ...SAMPLE_REFUND,
+      online_order_id: ORDER_ID,
+      payment_method: "card",
+    });
+
+    const result = await refundCard(PROFILE_BA, {
+      businessId: BIZ_A,
+      onlineOrderId: ORDER_ID,
+      amount: 3000,
+      reason: "カード返金",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(findStripePaymentIntentByOnlineOrderIdMock).toHaveBeenCalledWith(ORDER_ID);
+    expect(stripeRefundsCreateMock).toHaveBeenCalledWith(
+      expect.objectContaining({ payment_intent: "pi_order_789", amount: 3000 }),
+    );
+    expect(updateOnlineOrderPaymentStatusMock).toHaveBeenCalledWith(ORDER_ID, "refunded");
+  });
+
+  it("refundCard: 返金額が注文合計を超える場合は 422 を返す", async () => {
+    findOnlineOrderAmountByIdMock.mockResolvedValue(2000);
+
+    const result = await refundCard(PROFILE_BA, {
+      businessId: BIZ_A,
+      onlineOrderId: ORDER_ID,
+      amount: 3000,
+      reason: "超過",
+      refundedBy: PROFILE_BA.id,
+    });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.status).toBe(422);
+    expect(stripeRefundsCreateMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("getRefundedAmountForOnlineOrder", () => {
+  it("返金済み合計額を返す（部分返金の判定に使用）", async () => {
+    findTotalRefundedAmountMock.mockResolvedValue(1000);
+
+    const result = await getRefundedAmountForOnlineOrder("order-1");
+
+    expect(result).toBe(1000);
+    expect(findTotalRefundedAmountMock).toHaveBeenCalledWith({ onlineOrderId: "order-1" });
+  });
+
+  it("取得に失敗した場合は0を返す", async () => {
+    findTotalRefundedAmountMock.mockRejectedValue(new Error("db error"));
+
+    const result = await getRefundedAmountForOnlineOrder("order-1");
+
+    expect(result).toBe(0);
   });
 });

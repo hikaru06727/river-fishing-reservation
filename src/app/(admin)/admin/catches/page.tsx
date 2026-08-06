@@ -5,7 +5,7 @@ import { isAdminRole } from "@/lib/auth/role";
 
 export default async function AdminCatchesPage() {
   const session = await getAuthenticatedManagement();
-  if (!session) redirect("/admin/login?next=/admin/catches");
+  if (!session) redirect("/login?next=/admin/catches");
 
   if (!isAdminRole(session.profile.role)) {
     redirect("/admin");

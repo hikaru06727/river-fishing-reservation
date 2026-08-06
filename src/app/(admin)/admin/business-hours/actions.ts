@@ -30,7 +30,7 @@ export async function saveWeeklyHoursAction(
 ): Promise<AdminBusinessHoursActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/business-hours");
+    redirect("/login?next=/admin/business-hours");
   }
 
   const parsed = parseWeeklyHoursForm(formData);
@@ -54,7 +54,7 @@ export async function saveWeeklyBreaksAction(
 ): Promise<AdminBusinessHoursActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/business-hours");
+    redirect("/login?next=/admin/business-hours");
   }
 
   const parsed = parseWeeklyBreaksForm(formData);
@@ -78,7 +78,7 @@ export async function saveExceptionBreaksAction(
 ): Promise<AdminBusinessHoursActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/business-hours");
+    redirect("/login?next=/admin/business-hours");
   }
 
   const parsed = parseExceptionBreaksForm(formData);
@@ -102,7 +102,7 @@ export async function saveDateExceptionAction(
 ): Promise<AdminBusinessHoursActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/business-hours");
+    redirect("/login?next=/admin/business-hours");
   }
 
   const parsed = parseDateExceptionForm(formData);
@@ -129,7 +129,7 @@ export async function deleteDateExceptionAction(
 ): Promise<AdminBusinessHoursActionState> {
   const session = await getAuthenticatedManagement();
   if (!session) {
-    redirect("/admin/login?next=/admin/business-hours");
+    redirect("/login?next=/admin/business-hours");
   }
 
   const parsed = parseDeleteDateExceptionForm(formData);
