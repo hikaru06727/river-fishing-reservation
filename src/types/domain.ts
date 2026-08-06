@@ -23,6 +23,7 @@ export type PaymentLedgerSourceType =
   | "reservation_addon";
 
 export type ReservationAddonItemStatus = "active" | "cancelled";
+export type AddonCleanupStep = "mark_cancelled" | "restore_stock" | "update_ledger";
 export type PaymentLedgerPaymentMethod = "cash" | "card" | "other" | "qr";
 export type PaymentLedgerStatus =
   | "pending"

@@ -31,3 +31,11 @@ export type AdminMarkCashPaymentReceivedState = {
 export const adminMarkCashPaymentReceivedInitialState: AdminMarkCashPaymentReceivedState = {
   error: null,
 };
+
+/** resolveAddonCleanupIssueAction 用。redirect せずインラインで結果を表示するため RefundActionState と同じ形にする */
+export type ResolveAddonCleanupIssueState = {
+  error?: string;
+  success?: string;
+};
+
+export const resolveAddonCleanupIssueInitialState: ResolveAddonCleanupIssueState = {};

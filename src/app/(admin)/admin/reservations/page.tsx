@@ -1,8 +1,12 @@
+import { redirect } from "next/navigation";
 import { AdminReservationsTable } from "@/components/admin/AdminReservationsTable";
 import { Pagination } from "@/components/admin/Pagination";
 import { ReservationFilters } from "@/components/admin/ReservationFilters";
 import { ReservationSummaryCards } from "@/components/admin/ReservationSummaryCards";
+import { AddonCleanupIssuesPanel } from "@/components/reservation/AddonCleanupIssuesPanel";
+import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { getManagementScope } from "@/lib/auth/management-access";
+import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import {
   buildAdminReservationSearchParams,
   parseAdminReservationFilters,
@@ -12,6 +16,7 @@ import {
   getManageableSpots,
   getTodayReservationSummary,
 } from "@/lib/reservations/get-admin-reservations";
+import { listUnresolvedAddonCleanupIssues } from "@/lib/services/reservation-addon-cleanup.service";
 import { isAdminRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
@@ -35,15 +40,28 @@ interface AdminReservationsPageProps {
 export default async function AdminReservationsPage({
   searchParams,
 }: AdminReservationsPageProps) {
+  const session = await getAuthenticatedManagement();
+  if (!session) redirect("/login?next=/admin/reservations");
+
   const params = await searchParams;
   const filters = parseAdminReservationFilters(params);
 
-  const [summary, result, scope, spots] = await Promise.all([
+  const [summary, result, scope, spots, businesses] = await Promise.all([
     getTodayReservationSummary(),
     getAdminReservations(filters),
     getManagementScope(),
     getManageableSpots(),
+    findManageableBusinesses(),
   ]);
+
+  // 権限が無い businessId が混ざっていても listUnresolvedAddonCleanupIssues が
+  // 403(ok:false)を返すだけなので、そのまま無視して他事業分の表示を継続する。
+  const cleanupIssueResults = await Promise.all(
+    businesses.map((b) =>
+      listUnresolvedAddonCleanupIssues(session.profile, { businessId: b.id }),
+    ),
+  );
+  const addonCleanupIssues = cleanupIssueResults.flatMap((r) => (r.ok ? r.data : []));
 
   const scopeDescription =
     scope && isAdminRole(scope.role)
@@ -88,6 +106,8 @@ export default async function AdminReservationsPage({
         spotId={filters.spotId}
         spots={spots}
       />
+
+      <AddonCleanupIssuesPanel issues={addonCleanupIssues} />
 
       <AdminReservationsTable reservations={result.reservations} returnTo={returnTo} />
 

@@ -25,7 +25,7 @@ export async function processExpirePendingReservations(): Promise<ExpirePendingR
   // 期限切れになった予約のアドオンも一体で無効化する（在庫は Webhook 未到達のため
   // 未引当のまま=復元不要。cancelAddonItemsAndRestoreStock はその場合何もしない）。
   for (const reservationId of expireResult.reservation_ids) {
-    await cancelAddonItemsAndRestoreStock(reservationId).catch((err) => {
+    await cancelAddonItemsAndRestoreStock(reservationId, null).catch((err) => {
       console.error(
         "[processExpirePendingReservations] addon cancellation failed:",
         reservationId,

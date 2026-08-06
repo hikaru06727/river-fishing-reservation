@@ -214,7 +214,7 @@ describe("cancelAddonItemsAndRestoreStock", () => {
     ]);
     findBySourceAdminMock.mockResolvedValue(null);
 
-    await cancelAddonItemsAndRestoreStock("res-1");
+    await cancelAddonItemsAndRestoreStock("res-1", "biz-1");
 
     expect(incrementProductStockAdminMock).toHaveBeenCalledTimes(1);
     expect(incrementProductStockAdminMock).toHaveBeenCalledWith("prod-1", 2);
@@ -224,7 +224,7 @@ describe("cancelAddonItemsAndRestoreStock", () => {
     cancelAddonItemsForReservationAdminMock.mockResolvedValue([]);
     findBySourceAdminMock.mockResolvedValue({ id: "ledger-1", status: "succeeded" });
 
-    await cancelAddonItemsAndRestoreStock("res-1");
+    await cancelAddonItemsAndRestoreStock("res-1", "biz-1");
 
     expect(updatePaymentLedgerStatusAdminMock).toHaveBeenCalledWith("ledger-1", "refunded");
   });
@@ -233,7 +233,7 @@ describe("cancelAddonItemsAndRestoreStock", () => {
     cancelAddonItemsForReservationAdminMock.mockResolvedValue([]);
     findBySourceAdminMock.mockResolvedValue({ id: "ledger-1", status: "pending" });
 
-    await cancelAddonItemsAndRestoreStock("res-1");
+    await cancelAddonItemsAndRestoreStock("res-1", "biz-1");
 
     expect(updatePaymentLedgerStatusAdminMock).not.toHaveBeenCalled();
   });
