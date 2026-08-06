@@ -6,6 +6,8 @@ import {
   insertSaleRefundAdmin,
   updateSaleRefundStatus,
   findRefundsByBusinessId,
+  findUnresolvedFailedRefundsByBusinessId,
+  markSaleRefundResolved,
   findStripePaymentIntentByReservationId,
   findStripePaymentIntentByReservationIdAdmin,
   findStripePaymentIntentByOnlineOrderId,
@@ -29,7 +31,7 @@ import {
 import { findBySourceAdmin, updatePaymentLedgerStatusAdmin } from "@/lib/repositories/payment-ledger.repository";
 import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { hasPermission } from "@/lib/permissions";
-import { isAdminRole, isStaffRole } from "@/lib/auth/role";
+import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
 import { getStripe } from "@/lib/stripe/server";
 import type { Profile, SaleRefundRow } from "@/types/database";
 
@@ -364,6 +366,66 @@ export async function listRefunds(
     return { ok: true, data: result };
   } catch {
     return { ok: false, error: "返金一覧の取得に失敗しました。", status: 500 };
+  }
+}
+
+/**
+ * 未対応の失敗返金一覧（管理画面「返金失敗・要対応」パネル用）。
+ * cancelReservation() の自動返金が Stripe 側で失敗した場合、キャンセル自体は
+ * 進める方針のため、この一覧が返金の唯一の検知・追跡手段になる。
+ */
+export async function listUnresolvedFailedRefunds(
+  profile: OperatorProfile,
+  params: { businessId: string },
+): Promise<ServiceResult<RefundWithDetails[]>> {
+  if (!hasPermission(profile.role, "REFUND_MANAGE")) {
+    return { ok: false, error: "返金履歴閲覧権限がありません。", status: 403 };
+  }
+
+  const auth = await assertCanAccessBusiness(profile, params.businessId);
+  if (!auth.ok) return auth;
+
+  try {
+    const data = await findUnresolvedFailedRefundsByBusinessId(params.businessId);
+    return { ok: true, data };
+  } catch {
+    return { ok: false, error: "返金一覧の取得に失敗しました。", status: 500 };
+  }
+}
+
+/**
+ * 失敗した返金を「対応済み」にする。Stripe側で再返金するわけではなく、
+ * 管理者が現金対応・顧客連絡など何らかの形で手動対応したことを記録するのみ。
+ * staff には許可しない（sale_refunds への UPDATE 権限がRLS上そもそも無い）。
+ */
+export async function resolveFailedRefund(
+  profile: OperatorProfile,
+  params: { businessId: string; refundId: string; note?: string | null },
+): Promise<ServiceResult<null>> {
+  if (!isAdminRole(profile.role) && !isBusinessAdminRole(profile.role)) {
+    return { ok: false, error: "この操作を行う権限がありません。", status: 403 };
+  }
+
+  const auth = await assertCanAccessBusiness(profile, params.businessId);
+  if (!auth.ok) return auth;
+
+  try {
+    const updated = await markSaleRefundResolved(
+      params.refundId,
+      params.businessId,
+      profile.id,
+      params.note ?? null,
+    );
+    if (!updated) {
+      return {
+        ok: false,
+        error: "対象の返金が見つからないか、既に対応済みです。",
+        status: 404,
+      };
+    }
+    return { ok: true, data: null };
+  } catch {
+    return { ok: false, error: "対応済みへの更新に失敗しました。", status: 500 };
   }
 }
 

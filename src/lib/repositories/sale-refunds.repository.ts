@@ -90,6 +90,61 @@ export async function findRefundsBySaleSessionId(
   return (data ?? []) as SaleRefundRow[];
 }
 
+/** 事業の未対応の失敗返金一覧（新しい順）。管理画面の「要対応」パネル用 */
+export async function findUnresolvedFailedRefundsByBusinessId(
+  businessId: string,
+): Promise<SaleRefundRow[]> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("sale_refunds")
+    .select("*")
+    .eq("business_id", businessId)
+    .eq("status", "failed")
+    .is("resolved_at", null)
+    .order("refunded_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as SaleRefundRow[];
+}
+
+/**
+ * 失敗した返金を「対応済み」にする。
+ * status は failed のまま変更しない（Stripe側で実際に返金できたわけではないため）。
+ * 対象外（他事業・status!=failed・既に対応済み）の場合は false を返す。
+ */
+export async function markSaleRefundResolved(
+  id: string,
+  businessId: string,
+  resolvedBy: string,
+  resolutionNote?: string | null,
+): Promise<boolean> {
+  const supabase = await createClient();
+
+  const { data, error } = await supabase
+    .from("sale_refunds")
+    .update({
+      resolved_at: new Date().toISOString(),
+      resolved_by: resolvedBy,
+      resolution_note: resolutionNote ?? null,
+    })
+    .eq("id", id)
+    .eq("business_id", businessId)
+    .eq("status", "failed")
+    .is("resolved_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data !== null;
+}
+
 /** 事業の返金一覧（新しい順） */
 export async function findRefundsByBusinessId(
   businessId: string,

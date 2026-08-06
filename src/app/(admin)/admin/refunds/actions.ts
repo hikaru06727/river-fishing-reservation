@@ -1,9 +1,10 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
-import { refundCash, refundCard } from "@/lib/services/refund.service";
+import { refundCash, refundCard, resolveFailedRefund } from "@/lib/services/refund.service";
 import type { RefundActionState } from "./action-state";
 
 const baseSchema = z.object({
@@ -112,4 +113,44 @@ export async function refundCardAction(
   }
 
   return { success: `¥${amount.toLocaleString()} のカード返金を記録しました。` };
+}
+
+const resolveSchema = z.object({
+  businessId: z.string().uuid("事業IDが不正です。"),
+  refundId: z.string().uuid("返金IDが不正です。"),
+  note: z.string().max(500).optional().nullable(),
+});
+
+export async function resolveFailedRefundAction(
+  _prev: RefundActionState,
+  formData: FormData,
+): Promise<RefundActionState> {
+  const session = await getAuthenticatedManagement();
+  if (!session) redirect("/login?next=/admin/refunds");
+
+  const parsed = resolveSchema.safeParse({
+    businessId: formData.get("businessId"),
+    refundId: formData.get("refundId"),
+    note: (formData.get("note") as string | null) || null,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
+  }
+
+  const { businessId, refundId, note } = parsed.data;
+
+  const result = await resolveFailedRefund(session.profile, {
+    businessId,
+    refundId,
+    note,
+  });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidatePath("/admin/refunds");
+
+  return { success: "対応済みにしました。" };
 }

@@ -1117,6 +1117,9 @@ export interface Database {
           status: SaleRefundStatus;
           note: string | null;
           created_at: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          resolution_note: string | null;
         };
         Insert: {
           id?: string;
@@ -1134,6 +1137,9 @@ export interface Database {
           status?: SaleRefundStatus;
           note?: string | null;
           created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          resolution_note?: string | null;
         };
         Update: {
           id?: string;
@@ -1151,6 +1157,9 @@ export interface Database {
           status?: SaleRefundStatus;
           note?: string | null;
           created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          resolution_note?: string | null;
         };
         Relationships: [];
       };
