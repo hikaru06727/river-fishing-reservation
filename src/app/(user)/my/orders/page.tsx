@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { OrderStatusBadge } from "@/components/admin/orders/OrderStatusBadge";
 import { Card } from "@/components/ui/Card";
 import { getUser } from "@/lib/auth/get-user";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { ONLINE_ORDER_FULFILLMENT_LABEL } from "@/lib/online-orders/labels";
 import { getMyOnlineOrders } from "@/lib/services/online-order.service";
 import { formatDateTime, formatYen } from "@/lib/utils/format";
@@ -15,6 +16,10 @@ export const metadata = {
 };
 
 export default async function MyOrdersPage() {
+  if (!ONLINE_SHOP_ENABLED) {
+    notFound();
+  }
+
   const user = await getUser();
 
   if (!user) {

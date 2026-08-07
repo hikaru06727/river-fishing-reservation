@@ -10,6 +10,7 @@ import {
 import { Card } from "@/components/ui/Card";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
 import { getUser } from "@/lib/auth/get-user";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { findBusinessSlugById } from "@/lib/repositories/businesses.repository";
 import {
   canCancelReservation,
@@ -65,7 +66,8 @@ export default async function ReservationDetailPage({
       : Promise.resolve(null),
     getLinkedOrdersForReservation(reservation.id),
   ]);
-  const showAddPurchase = !!shopSlug && reservation.status !== "cancelled";
+  const showAddPurchase =
+    ONLINE_SHOP_ENABLED && !!shopSlug && reservation.status !== "cancelled";
 
   return (
     <div className="space-y-6">

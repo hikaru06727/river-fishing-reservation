@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { getAuthNavState } from "@/lib/auth/get-user";
 import { LogoutButton } from "@/components/layout/LogoutButton";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 
 const mainNavLinks = [
   { href: "/spots", label: "釣り場" },
   { href: "/catches", label: "釣果" },
   { href: "/blog", label: "ブログ" },
-  { href: "/shop", label: "ショップ" },
+  ...(ONLINE_SHOP_ENABLED ? [{ href: "/shop", label: "ショップ" }] : []),
 ];
 
 export async function Header() {

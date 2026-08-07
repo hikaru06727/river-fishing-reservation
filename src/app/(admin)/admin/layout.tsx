@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ManagementContextBar } from "@/components/admin/ManagementContextBar";
 import { getAuthenticatedManagement, getUser } from "@/lib/auth/get-user";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { hasPermission } from "@/lib/permissions";
 
 type NavLink = { href: string; label: string };
@@ -26,7 +27,9 @@ function getNavLinks(role: string): NavLink[] {
     links.push({ href: "/admin/refunds", label: "返金" });
   }
   if (hasPermission(role, "ORDER_VIEW")) {
-    links.push({ href: "/admin/orders", label: "注文管理" });
+    if (ONLINE_SHOP_ENABLED) {
+      links.push({ href: "/admin/orders", label: "注文管理" });
+    }
   }
   if (hasPermission(role, "PRODUCT_MANAGE")) {
     links.push({ href: "/admin/plans", label: "プラン管理" });
@@ -51,7 +54,7 @@ function getNavLinks(role: string): NavLink[] {
       { href: "/admin/register-closing", label: "レジ締め" },
       { href: "/admin/reservations", label: "予約管理" },
       { href: "/admin/refunds", label: "返金" },
-      { href: "/admin/orders", label: "注文管理" },
+      ...(ONLINE_SHOP_ENABLED ? [{ href: "/admin/orders", label: "注文管理" }] : []),
       { href: "/admin/plans", label: "プラン管理" },
       { href: "/admin/products", label: "商品管理" },
       { href: "/admin/business-hours", label: "営業時間設定" },

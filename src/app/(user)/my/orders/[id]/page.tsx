@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { OrderStatusBadge } from "@/components/admin/orders/OrderStatusBadge";
 import { Card } from "@/components/ui/Card";
 import { getUser } from "@/lib/auth/get-user";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import {
   ONLINE_ORDER_FULFILLMENT_LABEL,
   ONLINE_ORDER_PAYMENT_METHOD_LABEL,
@@ -23,6 +24,10 @@ export async function generateMetadata() {
 }
 
 export default async function MyOrderDetailPage({ params }: MyOrderDetailPageProps) {
+  if (!ONLINE_SHOP_ENABLED) {
+    notFound();
+  }
+
   const { id } = await params;
 
   const user = await getUser();

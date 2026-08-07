@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { ReservationStatusBadge } from "@/components/admin/ReservationStatusBadge";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { getWeekDateRange } from "@/lib/reservations/admin-reservation-filters";
 import type {
   AdminReservationRow,
@@ -55,7 +56,7 @@ export function AdminDashboard({
             {isAdmin ? "全体の予約状況" : "担当事業の予約状況"}
           </p>
         </div>
-        {shopSlug && (
+        {ONLINE_SHOP_ENABLED && shopSlug && (
           <a
             href={`/shop/${shopSlug}/products`}
             target="_blank"
