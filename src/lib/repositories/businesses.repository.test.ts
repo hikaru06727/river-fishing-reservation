@@ -1,17 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getProfileMock, findAssignedBusinessIdsByStaffUserIdMock } = vi.hoisted(() => ({
+const { getProfileMock } = vi.hoisted(() => ({
   getProfileMock: vi.fn(),
-  findAssignedBusinessIdsByStaffUserIdMock: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createClient: vi.fn() }));
 vi.mock("@/lib/auth/get-user", () => ({ getProfile: getProfileMock }));
-vi.mock("@/lib/repositories/staff-members.repository", () => ({
-  findAssignedBusinessIdsByStaffUserId: findAssignedBusinessIdsByStaffUserIdMock,
-}));
 
 import { createClient } from "@/lib/supabase/server";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 import {
   findActiveBusinessBySlug,
   findManageableBusinesses,
@@ -65,74 +62,58 @@ describe("findActiveBusinessBySlug", () => {
   });
 });
 
-const ALL_BUSINESSES = [
-  { id: "biz-1", name: "事業1", is_active: true },
-  { id: "biz-2", name: "事業2", is_active: true },
-];
+const SINGLE_BUSINESS = { id: SINGLE_BUSINESS_ID, name: "奥多摩川フィッシングパーク", is_active: true };
 
-function mockBusinessesQuery(result: { data: unknown; error: unknown }) {
-  const order = vi.fn().mockResolvedValue(result);
-  const select = vi.fn().mockReturnValue({ order });
-  return { select };
-}
-
-function mockAssignmentsQuery(result: { data: unknown; error: unknown }) {
-  const eq = vi.fn().mockResolvedValue(result);
+function mockBusinessRow(result: { data: unknown; error: unknown }) {
+  const maybeSingle = vi.fn().mockResolvedValue(result);
+  const eq = vi.fn().mockReturnValue({ maybeSingle });
   const select = vi.fn().mockReturnValue({ eq });
-  return { select };
+  return { select, eq };
 }
 
 describe("findManageableBusinesses", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("admin は全事業を取得できる", async () => {
-    const businessesTable = mockBusinessesQuery({ data: ALL_BUSINESSES, error: null });
-    const from = vi.fn().mockReturnValue(businessesTable);
+  it("ログイン中なら SINGLE_BUSINESS_ID の事業を1件返す", async () => {
+    const { select, eq } = mockBusinessRow({ data: SINGLE_BUSINESS, error: null });
+    const from = vi.fn().mockReturnValue({ select });
     vi.mocked(createClient).mockResolvedValue({ from } as any);
-    getProfileMock.mockResolvedValue({ id: "admin-1", role: "admin" });
+    getProfileMock.mockResolvedValue({ id: "user-1", role: "business_admin" });
 
     const result = await findManageableBusinesses();
 
-    expect(result).toEqual(ALL_BUSINESSES);
+    expect(result).toEqual([SINGLE_BUSINESS]);
+    expect(eq).toHaveBeenCalledWith("id", SINGLE_BUSINESS_ID);
   });
 
-  it("business_admin は割当事業のみに絞り込まれる", async () => {
-    const businessesTable = mockBusinessesQuery({ data: ALL_BUSINESSES, error: null });
-    const assignmentsTable = mockAssignmentsQuery({
-      data: [{ business_id: "biz-1" }],
-      error: null,
-    });
-    const from = vi.fn((table: string) =>
-      table === "businesses" ? businessesTable : assignmentsTable,
-    );
+  it("対象の business が存在しない場合は空配列を返す", async () => {
+    const { select } = mockBusinessRow({ data: null, error: null });
+    const from = vi.fn().mockReturnValue({ select });
     vi.mocked(createClient).mockResolvedValue({ from } as any);
-    getProfileMock.mockResolvedValue({ id: "biz-admin-1", role: "business_admin" });
+    getProfileMock.mockResolvedValue({ id: "user-1", role: "admin" });
 
     const result = await findManageableBusinesses();
 
-    expect(result).toEqual([{ id: "biz-1", name: "事業1", is_active: true }]);
+    expect(result).toEqual([]);
   });
 
-  it("staff は staff_members 経由の割当事業のみに絞り込まれる", async () => {
-    const businessesTable = mockBusinessesQuery({ data: ALL_BUSINESSES, error: null });
-    const from = vi.fn().mockReturnValue(businessesTable);
-    vi.mocked(createClient).mockResolvedValue({ from } as any);
-    getProfileMock.mockResolvedValue({ id: "staff-1", role: "staff" });
-    findAssignedBusinessIdsByStaffUserIdMock.mockResolvedValue(["biz-2"]);
-
-    const result = await findManageableBusinesses();
-
-    expect(result).toEqual([{ id: "biz-2", name: "事業2", is_active: true }]);
-  });
-
-  it("未ログインの場合は空配列を返す", async () => {
-    const businessesTable = mockBusinessesQuery({ data: ALL_BUSINESSES, error: null });
-    const from = vi.fn().mockReturnValue(businessesTable);
+  it("未ログインの場合は空配列を返す（DBに問い合わせない）", async () => {
+    const from = vi.fn();
     vi.mocked(createClient).mockResolvedValue({ from } as any);
     getProfileMock.mockResolvedValue(null);
 
     const result = await findManageableBusinesses();
 
     expect(result).toEqual([]);
+    expect(from).not.toHaveBeenCalled();
+  });
+
+  it("DBエラー時は例外をスロー", async () => {
+    const { select } = mockBusinessRow({ data: null, error: { message: "DB error" } });
+    const from = vi.fn().mockReturnValue({ select });
+    vi.mocked(createClient).mockResolvedValue({ from } as any);
+    getProfileMock.mockResolvedValue({ id: "user-1", role: "admin" });
+
+    await expect(findManageableBusinesses()).rejects.toThrow("DB error");
   });
 });

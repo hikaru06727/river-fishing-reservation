@@ -1,22 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { getProfile } from "@/lib/auth/get-user";
-import { isAdminRole, isStaffRole } from "@/lib/auth/role";
-import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
-/** business_admin の担当事業 ID 一覧（RLS 下・anon client） */
-export async function findAssignedBusinessIdsByUserId(userId: string): Promise<string[]> {
-  const supabase = await createClient();
-
-  const { data, error } = await supabase
-    .from("business_admin_assignments")
-    .select("business_id")
-    .eq("user_id", userId);
-
-  if (error) {
-    throw new Error(error.message);
-  }
-
-  return (data ?? []).map((row) => row.business_id);
+/**
+ * business_admin の担当事業 ID 一覧。
+ * マルチテナント撤回（2026年8月）により、常に SINGLE_BUSINESS_ID の
+ * 1件を返す（business_admin_assignments テーブルの実データは参照しない）。
+ */
+export async function findAssignedBusinessIdsByUserId(_userId: string): Promise<string[]> {
+  return [SINGLE_BUSINESS_ID];
 }
 
 /** 事業名一覧（管理画面表示用） */
@@ -92,39 +84,28 @@ export type ManageableBusinessRow = {
 };
 
 /**
- * 管理画面フィルタ用の事業一覧（admin は全件、business_admin/staff は割当分のみ）。
- * businesses テーブルには anon 向けの公開閲覧ポリシー（is_active=TRUE, migration 054）が
- * TO 指定なしで存在し、RLS だけでは認証済みユーザーも全件見えてしまうため、
- * ここで明示的に割当事業に絞り込む。
+ * 管理画面フィルタ用の事業一覧。
+ * マルチテナント撤回（2026年8月）により、常に SINGLE_BUSINESS_ID の
+ * 1件のみを返す（存在しなければ空配列）。ロール別の絞り込みは行わない。
  */
 export async function findManageableBusinesses(): Promise<ManageableBusinessRow[]> {
-  const supabase = await createClient();
+  const profile = await getProfile();
+  if (!profile) {
+    return [];
+  }
 
+  const supabase = await createClient();
   const { data, error } = await supabase
     .from("businesses")
     .select("id, name, is_active")
-    .order("name");
+    .eq("id", SINGLE_BUSINESS_ID)
+    .maybeSingle();
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const businesses = (data ?? []) as ManageableBusinessRow[];
-
-  const profile = await getProfile();
-  if (!profile) {
-    return [];
-  }
-  if (isAdminRole(profile.role)) {
-    return businesses;
-  }
-
-  const assignedIds = isStaffRole(profile.role)
-    ? await findAssignedBusinessIdsByStaffUserId(profile.id)
-    : await findAssignedBusinessIdsByUserId(profile.id);
-
-  const assignedIdSet = new Set(assignedIds);
-  return businesses.filter((b) => assignedIdSet.has(b.id));
+  return data ? [data as ManageableBusinessRow] : [];
 }
 
 export type ActiveBusinessRow = {

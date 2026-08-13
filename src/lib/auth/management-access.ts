@@ -9,6 +9,7 @@ import { findPlanSpotIdByPlanId } from "@/lib/repositories/plans.repository";
 import { findOnlineOrderBusinessId } from "@/lib/repositories/online-order.repository";
 import { getProfile, getUser } from "@/lib/auth/get-user";
 import { isAdminRole, isBusinessAdminRole, isStaffRole } from "@/lib/auth/role";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 import type { Profile, UserRole } from "@/types/database";
 
 export type ManagementScope = {
@@ -288,13 +289,10 @@ export async function getManagementScope(): Promise<ManagementScope | null> {
     return { role: profile.role, businessNames: null };
   }
 
-  const assignedIds = await getAssignedBusinessIds(profile.id);
-  if (assignedIds.length === 0) {
-    return { role: profile.role, businessNames: [] };
-  }
-
+  // マルチテナント撤回（2026年8月）により、business_admin の担当事業は
+  // 常に SINGLE_BUSINESS_ID の1件のみ（実割当データは参照しない）。
   try {
-    const businessNames = await findBusinessNamesByIds(assignedIds);
+    const businessNames = await findBusinessNamesByIds([SINGLE_BUSINESS_ID]);
     return { role: profile.role, businessNames };
   } catch (error) {
     console.error("[getManagementScope]", error instanceof Error ? error.message : error);
