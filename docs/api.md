@@ -49,7 +49,6 @@ remaining_count = min( max_capacity - booked_count )  // 影響スロット群�
 |---|---|---|
 | POST | /api/reservations | 予約作成（DB RPC で原子的にスロット更新） |
 | GET | /api/reservations | 予約一覧 |
-| PATCH | /api/reservations/[id]/cancel | キャンセル（DB RPC で原子的にスロット更新） |
 | POST | /api/checkout | Stripe Checkout（Phase 2） |
 
 ### 同時実行対策
