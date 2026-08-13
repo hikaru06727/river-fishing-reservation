@@ -50,8 +50,19 @@ export function getPaymentMethodDescription(method: PaymentMethod): string {
   return PAYMENT_METHOD_DESCRIPTIONS[method];
 }
 
+export type PaymentStateLabel =
+  | "キャンセル済"
+  | "期限切れ"
+  | "現地精算済"
+  | "当日精算予定"
+  | "決済期限切れ"
+  | "決済済み"
+  | "決済失敗"
+  | "返金済"
+  | "決済待ち";
+
 /** ユーザー向け：支払い状態（方法 + 進捗） */
-export function getPaymentStateLabel(input: PaymentDisplayInput): string {
+export function getPaymentStateLabel(input: PaymentDisplayInput): PaymentStateLabel {
   const { paymentMethod, reservationStatus, paymentStatus } = input;
 
   if (paymentMethod === "cash_at_venue") {
@@ -89,22 +100,25 @@ export function getPaymentStateLabel(input: PaymentDisplayInput): string {
   return "決済待ち";
 }
 
-export function getPaymentStateColor(input: PaymentDisplayInput): string {
-  const label = getPaymentStateLabel(input);
+/**
+ * ラベルを Record のキーに使うことで、PaymentStateLabel に新しい値を
+ * 追加した際にこのマッピングの更新漏れを tsc がコンパイルエラーとして
+ * 検出できるようにしている。
+ */
+const PAYMENT_STATE_COLORS: Record<PaymentStateLabel, string> = {
+  決済済み: "bg-green-100 text-green-800",
+  現地精算済: "bg-green-100 text-green-800",
+  当日精算予定: "bg-yellow-100 text-yellow-800",
+  決済待ち: "bg-yellow-100 text-yellow-800",
+  決済期限切れ: "bg-red-100 text-red-800",
+  期限切れ: "bg-red-100 text-red-800",
+  決済失敗: "bg-red-100 text-red-800",
+  キャンセル済: "bg-slate-100 text-slate-600",
+  返金済: "bg-slate-100 text-slate-600",
+};
 
-  if (label.includes("済") && !label.includes("予定")) {
-    return "bg-green-100 text-green-800";
-  }
-  if (label === "決済待ち" || label === "当日精算予定") {
-    return "bg-yellow-100 text-yellow-800";
-  }
-  if (label === "決済期限切れ" || label === "決済失敗" || label === "期限切れ") {
-    return "bg-red-100 text-red-800";
-  }
-  if (label === "返金済" || label === "キャンセル済") {
-    return "bg-slate-100 text-slate-600";
-  }
-  return "bg-slate-100 text-slate-600";
+export function getPaymentStateColor(input: PaymentDisplayInput): string {
+  return PAYMENT_STATE_COLORS[getPaymentStateLabel(input)];
 }
 
 /** Stripe Checkout に進むべきか（現金精算は false） */
