@@ -581,7 +581,7 @@ export async function cancelReservation(
     // console.error のログのみで、自動リトライや管理画面上でのアラートは無い。
     // 完全なアトミック性保証（トランザクション化・補償処理・不整合検知UI等）は
     // 本修正のスコープ外の別課題として残っている。
-    await cancelAddonItemsAndRestoreStock(reservationId).catch((err) => {
+    await cancelAddonItemsAndRestoreStock(reservationId, spotMeta?.businessId ?? null).catch((err) => {
       console.error("[cancelReservation] addon cancellation/stock restore failed:", err);
     });
 

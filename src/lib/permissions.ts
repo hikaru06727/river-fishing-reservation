@@ -16,6 +16,8 @@ export const PERMISSIONS = {
   SALES_VIEW: ["business_admin", "staff"],
   /** 返金操作 */
   REFUND_MANAGE: ["business_admin", "staff"],
+  /** アドオン後処理失敗の要対応管理（閲覧）。対応済み操作はサービス層で admin/business_admin のみに絞る */
+  ADDON_CLEANUP_MANAGE: ["business_admin", "staff"],
   /** 商品管理 */
   PRODUCT_MANAGE: ["business_admin", "staff"],
   /** スタッフ管理 */

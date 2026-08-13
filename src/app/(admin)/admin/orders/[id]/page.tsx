@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { RefundButton } from "@/components/refund/RefundButton";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { canCurrentUserManageOnlineOrder } from "@/lib/auth/management-access";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { hasPermission } from "@/lib/permissions";
 import {
   ONLINE_ORDER_FULFILLMENT_LABEL,
@@ -33,6 +34,10 @@ export async function generateMetadata({ params }: AdminOrderDetailPageProps) {
 }
 
 export default async function AdminOrderDetailPage({ params }: AdminOrderDetailPageProps) {
+  if (!ONLINE_SHOP_ENABLED) {
+    notFound();
+  }
+
   const { id } = await params;
 
   const session = await getAuthenticatedManagement();

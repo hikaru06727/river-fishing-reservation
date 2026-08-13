@@ -1,4 +1,5 @@
 import type {
+  AddonCleanupStep,
   AppUserRole,
   ClosingCorrectionStatus,
   ContentStatus,
@@ -32,6 +33,7 @@ export type Json =
   | Json[];
 
 export type {
+  AddonCleanupStep,
   AppUserRole,
   ClosingCorrectionStatus,
   ContentStatus,
@@ -1163,6 +1165,42 @@ export interface Database {
         };
         Relationships: [];
       };
+      reservation_addon_cleanup_issues: {
+        Row: {
+          id: string;
+          reservation_id: string;
+          business_id: string;
+          failed_steps: AddonCleanupStep[];
+          detail: string | null;
+          created_at: string;
+          resolved_at: string | null;
+          resolved_by: string | null;
+          resolution_note: string | null;
+        };
+        Insert: {
+          id?: string;
+          reservation_id: string;
+          business_id: string;
+          failed_steps: AddonCleanupStep[];
+          detail?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          resolution_note?: string | null;
+        };
+        Update: {
+          id?: string;
+          reservation_id?: string;
+          business_id?: string;
+          failed_steps?: AddonCleanupStep[];
+          detail?: string | null;
+          created_at?: string;
+          resolved_at?: string | null;
+          resolved_by?: string | null;
+          resolution_note?: string | null;
+        };
+        Relationships: [];
+      };
       register_closing_corrections: {
         Row: {
           id: string;
@@ -1507,3 +1545,5 @@ export type PaymentLedgerRow = Database["public"]["Tables"]["payment_ledger"]["R
 export type OnlineOrderRow = Database["public"]["Tables"]["online_orders"]["Row"];
 export type OnlineOrderItemRow = Database["public"]["Tables"]["online_order_items"]["Row"];
 export type ReservationAddonItemRow = Database["public"]["Tables"]["reservation_addon_items"]["Row"];
+export type ReservationAddonCleanupIssueRow =
+  Database["public"]["Tables"]["reservation_addon_cleanup_issues"]["Row"];

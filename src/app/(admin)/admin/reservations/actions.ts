@@ -1,13 +1,17 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { canCurrentUserManageReservation } from "@/lib/auth/management-access";
 import { cancelReservation } from "@/lib/services/reservations.service";
 import { markCashPaymentReceived } from "@/lib/services/payments.service";
+import { resolveAddonCleanupIssue } from "@/lib/services/reservation-addon-cleanup.service";
 import type {
   AdminCancelReservationState,
   AdminMarkCashPaymentReceivedState,
+  ResolveAddonCleanupIssueState,
 } from "@/types/reservation-action";
 
 function sanitizeReturnTo(value: FormDataEntryValue | null): string {
@@ -78,4 +82,42 @@ export async function adminMarkCashPaymentReceivedAction(
   }
 
   redirect(sanitizeReturnTo(formData.get("returnTo")));
+}
+
+const resolveAddonCleanupIssueSchema = z.object({
+  businessId: z.string().uuid("事業IDが不正です。"),
+  issueId: z.string().uuid("記録IDが不正です。"),
+  note: z.string().max(500).optional().nullable(),
+});
+
+export async function resolveAddonCleanupIssueAction(
+  _prevState: ResolveAddonCleanupIssueState,
+  formData: FormData,
+): Promise<ResolveAddonCleanupIssueState> {
+  const session = await getAuthenticatedManagement();
+  if (!session) {
+    redirect("/login?next=/admin/reservations");
+  }
+
+  const parsed = resolveAddonCleanupIssueSchema.safeParse({
+    businessId: formData.get("businessId"),
+    issueId: formData.get("issueId"),
+    note: (formData.get("note") as string | null) || null,
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.issues[0]?.message ?? "入力内容を確認してください。" };
+  }
+
+  const { businessId, issueId, note } = parsed.data;
+
+  const result = await resolveAddonCleanupIssue(session.profile, { businessId, issueId, note });
+
+  if (!result.ok) {
+    return { error: result.error };
+  }
+
+  revalidatePath("/admin/reservations");
+
+  return { success: "対応済みにしました。" };
 }

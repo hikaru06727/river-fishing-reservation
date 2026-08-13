@@ -11,8 +11,9 @@ import {
   recordPaymentLedgerAdmin,
   updatePaymentLedgerStatusAdmin,
 } from "@/lib/repositories/payment-ledger.repository";
+import { insertAddonCleanupIssue } from "@/lib/repositories/reservation-addon-cleanup-issues.repository";
 import type { ReservationAddonItemRow } from "@/types/database";
-import type { PaymentLedgerPaymentMethod } from "@/types/domain";
+import type { AddonCleanupStep, PaymentLedgerPaymentMethod } from "@/types/domain";
 
 export type ServiceResult<T> =
   | { ok: true; data: T }
@@ -184,9 +185,28 @@ export async function confirmAddonPaymentAndStock(params: {
  * - 在庫が引当済み（stock_decremented_at 有）だった明細のみ在庫を復元する
  * - reservation_addon の payment_ledger 行が存在すれば refunded に更新する
  *   （Stripe 返金 API 呼び出し自体は呼び出し元の cancelReservation が行う）
+ *
+ * 3ステップ（明細cancelled化・在庫復元・payment_ledger更新）のいずれかが
+ * 失敗した場合、失敗したステップ名を集約し、全ステップ試行後にまとめて
+ * reservation_addon_cleanup_issues へ1行記録する（Part 2）。
+ * businessId は呼び出し元の cancelReservation が既に解決済みのため、
+ * ここでは引数として受け取る（reservation_id からの再解決はしない）。
  */
-export async function cancelAddonItemsAndRestoreStock(reservationId: string): Promise<void> {
-  const cancelledItems = await cancelAddonItemsForReservationAdmin(reservationId);
+export async function cancelAddonItemsAndRestoreStock(
+  reservationId: string,
+  businessId: string | null,
+): Promise<void> {
+  let markCancelledFailed = false;
+  let restoreStockFailed = false;
+  let updateLedgerFailed = false;
+
+  let cancelledItems: ReservationAddonItemRow[] = [];
+  try {
+    cancelledItems = await cancelAddonItemsForReservationAdmin(reservationId);
+  } catch (e) {
+    console.error("[cancelAddonItemsAndRestoreStock] mark cancelled failed:", e);
+    markCancelledFailed = true;
+  }
 
   for (const item of cancelledItems) {
     if (!item.stock_decremented_at) continue;
@@ -194,15 +214,50 @@ export async function cancelAddonItemsAndRestoreStock(reservationId: string): Pr
       await incrementProductStockAdmin(item.product_id, item.quantity);
     } catch (e) {
       console.error("[cancelAddonItemsAndRestoreStock] stock restore failed:", e);
+      restoreStockFailed = true;
     }
   }
 
-  const ledgerRow = await findBySourceAdmin("reservation_addon", reservationId);
+  let ledgerRow: Awaited<ReturnType<typeof findBySourceAdmin>> = null;
+  try {
+    ledgerRow = await findBySourceAdmin("reservation_addon", reservationId);
+  } catch (e) {
+    console.error("[cancelAddonItemsAndRestoreStock] payment_ledger lookup failed:", e);
+    updateLedgerFailed = true;
+  }
   if (ledgerRow && ledgerRow.status === "succeeded") {
     try {
       await updatePaymentLedgerStatusAdmin(ledgerRow.id, "refunded");
     } catch (e) {
       console.error("[cancelAddonItemsAndRestoreStock] payment_ledger status update failed:", e);
+      updateLedgerFailed = true;
     }
+  }
+
+  const failedSteps: AddonCleanupStep[] = [
+    ...(markCancelledFailed ? (["mark_cancelled"] as const) : []),
+    ...(restoreStockFailed ? (["restore_stock"] as const) : []),
+    ...(updateLedgerFailed ? (["update_ledger"] as const) : []),
+  ];
+
+  if (failedSteps.length === 0) return;
+
+  if (!businessId) {
+    console.error(
+      "[cancelAddonItemsAndRestoreStock] business_id not available; skipping cleanup issue record for",
+      reservationId,
+      failedSteps,
+    );
+    return;
+  }
+
+  try {
+    await insertAddonCleanupIssue({
+      reservation_id: reservationId,
+      business_id: businessId,
+      failed_steps: failedSteps,
+    });
+  } catch (e) {
+    console.error("[cancelAddonItemsAndRestoreStock] cleanup issue record failed:", e);
   }
 }

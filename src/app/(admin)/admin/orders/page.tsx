@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { OrderStatusBadge } from "@/components/admin/orders/OrderStatusBadge";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import {
   getOnlineOrdersForBusiness,
@@ -41,6 +42,10 @@ interface AdminOrdersPageProps {
 }
 
 export default async function AdminOrdersPage({ searchParams }: AdminOrdersPageProps) {
+  if (!ONLINE_SHOP_ENABLED) {
+    notFound();
+  }
+
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/orders");
 

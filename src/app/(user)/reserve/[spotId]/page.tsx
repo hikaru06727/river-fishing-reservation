@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { ReserveForm } from "@/components/reservation/ReserveForm";
 import { getUser } from "@/lib/auth/get-user";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { getPlanBySlugForSpot } from "@/lib/plans/get-plan-by-slug";
 import { getSpotById } from "@/lib/spots/get-spot-by-id";
 import { findPublishedProductsByBusinessId } from "@/lib/repositories/products.repository";
@@ -47,9 +48,10 @@ export default async function ReservePage({
     notFound();
   }
 
-  const addonProducts = spot.business_id
-    ? await findPublishedProductsByBusinessId(spot.business_id)
-    : [];
+  const addonProducts =
+    ONLINE_SHOP_ENABLED && spot.business_id
+      ? await findPublishedProductsByBusinessId(spot.business_id)
+      : [];
 
   return (
     <div className="mx-auto max-w-lg space-y-6">

@@ -1,5 +1,6 @@
 import { notFound, redirect } from "next/navigation";
 import { findFirstActiveBusinessSlug } from "@/lib/repositories/businesses.repository";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -10,6 +11,10 @@ export const fetchCache = "force-no-store";
  * マルチテナント対応後、事業選択導線を追加する場合はここを起点にする。
  */
 export default async function ShopIndexPage() {
+  if (!ONLINE_SHOP_ENABLED) {
+    notFound();
+  }
+
   const slug = await findFirstActiveBusinessSlug();
 
   if (!slug) {

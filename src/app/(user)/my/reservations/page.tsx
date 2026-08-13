@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ReservationCard } from "@/components/reservation/ReservationCard";
 import { getUser } from "@/lib/auth/get-user";
+import { ONLINE_SHOP_ENABLED } from "@/lib/feature-flags";
 import { getMyReservations } from "@/lib/reservations/get-my-reservations";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +26,14 @@ export default async function MyReservationsPage() {
       <header>
         <h1 className="text-2xl font-bold text-foreground">マイ予約</h1>
         <p className="mt-1 text-sm text-muted">予約の確認・キャンセルができます</p>
-        <Link
-          href="/my/orders"
-          className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
-        >
-          ショップの注文履歴を見る →
-        </Link>
+        {ONLINE_SHOP_ENABLED && (
+          <Link
+            href="/my/orders"
+            className="mt-2 inline-block text-sm font-medium text-primary hover:underline"
+          >
+            ショップの注文履歴を見る →
+          </Link>
+        )}
       </header>
 
       {reservations.length === 0 ? (
