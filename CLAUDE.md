@@ -114,3 +114,28 @@ Phase 20：顧客アカウント機能（完了）
 - createStripeCheckoutSessionForOrder()（online-order.service.ts）で、注文合計金額がStripeのJPY決済最低額（¥50）を下回る場合、Stripeがamount_too_smallエラーを返し、ユーザーには原因不明な「決済ページの作成に失敗しました」というメッセージのみが表示される。2026年7月、Phase 20の手動検証中に低額テストデータで発生を確認（Phase 20自体の不具合ではない）。対応案: createOrder()側で¥50未満の場合に決済方法選択前にバリデーションエラーを出す、またはエラーメッセージを金額起因と分かる内容に変更する。実運用での発生可能性は低い（通常の商品単価では起こりにくい）が、エラーメッセージの分かりにくさは改善の余地がある。
 - 事業（business）削除時、locations.business_id が ON DELETE SET NULL によりNULL化されるため、それ以降そのlocationに紐づく予約をキャンセルすると、autoRefundReservationOnCancel および cancelAddonItemsAndRestoreStock 双方で businessId が取得できず、返金処理・アドオン後処理失敗の記録がともにスキップされる（console.errorのみで、管理画面上での検知手段がない）。locations作成時にbusiness_idが必須入力になっていない可能性も合わせて要確認。対応要否・優先度は未判断。（2026年8月、cancelAddonItemsAndRestoreStock()のアドオン後処理失敗トラッキング機能実装前のスキーマ確認中に発見）
   なお processExpirePendingReservations()（pending予約の自動失効バッチ）経由の cancelAddonItemsAndRestoreStock() 呼び出しは、意図的に businessId: null を渡している。この経路はStripe Webhook到達前の予約のみが対象のため、構造上③payment_ledger更新・②在庫復元は発生せず、①明細cancelled化の失敗のみがリスク対象（金銭的リスクではなくデータ不整合リスク）。そのため cleanup issue 記録の対象外としている（2026年8月、Part 2実装中に判断）。
+- getPaymentStateColor()（src/lib/reservations/payment-method.ts 92-108行目）で、"済"を含む文字列を一括で緑色（成功色）にする判定が広すぎるため、"キャンセル済"（支払いが成功したわけではない）も緑色で表示されてしまう。customer-self-cancel.spec.ts のE2Eテスト作成中（2026年8月）に発見。また同関数内の "返金済" 等の個別チェックは、この汎用チェックより後にあるため実質デッドコードになっている。対応要否・優先度は未判断。
+  → **対応済み**（2026年8月）。PaymentStateLabel を9種のリテラル型ユニオンに変更し、Record<PaymentStateLabel, string> による明示的マッピングに書き換えた。ラベル追加時のマッピング更新漏れはtscが検出する設計にしたことを実地確認済み。payment-method.test.ts に getPaymentStateColor() のテスト6件を追加（既存9件と合わせ計15件）。
+- E2Eテスト全体（fullyParallel: true）で、複数のspecファイルが同一のテスト用ユーザー（E2E_TEST_USER_EMAIL）を共有してloginAsTestUser()を呼んでいるため、異なるファイル・テストが並列実行されるタイミングで、Supabase側のマジックリンク発行が互いを無効化し合い、"Email link is invalid or has expired" でログインが失敗することがある（2026年8月、customer-self-cancel.spec.ts作成中に発見・再現確認済み。--workers=1では発生せず、並列時のみ発生することを確認）。影響しうるファイル: customer-account.spec.ts, customer-self-cancel.spec.ts, reservation-addon-flow.spec.ts, reservation-linked-order-flow.spec.ts（いずれもE2E_TEST_USER_EMAILを共有）。reservation-addon-flow.spec.ts で以前確認されていた16回中1回のタイムアウト事例（技術的負債1番、cancelReservation()のアトミック性問題として記録済み）とは失敗時のエラー内容が異なる（タイムアウト vs ログイン401エラー）ため、直接の同一原因とは断定できないが、断続的に失敗する点は類似しており、テスト環境のflakinessの一因として関連する可能性がある。対応案（未着手）: ファイル単位でのserial化に加え、テスト用アカウントを複数用意する、または /api/test/login 側でトークンの相互無効化を回避する設計に変更する等。優先度・対応要否は未判断。
+
+## 今後の大方針転換（未着手・要計画）
+2026年8月、マルチテナントSaaS化の方針を撤回し、単一事業者向けの
+釣り体験予約システムとして運用する方針に転換した。
+
+影響範囲が非常に大きいため、別セッションで計画的に着手すること。
+主な影響箇所（要調査・要設計）：
+- businesses テーブル・全RLSポリシー（can_manage_business()関数、
+  各テーブルのbusiness_admin_allポリシー群）
+- staff_membersの事業割当、business_adminロールの扱い
+- /admin配下の事業選択UI（businessIdクエリパラメータ、
+  findManageableBusinesses()等）
+- locations.business_id、plans.location_idの事業紐付け
+- sale_refunds/reservation_addon_cleanup_issuesのbusiness_id列と
+  RLS（Part 1・Part 2で追加）
+
+方針決定が必要な論点（着手時に検討）：
+- DBスキーマからbusiness_id自体を除去するか、
+  「常に1事業のみ存在する」前提で残すか（後者の方が変更コストは低い）
+- 既存のRLSをどこまで単純化するか
+- POST /api/reservations 等、他の未使用公開APIルートも
+  同様の理由で整理対象になりうる（今回のcancel route削除と同じ論点）

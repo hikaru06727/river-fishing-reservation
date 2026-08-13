@@ -7,3 +7,15 @@
  * /admin/orders（物販専用の注文管理画面）
  */
 export const ONLINE_SHOP_ENABLED = false;
+
+/**
+ * マルチテナント撤回（2026年8月、方針確定）により、このシステムは
+ * 単一事業のみを前提とする。事業名は未定のため、暫定的に既存の
+ * テストデータ（奥多摩川フィッシングパーク）のbusiness_idをそのまま
+ * 使い回している。正式な事業名・情報が決まり次第、businessesテーブルの
+ * 該当行を更新すればよく、このID自体は変更不要。
+ *
+ * 将来的にbusiness_id依存を完全に除去する場合は、この定数と
+ * CLAUDE.mdの「マルチテナント撤回の実行計画」を参照すること。
+ */
+export const SINGLE_BUSINESS_ID = "ed04d76b-2a4a-412e-ab67-2c156e8e3fa4";

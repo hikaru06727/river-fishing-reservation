@@ -311,3 +311,79 @@ export async function getSystemProfileId(): Promise<string> {
   }
   return data.id;
 }
+
+/**
+ * 顧客セルフキャンセルE2E用: 「利用開始まで24時間を切っている」confirmed予約を
+ * DBへ直接作成する。UIの予約フローは意図的に近日日付を避ける作りのため
+ * （createCashReservation 参照）、UI経由では再現できない。
+ * 呼び出し元でテスト終了時に必ず deleteReservation() で後始末すること。
+ */
+export async function createNearTermConfirmedReservation(params: {
+  userId: string;
+  spotId: string;
+  planSlug: string;
+}): Promise<string> {
+  const supabase = createAdminClient();
+
+  const { data: plan, error: planError } = await supabase
+    .from("plans")
+    .select("id")
+    .eq("slug", params.planSlug)
+    .single();
+  if (planError || !plan) {
+    throw new Error(
+      `[createNearTermConfirmedReservation] plan not found (slug=${params.planSlug}): ${planError?.message ?? "no data"}`,
+    );
+  }
+
+  const { data: slot, error: slotError } = await supabase
+    .from("availability_slots")
+    .select("id")
+    .eq("spot_id", params.spotId)
+    .limit(1)
+    .maybeSingle();
+  if (slotError || !slot) {
+    throw new Error(
+      `[createNearTermConfirmedReservation] slot not found (spot_id=${params.spotId}): ${slotError?.message ?? "no data"}`,
+    );
+  }
+
+  // 現在時刻から2時間後を開始時刻にする → 24時間キャンセル期限（開始24時間前）を確実に下回る
+  const startAt = new Date(Date.now() + 2 * 60 * 60 * 1000);
+  const endAt = new Date(startAt.getTime() + 60 * 60 * 1000);
+  const toJst = (d: Date) => ({
+    date: d.toLocaleDateString("sv-SE", { timeZone: "Asia/Tokyo" }),
+    time: d.toLocaleTimeString("sv-SE", { timeZone: "Asia/Tokyo", hour12: false }),
+  });
+  const start = toJst(startAt);
+  const end = toJst(endAt);
+
+  const { data: reservation, error } = await supabase
+    .from("reservations")
+    .insert({
+      user_id: params.userId,
+      spot_id: params.spotId,
+      plan_id: plan.id,
+      slot_id: slot.id,
+      reservation_date: start.date,
+      start_time: start.time,
+      end_time: end.time,
+      guest_count: 1,
+      total_amount_yen: 1000,
+      status: "confirmed",
+      payment_method: "cash_at_venue",
+    })
+    .select("id")
+    .single();
+
+  if (error || !reservation) {
+    throw new Error(`[createNearTermConfirmedReservation] insert failed: ${error?.message ?? "no data"}`);
+  }
+  return reservation.id;
+}
+
+export async function deleteReservation(reservationId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from("reservations").delete().eq("id", reservationId);
+  if (error) throw new Error(`[deleteReservation] ${error.message}`);
+}
