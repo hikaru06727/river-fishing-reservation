@@ -7,6 +7,7 @@ import {
 } from "@/lib/repositories/businesses.repository";
 import { getManualSalesForBusiness } from "@/lib/services/manual-sales.service";
 import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 import type { ManualSale } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -30,11 +31,7 @@ const PAYMENT_LABELS: Record<string, string> = {
   other: "その他",
 };
 
-interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
-}
-
-export default async function AdminManualSalesPage({ searchParams }: PageProps) {
+export default async function AdminManualSalesPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/manual-sales");
 
@@ -42,23 +39,17 @@ export default async function AdminManualSalesPage({ searchParams }: PageProps) 
     redirect("/admin");
   }
 
-  const { businessId } = await searchParams;
-  const isAdmin = isAdminRole(session.profile.role);
-
   const [businesses, locations] = await Promise.all([
     findManageableBusinesses(),
     findManageableSpots(),
   ]);
-
-  if (!businessId && !isAdmin && businesses.length === 1 && businesses[0]) {
-    redirect(`/admin/manual-sales?businessId=${businesses[0].id}`);
-  }
+  const business = businesses[0];
 
   let sales: ManualSale[] | null = null;
   let salesError: string | null = null;
 
-  if (businessId) {
-    const result = await getManualSalesForBusiness(session.profile, businessId);
+  if (business) {
+    const result = await getManualSalesForBusiness(session.profile, SINGLE_BUSINESS_ID);
     if (result.ok) {
       sales = result.data;
     } else {
@@ -66,16 +57,15 @@ export default async function AdminManualSalesPage({ searchParams }: PageProps) 
     }
   }
 
-  const selectedBusiness = businesses.find((b) => b.id === businessId);
   const locationMap = Object.fromEntries(locations.map((l) => [l.id, l.name]));
 
   return (
     <div>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">手動売上管理</h2>
-        {businessId && (
+        {business && (
           <Link
-            href={`/admin/manual-sales/new?businessId=${businessId}`}
+            href={`/admin/manual-sales/new?businessId=${SINGLE_BUSINESS_ID}`}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90"
           >
             + 新規登録
@@ -83,53 +73,19 @@ export default async function AdminManualSalesPage({ searchParams }: PageProps) 
         )}
       </div>
 
-      {businesses.length > 1 && (
-        <form method="get" action="/admin/manual-sales" className="mt-4">
-          <label htmlFor="businessId" className="block text-sm font-medium">
-            事業を選択
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <select
-              name="businessId"
-              id="businessId"
-              defaultValue={businessId ?? ""}
-              className="rounded-xl border border-border px-4 py-2 text-sm"
-            >
-              <option value="">-- 事業を選択 --</option>
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              表示
-            </button>
-          </div>
-        </form>
-      )}
-
       {salesError && <p className="mt-4 text-sm text-red-600">{salesError}</p>}
 
-      {!businessId && (
+      {!business && (
         <p className="mt-4 text-sm text-muted">
-          {businesses.length === 0
-            ? "操作可能な事業がありません。"
-            : "事業を選択して手動売上を表示します。"}
+          操作可能な事業がありません。
         </p>
       )}
 
-      {businessId && sales !== null && (
+      {business && sales !== null && (
         <div className="mt-4">
-          {selectedBusiness && (
-            <p className="mb-2 text-sm text-muted">
-              事業:{" "}
-              <span className="font-medium text-foreground">{selectedBusiness.name}</span>
-            </p>
-          )}
+          <p className="mb-2 text-sm text-muted">
+            事業: <span className="font-medium text-foreground">{business.name}</span>
+          </p>
           {sales.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">
               手動売上が登録されていません。

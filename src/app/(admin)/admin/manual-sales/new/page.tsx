@@ -9,21 +9,16 @@ import {
   findManageableSpots,
 } from "@/lib/repositories/businesses.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = { title: "手動売上 新規登録" };
 
-interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
-}
-
-export default async function AdminManualSalesNewPage({ searchParams }: PageProps) {
+export default async function AdminManualSalesNewPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/manual-sales/new");
-
-  const { businessId } = await searchParams;
 
   const [businesses, locations, taxRate] = await Promise.all([
     findManageableBusinesses(),
@@ -32,9 +27,7 @@ export default async function AdminManualSalesNewPage({ searchParams }: PageProp
   ]);
 
   const currentTaxRate = taxRate?.rate_percent ?? 10;
-  const returnPath = businessId
-    ? `/admin/manual-sales?businessId=${businessId}`
-    : "/admin/manual-sales";
+  const returnPath = `/admin/manual-sales?businessId=${SINGLE_BUSINESS_ID}`;
 
   return (
     <div>
@@ -54,7 +47,7 @@ export default async function AdminManualSalesNewPage({ searchParams }: PageProp
             businesses={businesses}
             locations={locations}
             currentTaxRate={currentTaxRate}
-            defaultBusinessId={businessId}
+            defaultBusinessId={SINGLE_BUSINESS_ID}
             submitLabel="登録する"
           />
         )}

@@ -10,6 +10,7 @@ import { canManageBusinessForProfile } from "@/lib/auth/management-access";
 import { findAssignedBusinessIdsByUserId } from "@/lib/repositories/businesses.repository";
 import { findAssignedBusinessIdsByStaffUserId } from "@/lib/repositories/staff-members.repository";
 import { isAdminRole, isStaffRole } from "@/lib/auth/role";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 import type { Product } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -17,29 +18,21 @@ export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = { title: "レジ" };
 
-interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
-}
-
-export default async function AdminPosPage({ searchParams }: PageProps) {
+export default async function AdminPosPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/pos");
 
-  const { businessId } = await searchParams;
   const isAdmin = isAdminRole(session.profile.role);
 
   const businesses = await findManageableBusinesses();
-
-  if (!businessId && !isAdmin && businesses.length === 1 && businesses[0]) {
-    redirect(`/admin/pos?businessId=${businesses[0].id}`);
-  }
+  const business = businesses[0];
 
   let products: Product[] = [];
   let salesCounts: Record<string, number> = {};
   let accessError: string | null = null;
   let taxRatePercent = 10;
 
-  if (businessId) {
+  if (business) {
     const isStaff = isStaffRole(session.profile.role);
     const assignedIds = isAdmin
       ? []
@@ -47,21 +40,19 @@ export default async function AdminPosPage({ searchParams }: PageProps) {
         ? await findAssignedBusinessIdsByStaffUserId(session.profile.id)
         : await findAssignedBusinessIdsByUserId(session.profile.id);
 
-    if (!canManageBusinessForProfile(session.profile, businessId, assignedIds)) {
+    if (!canManageBusinessForProfile(session.profile, SINGLE_BUSINESS_ID, assignedIds)) {
       accessError = "この事業へのアクセス権限がありません。";
     } else {
       const [rawProducts, taxRate, counts] = await Promise.all([
-        findProductsByBusinessId(businessId),
+        findProductsByBusinessId(SINGLE_BUSINESS_ID),
         getCurrentTaxRate(),
-        findProductSalesCountsByBusinessId(businessId).catch(() => ({})),
+        findProductSalesCountsByBusinessId(SINGLE_BUSINESS_ID).catch(() => ({})),
       ]);
       products = rawProducts.filter((p) => p.status === "on_sale");
       taxRatePercent = taxRate?.rate_percent ?? 10;
       salesCounts = counts;
     }
   }
-
-  const selectedBusiness = businesses.find((b) => b.id === businessId);
 
   return (
     <div>
@@ -72,60 +63,26 @@ export default async function AdminPosPage({ searchParams }: PageProps) {
         商品を選択してカートに追加し、支払方法を選んで販売を確定してください。
       </p>
 
-      {businesses.length > 1 && (
-        <form method="get" action="/admin/pos" className="mt-4">
-          <label htmlFor="businessId" className="block text-sm font-medium">
-            事業を選択
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <select
-              name="businessId"
-              id="businessId"
-              defaultValue={businessId ?? ""}
-              className="rounded-xl border border-border px-4 py-2 text-sm"
-            >
-              <option value="">-- 事業を選択 --</option>
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              表示
-            </button>
-          </div>
-        </form>
-      )}
-
       {accessError && (
         <p className="mt-4 text-sm text-red-600">{accessError}</p>
       )}
 
-      {!businessId && !accessError && (
+      {!business && !accessError && (
         <p className="mt-4 text-sm text-muted">
-          {businesses.length === 0
-            ? "操作可能な事業がありません。"
-            : "事業を選択してレジを開始します。"}
+          操作可能な事業がありません。
         </p>
       )}
 
-      {businessId && !accessError && (
+      {business && !accessError && (
         <div className="mt-6">
-          {selectedBusiness && (
-            <p className="mb-4 text-sm text-muted">
-              事業:{" "}
-              <span className="font-medium text-foreground">{selectedBusiness.name}</span>
-              <span className="ml-2 text-xs">消費税率: {taxRatePercent}%</span>
-            </p>
-          )}
+          <p className="mb-4 text-sm text-muted">
+            事業: <span className="font-medium text-foreground">{business.name}</span>
+            <span className="ml-2 text-xs">消費税率: {taxRatePercent}%</span>
+          </p>
           <PosTerminal
             action={createSaleSessionAction}
             products={products}
-            businessId={businessId}
+            businessId={SINGLE_BUSINESS_ID}
             taxRatePercent={taxRatePercent}
             salesCounts={salesCounts}
           />
