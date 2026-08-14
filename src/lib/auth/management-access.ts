@@ -294,3 +294,19 @@ export async function getManagementScope(): Promise<ManagementScope | null> {
     return { role: profile.role, businessNames: [] };
   }
 }
+
+export type ManagementScopeSummary =
+  | { kind: "admin" }
+  | { kind: "assigned"; businessNames: string[] }
+  | { kind: "unassigned" };
+
+/** getManagementScope() の結果から表示用の3分岐（admin / 担当事業あり / 未割当）を判定する */
+export function summarizeManagementScope(scope: ManagementScope): ManagementScopeSummary {
+  if (isAdminRole(scope.role)) {
+    return { kind: "admin" };
+  }
+  if (scope.businessNames.length > 0) {
+    return { kind: "assigned", businessNames: scope.businessNames };
+  }
+  return { kind: "unassigned" };
+}

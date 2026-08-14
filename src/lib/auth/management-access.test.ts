@@ -4,6 +4,7 @@ import {
   canManagePlanForProfile,
   canManageReservationForProfile,
   canManageSpotForProfile,
+  summarizeManagementScope,
 } from "./management-access";
 import type { Profile } from "@/types/database";
 
@@ -116,5 +117,28 @@ describe("canManagePlanForProfile", () => {
 
   it("一般 user はプラン操作不可", () => {
     expect(canManagePlanForProfile(profile("user"), spotA, bizA, [])).toBe(false);
+  });
+});
+
+describe("summarizeManagementScope", () => {
+  it("admin ロールは kind: admin", () => {
+    expect(summarizeManagementScope({ role: "admin", businessNames: ["清流渓谷フィッシング"] })).toEqual({
+      kind: "admin",
+    });
+  });
+
+  it("business_admin ロールで businessNames が1件以上なら kind: assigned（配列の中身も含む）", () => {
+    expect(
+      summarizeManagementScope({
+        role: "business_admin",
+        businessNames: ["清流渓谷フィッシング"],
+      }),
+    ).toEqual({ kind: "assigned", businessNames: ["清流渓谷フィッシング"] });
+  });
+
+  it("business_admin ロールで businessNames が空配列なら kind: unassigned", () => {
+    expect(
+      summarizeManagementScope({ role: "business_admin", businessNames: [] }),
+    ).toEqual({ kind: "unassigned" });
   });
 });
