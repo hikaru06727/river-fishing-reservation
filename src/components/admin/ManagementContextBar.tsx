@@ -1,5 +1,4 @@
-import { getManagementScope } from "@/lib/auth/management-access";
-import { isAdminRole } from "@/lib/auth/role";
+import { getManagementScope, summarizeManagementScope } from "@/lib/auth/management-access";
 
 const ROLE_LABELS = {
   admin: "管理者",
@@ -14,6 +13,7 @@ export async function ManagementContextBar() {
   }
 
   const roleLabel = ROLE_LABELS[scope.role as keyof typeof ROLE_LABELS] ?? scope.role;
+  const summary = summarizeManagementScope(scope);
 
   return (
     <div className="rounded-lg border border-border bg-slate-50 px-4 py-3 text-sm">
@@ -24,13 +24,13 @@ export async function ManagementContextBar() {
             {roleLabel}
           </span>
         </p>
-        {isAdminRole(scope.role) ? (
-          <p className="text-muted">全事業の管理権限</p>
-        ) : scope.businessNames && scope.businessNames.length > 0 ? (
+        {summary.kind === "admin" ? (
+          <p className="text-muted">管理者権限（全事業対象）</p>
+        ) : summary.kind === "assigned" ? (
           <p className="text-muted">
             担当事業:{" "}
             <span className="font-medium text-foreground">
-              {scope.businessNames.join("、")}
+              {summary.businessNames.join("、")}
             </span>
           </p>
         ) : (

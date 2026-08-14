@@ -4,10 +4,9 @@ import { BusinessExceptionBreaksSection } from "@/components/admin/BusinessExcep
 import { BusinessHoursSpotFilters } from "@/components/admin/BusinessHoursSpotFilters";
 import { BusinessHoursWeeklyForm } from "@/components/admin/BusinessHoursWeeklyForm";
 import { BusinessWeeklyBreaksSection } from "@/components/admin/BusinessWeeklyBreaksSection";
-import { getManagementScope } from "@/lib/auth/management-access";
+import { getManagementScope, summarizeManagementScope } from "@/lib/auth/management-access";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/permissions";
-import { isAdminRole } from "@/lib/auth/role";
 import {
   getBusinessHoursDataForSpot,
   getSelectableSpotsForBusinessHours,
@@ -43,19 +42,19 @@ export default async function AdminBusinessHoursPage({
     filters.spotId ? getBusinessHoursDataForSpot(filters.spotId) : Promise.resolve(null),
   ]);
 
-  const isAdmin = scope != null && isAdminRole(scope.role);
+  const scopeSummary = scope ? summarizeManagementScope(scope) : null;
   const selectedSpot = filters.spotId
     ? spots.find((spot) => spot.id === filters.spotId)
     : undefined;
 
   const scopeDescription =
-    scope && isAdmin
-      ? "全釣り場の営業時間"
-      : scope && scope.businessNames && scope.businessNames.length > 0
-        ? `担当事業: ${scope.businessNames.join("、")}`
-        : scope
-          ? "担当事業が未割当のため、操作可能な釣り場はありません"
-          : "営業時間設定";
+    !scopeSummary
+      ? "営業時間設定"
+      : scopeSummary.kind === "admin"
+        ? "全事業対象の営業時間"
+        : scopeSummary.kind === "assigned"
+          ? `担当事業: ${scopeSummary.businessNames.join("、")}`
+          : "担当事業が未割当のため、操作可能な釣り場はありません";
 
   return (
     <div className="space-y-6">
