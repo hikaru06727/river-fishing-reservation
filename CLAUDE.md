@@ -110,6 +110,8 @@ Phase 20：顧客アカウント機能（完了）
 - npm run build がリポジトリ全体で失敗する状態にある。原因は @typescript-eslint/no-explicit-any（as any の使用、主にテストファイルのSupabaseクライアントモックパターン）が約12ファイルで検出されるため。typecheck / test / test:e2e はこれまで通りパスしており、日常の開発フローには影響しないが、本番デプロイ（Vercel等のbuildを要する環境）の前には必ず対応が必要（2026年7月、Phase 20検証中にnpm run build実行時に偶然発見）。対応案: eslint.config.mjsにテストファイル向けのoverrides（*.test.ts等でno-explicit-anyをwarn化 or 対象外）を追加するか、該当箇所を型安全なモックヘルパーに置き換える。
   → **対応済み**（2026年7月）。eslint.config.mjsにテストファイル向けoverrides（`**/*.test.ts`, `**/*.test.tsx`でno-explicit-anyを無効化）を追加し、対象7ファイル（src/lib/repositories/*.repository.test.ts）のエラーを解消。あわせてadmin/products/sales/page.tsxのprefer-const 1件も修正。npm run build / typecheck / test すべて成功を確認済み。
 - /shop/[slug]/order-complete（Phase 19C、注文完了ページ）は、ゲスト注文対応のため意図的に未ログインでもorder_id（UUID）のみでアクセス可能な設計。ただしこのページには店舗受け取り時の本人確認用confirmation_codeも表示されるため、order_idが第三者に渡った場合（URLの誤共有・ブラウザ履歴の覗き見等）、そのコードを使って本人以外が受け取りを詐称できる可能性が理論上ある。2026年7月、Phase 20の手動検証中に発見（Phase 20自体の不具合ではない）。対応要否は今回判断せず記録のみ。
+  → 2026年8月、物販機能（Phase 19A〜19E）自体をONLINE_SHOP_ENABLEDフラグでwebサイトから非表示化したため、現状このページ自体に到達する経路がなく実害なし。根本のコードは未修正のまま残っているため、将来物販機能を再度有効化する場合はこの問題への対応（ログイン必須化、confirmation_codeの分離等）を先に検討すること。
+  なお、admin/orders/page.tsx にも Step 3-B（マルチテナント撤回、businessId関連コード撤去）が未適用のまま残っている（2026年8月、到達不可能なページのため検証手段がなく意図的にスキップ）。物販機能を再有効化する際は、この点も併せて見直すこと。
 - customer-account.spec.ts のsignupテストで、テスト用ドメイン e2e-test-mail.com がメール送信時に無効なアドレスとして拒否される事象を確認（2026年7月、管理者ログイン統合の検証中に発見）。Supabase標準メーラーのレート制限（既存の別項目）とは異なる環境要因。対応: テスト用メールドメインを実在するメールプロバイダのサブアドレス方式（例: 実アドレス+タグ）に変更するか、Supabase側でこのドメインを許可リストに追加できるか確認する。
 - createStripeCheckoutSessionForOrder()（online-order.service.ts）で、注文合計金額がStripeのJPY決済最低額（¥50）を下回る場合、Stripeがamount_too_smallエラーを返し、ユーザーには原因不明な「決済ページの作成に失敗しました」というメッセージのみが表示される。2026年7月、Phase 20の手動検証中に低額テストデータで発生を確認（Phase 20自体の不具合ではない）。対応案: createOrder()側で¥50未満の場合に決済方法選択前にバリデーションエラーを出す、またはエラーメッセージを金額起因と分かる内容に変更する。実運用での発生可能性は低い（通常の商品単価では起こりにくい）が、エラーメッセージの分かりにくさは改善の余地がある。
 - 事業（business）削除時、locations.business_id が ON DELETE SET NULL によりNULL化されるため、それ以降そのlocationに紐づく予約をキャンセルすると、autoRefundReservationOnCancel および cancelAddonItemsAndRestoreStock 双方で businessId が取得できず、返金処理・アドオン後処理失敗の記録がともにスキップされる（console.errorのみで、管理画面上での検知手段がない）。locations作成時にbusiness_idが必須入力になっていない可能性も合わせて要確認。対応要否・優先度は未判断。（2026年8月、cancelAddonItemsAndRestoreStock()のアドオン後処理失敗トラッキング機能実装前のスキーマ確認中に発見）
@@ -117,6 +119,13 @@ Phase 20：顧客アカウント機能（完了）
 - getPaymentStateColor()（src/lib/reservations/payment-method.ts 92-108行目）で、"済"を含む文字列を一括で緑色（成功色）にする判定が広すぎるため、"キャンセル済"（支払いが成功したわけではない）も緑色で表示されてしまう。customer-self-cancel.spec.ts のE2Eテスト作成中（2026年8月）に発見。また同関数内の "返金済" 等の個別チェックは、この汎用チェックより後にあるため実質デッドコードになっている。対応要否・優先度は未判断。
   → **対応済み**（2026年8月）。PaymentStateLabel を9種のリテラル型ユニオンに変更し、Record<PaymentStateLabel, string> による明示的マッピングに書き換えた。ラベル追加時のマッピング更新漏れはtscが検出する設計にしたことを実地確認済み。payment-method.test.ts に getPaymentStateColor() のテスト6件を追加（既存9件と合わせ計15件）。
 - E2Eテスト全体（fullyParallel: true）で、複数のspecファイルが同一のテスト用ユーザー（E2E_TEST_USER_EMAIL）を共有してloginAsTestUser()を呼んでいるため、異なるファイル・テストが並列実行されるタイミングで、Supabase側のマジックリンク発行が互いを無効化し合い、"Email link is invalid or has expired" でログインが失敗することがある（2026年8月、customer-self-cancel.spec.ts作成中に発見・再現確認済み。--workers=1では発生せず、並列時のみ発生することを確認）。影響しうるファイル: customer-account.spec.ts, customer-self-cancel.spec.ts, reservation-addon-flow.spec.ts, reservation-linked-order-flow.spec.ts（いずれもE2E_TEST_USER_EMAILを共有）。reservation-addon-flow.spec.ts で以前確認されていた16回中1回のタイムアウト事例（技術的負債1番、cancelReservation()のアトミック性問題として記録済み）とは失敗時のエラー内容が異なる（タイムアウト vs ログイン401エラー）ため、直接の同一原因とは断定できないが、断続的に失敗する点は類似しており、テスト環境のflakinessの一因として関連する可能性がある。対応案（未着手）: ファイル単位でのserial化に加え、テスト用アカウントを複数用意する、または /api/test/login 側でトークンの相互無効化を回避する設計に変更する等。優先度・対応要否は未判断。
+- admin/products/new/page.tsx に PRODUCT_MANAGE 権限チェックが欠落している（admin/products/page.tsx にはある）。Step 3-B横展開作業中（2026年8月）に発見。対応要否・優先度は未判断。
+  → **対応済み**（2026年8月、コミット e8e2322）。一覧ページと同じ hasPermission(role, "PRODUCT_MANAGE") チェックを追加。
+- SALES_VIEW 権限キー（src/lib/permissions.ts）が、admin/layout.tsx のメニュー表示判定にのみ使われており、実際のページガード（hasPermission()によるアクセス制御）としてはコードベース全体で一度も使われていない。admin/products/sales/page.tsx をはじめ、この権限を使うべきページに hasPermission チェックが存在しない。Step 3-B横展開作業中（2026年8月）に発見。前回発見した admin/products/new/page.tsx の PRODUCT_MANAGE 欠落とは別種（個別ページの実装漏れではなく、権限キー自体が構造的に未使用）。対応要否・優先度は未判断。
+- admin/manual-sales/new/page.tsx に権限チェックが完全に欠落している。一覧ページ（admin/manual-sales/page.tsx）にある isAdminRole || isBusinessAdminRole のロールチェックすらこのページには存在せず、ログイン済みであれば誰でも手動売上を登録できてしまう状態（staffロールでもアクセス可能）。admin/products/new/page.tsx の PRODUCT_MANAGE 欠落より影響度が高い（ページアクセス自体を制限するロールチェックが完全に無いため）。Step 3-B横展開作業中（2026年8月）に発見。対応要否・優先度は未判断だが、他の権限欠落項目より優先度を上げて検討すべき。
+  → **対応済み**（2026年8月、コミット 8a99fd7）。一覧ページと同じ isAdminRole || isBusinessAdminRole チェックを追加。business_adminロールでの実機確認により正常動作を確認済み。
+- admin/manual-sales/[id]/edit/page.tsx の assignedIds 計算（isAdminRole/isStaffRole分岐によるインライン権限判定）が、Step 3-Aで簡素化した management-access.ts と同じロジックを個別に持っている。admin/products/[id]/edit/page.tsx にも同種の箇所あり。Step 3-B横展開作業中（2026年8月）に発見。対応要否・優先度は未判断。
+- POS_OPERATE 権限キー（src/lib/permissions.ts）も、SALES_VIEW同様にページガードとして使われておらず、admin/layout.tsxのメニュー表示判定にのみ使われている。admin/pos/page.tsx に明示的な hasPermission チェックが無い。ただし canManageBusinessForProfile による事業アクセスチェックと、実際の書き込み操作（createSaleSessionAction）側の isAdminRole/isBusinessAdminRole/isStaffRole チェック＋assertCanManageBusiness再検証により、実害は限定的（一般顧客等がページを閲覧できても、書き込みは多重にブロックされる）。Step 3-B横展開作業中（2026年8月）に発見。これで同種のパターンが3件目（SALES_VIEW, POS_OPERATE, および元々のPRODUCT_MANAGE系欠落）となり、個別ページの実装漏れというより「permissions.tsに定義した権限キーをページガードとして使う」運用が徹底されていない、という構造的な傾向の可能性がある。対応要否・優先度は未判断だが、Step 3完了後にpermissions.ts定義済みキーの実使用状況を横断的に棚卸しすることを推奨する。
 
 ## 今後の大方針転換（未着手・要計画）
 2026年8月、マルチテナントSaaS化の方針を撤回し、単一事業者向けの
@@ -139,3 +148,25 @@ Phase 20：顧客アカウント機能（完了）
 - 既存のRLSをどこまで単純化するか
 - POST /api/reservations 等、他の未使用公開APIルートも
   同様の理由で整理対象になりうる（今回のcancel route削除と同じ論点）
+
+### マルチテナント撤回の実行計画（2026年8月、方針確定）
+
+現状のbusinessesは2件とも実際の事業ではなくテストデータ
+（清流渓谷フィッシング、奥多摩川フィッシングパーク）。
+以下の方針で進めることを確定した。
+
+1. 正しいbusinessを1件新規作成（実際の事業名・スラッグで）
+   ※事業情報の確定はコード作業ではなく運用側の準備が先
+2. 既存テスト用2件・紐づくlocations等のテストデータを削除
+3. /admin側の事業選択UI（businessIdクエリパラメータ、
+   findManageableBusinesses()のループ処理等）を撤去し、
+   常に固定の1business_idを参照する形に変更
+4. RLS・can_manage_business()等の関数自体には手を入れない
+   （案2：business_id列は残すが「常に1事業のみ」前提に固定する方式。
+   理由：business_idを持つテーブルが17前後、依存するRLS関数が
+   3つ（is_business_admin, can_manage_business,
+   can_manage_location）と広範囲で、完全除去は大規模すぎるため）
+
+未着手。次回セッションで3番（UI撤去）から着手する。
+
+staffロールの権限チェック（`resolveAssignedIds()`内の`findAssignedBusinessIdsByStaffUserId()`、`product.service.ts`等）は、Step 3-Aでは対応対象外だった（business_admin用の`findAssignedBusinessIdsByUserId()`のみを`[SINGLE_BUSINESS_ID]`固定に変更）。そのため、staffユーザーがStep 3-B対象ページで権限チェックを通過するには、引き続き`staff_members`テーブルに実割当データ（`SINGLE_BUSINESS_ID`への割当）が必要。Step 3A同様の対応（`[SINGLE_BUSINESS_ID]`固定への簡素化）が必要か、判断・対応はStep 3完了時にまとめて検討する。（2026年8月、Step 3-B着手時に記録）
