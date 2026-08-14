@@ -9,7 +9,6 @@ import { isAdminRole } from "@/lib/auth/role";
 import {
   buildAdminPlanSearchParams,
   getAdminPlans,
-  getManageableBusinessesForPlans,
   getSelectableSpotsForPlans,
   parseAdminPlanFilters,
 } from "@/lib/plans/get-admin-plans";
@@ -24,7 +23,6 @@ export const metadata = {
 interface AdminPlansPageProps {
   searchParams: Promise<{
     spotId?: string;
-    businessId?: string;
   }>;
 }
 
@@ -36,11 +34,10 @@ export default async function AdminPlansPage({ searchParams }: AdminPlansPagePro
   const params = await searchParams;
   const filters = parseAdminPlanFilters(params);
 
-  const [plans, scope, spots, businesses] = await Promise.all([
+  const [plans, scope, spots] = await Promise.all([
     getAdminPlans(filters),
     getManagementScope(),
     getSelectableSpotsForPlans(),
-    getManageableBusinessesForPlans(),
   ]);
 
   const isAdmin = scope != null && isAdminRole(scope.role);
@@ -78,11 +75,8 @@ export default async function AdminPlansPage({ searchParams }: AdminPlansPagePro
       </header>
 
       <PlanFilters
-        businessId={filters.businessId}
         spotId={filters.spotId}
-        businesses={businesses}
         spots={spots}
-        showBusinessFilter={isAdmin}
       />
 
       <AdminPlansTable

@@ -10,7 +10,6 @@ import { hasPermission } from "@/lib/permissions";
 import { isAdminRole } from "@/lib/auth/role";
 import {
   getBusinessHoursDataForSpot,
-  getManageableBusinessesForBusinessHours,
   getSelectableSpotsForBusinessHours,
   parseAdminBusinessHoursFilters,
 } from "@/lib/business-hours/get-admin-business-hours";
@@ -25,7 +24,6 @@ export const metadata = {
 interface AdminBusinessHoursPageProps {
   searchParams: Promise<{
     spotId?: string;
-    businessId?: string;
   }>;
 }
 
@@ -39,10 +37,9 @@ export default async function AdminBusinessHoursPage({
   const params = await searchParams;
   const filters = parseAdminBusinessHoursFilters(params);
 
-  const [scope, spots, businesses, hoursData] = await Promise.all([
+  const [scope, spots, hoursData] = await Promise.all([
     getManagementScope(),
     getSelectableSpotsForBusinessHours(),
-    getManageableBusinessesForBusinessHours(),
     filters.spotId ? getBusinessHoursDataForSpot(filters.spotId) : Promise.resolve(null),
   ]);
 
@@ -68,11 +65,8 @@ export default async function AdminBusinessHoursPage({
       </header>
 
       <BusinessHoursSpotFilters
-        businessId={filters.businessId}
         spotId={filters.spotId}
-        businesses={businesses}
         spots={spots}
-        showBusinessFilter={isAdmin}
       />
 
       {!filters.spotId && (

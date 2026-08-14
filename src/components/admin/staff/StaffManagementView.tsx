@@ -5,6 +5,7 @@ import type { StaffMemberRow } from "@/types/database";
 import type { ManageableBusinessRow } from "@/lib/repositories/businesses.repository";
 import { inviteStaffAction, disableStaffAction, enableStaffAction } from "@/app/(admin)/admin/staff/actions";
 import type { StaffActionState } from "@/app/(admin)/admin/staff/actions";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
 const STATUS_LABELS: Record<string, string> = {
   invited: "招待中",
@@ -18,7 +19,7 @@ const STATUS_COLORS: Record<string, string> = {
   disabled: "text-slate-500 bg-slate-50 border-slate-200",
 };
 
-function InviteForm({ businessId }: { businessId: string }) {
+function InviteForm() {
   const [state, action, pending] = useActionState<StaffActionState, FormData>(
     inviteStaffAction,
     {},
@@ -27,7 +28,7 @@ function InviteForm({ businessId }: { businessId: string }) {
   return (
     <form action={action} className="mt-6 rounded-xl border border-border p-4">
       <h3 className="text-sm font-semibold text-foreground">スタッフを招待</h3>
-      <input type="hidden" name="businessId" value={businessId} />
+      <input type="hidden" name="businessId" value={SINGLE_BUSINESS_ID} />
       <div className="mt-3 grid gap-3 sm:grid-cols-3">
         <div>
           <label htmlFor="invite-email" className="block text-xs font-medium text-muted">
@@ -146,71 +147,30 @@ function StaffActions({ member }: { member: StaffMemberRow }) {
 }
 
 type Props = {
-  businesses: ManageableBusinessRow[];
+  business?: ManageableBusinessRow;
   staffMembers: StaffMemberRow[];
-  selectedBusinessId?: string;
-  selectedBusinessName?: string;
 };
 
-export function StaffManagementView({
-  businesses,
-  staffMembers,
-  selectedBusinessId,
-  selectedBusinessName,
-}: Props) {
+export function StaffManagementView({ business, staffMembers }: Props) {
   return (
     <div>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">スタッフ管理</h2>
       </div>
 
-      {businesses.length > 1 && (
-        <form method="get" action="/admin/staff" className="mt-4">
-          <label htmlFor="businessId" className="block text-sm font-medium">
-            事業を選択
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <select
-              name="businessId"
-              id="businessId"
-              defaultValue={selectedBusinessId ?? ""}
-              className="rounded-xl border border-border px-4 py-2 text-sm"
-            >
-              <option value="">-- 事業を選択 --</option>
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              表示
-            </button>
-          </div>
-        </form>
-      )}
-
-      {!selectedBusinessId && (
+      {!business && (
         <p className="mt-4 text-sm text-muted">
-          {businesses.length === 0
-            ? "操作可能な事業がありません。"
-            : "事業を選択してスタッフを表示します。"}
+          操作可能な事業がありません。
         </p>
       )}
 
-      {selectedBusinessId && (
+      {business && (
         <>
-          {selectedBusinessName && (
-            <p className="mt-4 text-sm text-muted">
-              事業:{" "}
-              <span className="font-medium text-foreground">{selectedBusinessName}</span>
-            </p>
-          )}
+          <p className="mt-4 text-sm text-muted">
+            事業: <span className="font-medium text-foreground">{business.name}</span>
+          </p>
 
-          <InviteForm businessId={selectedBusinessId} />
+          <InviteForm />
 
           <div className="mt-6">
             {staffMembers.length === 0 ? (

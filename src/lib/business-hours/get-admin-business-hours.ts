@@ -3,7 +3,6 @@ import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { isAdminRole } from "@/lib/auth/role";
 import {
   findAssignedBusinessIdsByUserId,
-  findManageableBusinesses,
   findManageableSpots,
 } from "@/lib/repositories/businesses.repository";
 import {
@@ -63,16 +62,6 @@ export async function getSelectableSpotsForBusinessHours() {
     context.session.profile,
     context.assignedBusinessIds,
   );
-}
-
-export async function getManageableBusinessesForBusinessHours() {
-  noStore();
-  const context = await getManagementContext();
-  if (!context || !isAdminRole(context.session.profile.role)) {
-    return [];
-  }
-
-  return findManageableBusinesses();
 }
 
 export async function getBusinessHoursDataForSpot(spotId: string): Promise<{

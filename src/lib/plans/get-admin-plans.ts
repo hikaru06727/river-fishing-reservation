@@ -3,7 +3,6 @@ import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { isAdminRole } from "@/lib/auth/role";
 import {
   findAssignedBusinessIdsByUserId,
-  findManageableBusinesses,
   findManageableSpots,
 } from "@/lib/repositories/businesses.repository";
 import {
@@ -95,8 +94,3 @@ export async function getSelectableSpotsForPlans() {
 
 /** @deprecated getSelectableSpotsForPlans を使用 */
 export const getManageableSpotsForPlans = getSelectableSpotsForPlans;
-
-export async function getManageableBusinessesForPlans() {
-  noStore();
-  return findManageableBusinesses();
-}
