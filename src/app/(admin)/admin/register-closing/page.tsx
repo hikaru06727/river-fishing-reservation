@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/permissions";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
-import { isAdminRole } from "@/lib/auth/role";
 import {
   listClosings,
   getLastClosing,
@@ -10,17 +9,14 @@ import {
 } from "@/lib/services/register-closing.service";
 import { RegisterCloseButton } from "@/components/register/RegisterCloseButton";
 import { ClosingListView } from "@/components/register/ClosingListView";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata = { title: "レジ締め" };
 
-interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
-}
-
-export default async function AdminRegisterClosingPage({ searchParams }: PageProps) {
+export default async function AdminRegisterClosingPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/register-closing");
 
@@ -28,14 +24,8 @@ export default async function AdminRegisterClosingPage({ searchParams }: PagePro
     redirect("/admin");
   }
 
-  const { businessId } = await searchParams;
-  const isAdmin = isAdminRole(session.profile.role);
-
   const businesses = await findManageableBusinesses();
-
-  if (!businessId && !isAdmin && businesses.length === 1 && businesses[0]) {
-    redirect(`/admin/register-closing?businessId=${businesses[0].id}`);
-  }
+  const business = businesses[0];
 
   const canApprove = hasPermission(session.profile.role, "CLOSE_CORRECTION_APPROVE");
 
@@ -44,10 +34,10 @@ export default async function AdminRegisterClosingPage({ searchParams }: PagePro
   let closingsResult = null;
   let pendingCount = 0;
 
-  if (businessId) {
+  if (business) {
     const [lastResult, listResult] = await Promise.all([
-      getLastClosing(session.profile, businessId).catch(() => null),
-      listClosings(session.profile, { businessId }).catch(() => null),
+      getLastClosing(session.profile, SINGLE_BUSINESS_ID).catch(() => null),
+      listClosings(session.profile, { businessId: SINGLE_BUSINESS_ID }).catch(() => null),
     ]);
 
     if (lastResult?.ok) {
@@ -56,14 +46,14 @@ export default async function AdminRegisterClosingPage({ searchParams }: PagePro
     closingsResult = listResult?.ok ? listResult.data : null;
 
     if (canApprove) {
-      pendingCount = await getPendingCorrectionCount(session.profile, businessId).catch(() => 0);
+      pendingCount = await getPendingCorrectionCount(session.profile, SINGLE_BUSINESS_ID).catch(
+        () => 0,
+      );
     }
   }
 
   const periodStart = lastClosedAt ?? new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const periodEnd = now.toISOString();
-
-  const selectedBusiness = businesses.find((b) => b.id === businessId);
 
   return (
     <div className="space-y-6">
@@ -71,51 +61,17 @@ export default async function AdminRegisterClosingPage({ searchParams }: PagePro
         <h2 className="text-lg font-semibold text-foreground">レジ締め</h2>
       </div>
 
-      {businesses.length > 1 && (
-        <form method="get" action="/admin/register-closing">
-          <label htmlFor="businessId" className="block text-sm font-medium">
-            事業を選択
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <select
-              name="businessId"
-              id="businessId"
-              defaultValue={businessId ?? ""}
-              className="rounded-xl border border-border px-4 py-2 text-sm"
-            >
-              <option value="">-- 事業を選択 --</option>
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              表示
-            </button>
-          </div>
-        </form>
-      )}
-
-      {!businessId && (
+      {!business && (
         <p className="text-sm text-muted">
-          {businesses.length === 0
-            ? "操作可能な事業がありません。"
-            : "事業を選択してレジ締めを行います。"}
+          操作可能な事業がありません。
         </p>
       )}
 
-      {businessId && (
+      {business && (
         <>
-          {selectedBusiness && (
-            <p className="text-sm text-muted">
-              事業:{" "}
-              <span className="font-medium text-foreground">{selectedBusiness.name}</span>
-            </p>
-          )}
+          <p className="text-sm text-muted">
+            事業: <span className="font-medium text-foreground">{business.name}</span>
+          </p>
 
           <div className="rounded-xl border border-border p-5">
             <h3 className="mb-3 text-sm font-semibold text-foreground">レジを締める</h3>
@@ -146,7 +102,7 @@ export default async function AdminRegisterClosingPage({ searchParams }: PagePro
               </p>
             </div>
             <RegisterCloseButton
-              businessId={businessId}
+              businessId={SINGLE_BUSINESS_ID}
               periodStart={periodStart}
               periodEnd={periodEnd}
             />
@@ -157,7 +113,7 @@ export default async function AdminRegisterClosingPage({ searchParams }: PagePro
             {closingsResult ? (
               <ClosingListView
                 closings={closingsResult.data}
-                businessId={businessId}
+                businessId={SINGLE_BUSINESS_ID}
                 canApprove={canApprove}
                 pendingCorrectionCount={pendingCount}
               />

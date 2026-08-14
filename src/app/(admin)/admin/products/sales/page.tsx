@@ -4,8 +4,8 @@ import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import { findClosedPeriodsByBusinessId } from "@/lib/repositories/register-closings.repository";
 import { getSaleSessionsForBusiness } from "@/lib/services/sale-session.service";
-import { isAdminRole } from "@/lib/auth/role";
 import { POS_PAYMENT_METHODS } from "@/validations/pos";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 import type { SaleSessionListRow } from "@/lib/sales/sale-session-types";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,6 @@ export const metadata = { title: "販売履歴" };
 
 interface PageProps {
   searchParams: Promise<{
-    businessId?: string;
     dateFrom?: string;
     dateTo?: string;
     paymentMethod?: string;
@@ -38,22 +37,18 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/products/sales");
 
-  const { businessId, dateFrom, dateTo, paymentMethod, includeSettled } = await searchParams;
-  const isAdmin = isAdminRole(session.profile.role);
+  const { dateFrom, dateTo, paymentMethod, includeSettled } = await searchParams;
   const showSettled = includeSettled === "true";
 
   const businesses = await findManageableBusinesses();
-
-  if (!businessId && !isAdmin && businesses.length === 1 && businesses[0]) {
-    redirect(`/admin/products/sales?businessId=${businesses[0].id}`);
-  }
+  const business = businesses[0];
 
   let sessions: SaleSessionListRow[] | null = null;
   let sessionsError: string | null = null;
   const settledIds = new Set<string>();
 
-  if (businessId) {
-    const result = await getSaleSessionsForBusiness(session.profile, businessId, {
+  if (business) {
+    const result = await getSaleSessionsForBusiness(session.profile, SINGLE_BUSINESS_ID, {
       dateFrom: dateFrom || null,
       dateTo: dateTo || null,
       paymentMethod: paymentMethod || null,
@@ -63,7 +58,7 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
       sessions = result.data;
 
       if (showSettled && sessions.length > 0) {
-        const periods = await findClosedPeriodsByBusinessId(businessId);
+        const periods = await findClosedPeriodsByBusinessId(SINGLE_BUSINESS_ID);
         if (periods.length > 0) {
           for (const s of sessions) {
             if (isSettled(s.sold_at, periods)) settledIds.add(s.id);
@@ -75,8 +70,6 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
     }
   }
 
-  const selectedBusiness = businesses.find((b) => b.id === businessId);
-
   const filterTotal = sessions?.reduce((s, r) => s + r.total_amount, 0) ?? 0;
   const hasActiveFilter = dateFrom || dateTo || paymentMethod || showSettled;
 
@@ -84,9 +77,9 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
     <div>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">販売履歴</h2>
-        {businessId && (
+        {business && (
           <Link
-            href={`/admin/pos?businessId=${businessId}`}
+            href={`/admin/pos?businessId=${SINGLE_BUSINESS_ID}`}
             className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90"
           >
             レジへ
@@ -94,39 +87,9 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
         )}
       </div>
 
-      {businesses.length > 1 && (
-        <form method="get" action="/admin/products/sales" className="mt-4">
-          <label htmlFor="businessId" className="block text-sm font-medium">
-            事業を選択
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <select
-              name="businessId"
-              id="businessId"
-              defaultValue={businessId ?? ""}
-              className="rounded-xl border border-border px-4 py-2 text-sm"
-            >
-              <option value="">-- 事業を選択 --</option>
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              表示
-            </button>
-          </div>
-        </form>
-      )}
-
       {/* 絞り込みフィルター */}
-      {businessId && (
+      {business && (
         <form method="get" action="/admin/products/sales" className="mt-4 rounded-xl border border-border bg-slate-50 p-4">
-          <input type="hidden" name="businessId" value={businessId} />
           <p className="mb-3 text-xs font-semibold text-muted">絞り込み</p>
           <div className="flex flex-wrap items-end gap-3">
             <div>
@@ -181,7 +144,7 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
             </button>
             {hasActiveFilter && (
               <Link
-                href={`/admin/products/sales?businessId=${businessId}`}
+                href="/admin/products/sales"
                 className="text-xs text-primary hover:underline"
               >
                 クリア
@@ -193,22 +156,17 @@ export default async function AdminProductSalesPage({ searchParams }: PageProps)
 
       {sessionsError && <p className="mt-4 text-sm text-red-600">{sessionsError}</p>}
 
-      {!businessId && (
+      {!business && (
         <p className="mt-4 text-sm text-muted">
-          {businesses.length === 0
-            ? "操作可能な事業がありません。"
-            : "事業を選択して販売履歴を表示します。"}
+          操作可能な事業がありません。
         </p>
       )}
 
-      {businessId && sessions !== null && (
+      {business && sessions !== null && (
         <div className="mt-6">
-          {selectedBusiness && (
-            <p className="mb-2 text-sm text-muted">
-              事業:{" "}
-              <span className="font-medium text-foreground">{selectedBusiness.name}</span>
-            </p>
-          )}
+          <p className="mb-2 text-sm text-muted">
+            事業: <span className="font-medium text-foreground">{business.name}</span>
+          </p>
 
           {sessions.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">

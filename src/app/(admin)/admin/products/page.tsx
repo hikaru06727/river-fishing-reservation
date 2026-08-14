@@ -3,8 +3,8 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import { getProductsForBusiness } from "@/lib/services/product.service";
-import { isAdminRole } from "@/lib/auth/role";
 import { hasPermission } from "@/lib/permissions";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 import type { Product } from "@/types/database";
 
 export const dynamic = "force-dynamic";
@@ -24,11 +24,7 @@ const STATUS_COLORS: Record<string, string> = {
   archived: "text-slate-500 bg-slate-50 border-slate-200",
 };
 
-interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
-}
-
-export default async function AdminProductsPage({ searchParams }: PageProps) {
+export default async function AdminProductsPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/products");
 
@@ -36,20 +32,14 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
     redirect("/admin");
   }
 
-  const { businessId } = await searchParams;
-  const isAdmin = isAdminRole(session.profile.role);
-
   const businesses = await findManageableBusinesses();
-
-  if (!businessId && !isAdmin && businesses.length === 1 && businesses[0]) {
-    redirect(`/admin/products?businessId=${businesses[0].id}`);
-  }
+  const business = businesses[0];
 
   let products: Product[] | null = null;
   let productsError: string | null = null;
 
-  if (businessId) {
-    const result = await getProductsForBusiness(session.profile, businessId);
+  if (business) {
+    const result = await getProductsForBusiness(session.profile, SINGLE_BUSINESS_ID);
     if (result.ok) {
       products = result.data;
     } else {
@@ -57,23 +47,21 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
     }
   }
 
-  const selectedBusiness = businesses.find((b) => b.id === businessId);
-
   return (
     <div>
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-foreground">商品管理</h2>
         <div className="flex items-center gap-2">
-          {businessId && (
+          {business && (
             <>
               <Link
-                href={`/admin/products/sales?businessId=${businessId}`}
+                href={`/admin/products/sales?businessId=${SINGLE_BUSINESS_ID}`}
                 className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
               >
                 販売記録
               </Link>
               <Link
-                href={`/admin/products/new?businessId=${businessId}`}
+                href={`/admin/products/new?businessId=${SINGLE_BUSINESS_ID}`}
                 className="rounded-lg bg-primary px-4 py-2 text-sm text-white hover:bg-primary/90"
               >
                 + 商品追加
@@ -83,53 +71,19 @@ export default async function AdminProductsPage({ searchParams }: PageProps) {
         </div>
       </div>
 
-      {businesses.length > 1 && (
-        <form method="get" action="/admin/products" className="mt-4">
-          <label htmlFor="businessId" className="block text-sm font-medium">
-            事業を選択
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <select
-              name="businessId"
-              id="businessId"
-              defaultValue={businessId ?? ""}
-              className="rounded-xl border border-border px-4 py-2 text-sm"
-            >
-              <option value="">-- 事業を選択 --</option>
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              表示
-            </button>
-          </div>
-        </form>
-      )}
-
       {productsError && <p className="mt-4 text-sm text-red-600">{productsError}</p>}
 
-      {!businessId && (
+      {!business && (
         <p className="mt-4 text-sm text-muted">
-          {businesses.length === 0
-            ? "操作可能な事業がありません。"
-            : "事業を選択して商品を表示します。"}
+          操作可能な事業がありません。
         </p>
       )}
 
-      {businessId && products !== null && (
+      {business && products !== null && (
         <div className="mt-4">
-          {selectedBusiness && (
-            <p className="mb-2 text-sm text-muted">
-              事業:{" "}
-              <span className="font-medium text-foreground">{selectedBusiness.name}</span>
-            </p>
-          )}
+          <p className="mb-2 text-sm text-muted">
+            事業: <span className="font-medium text-foreground">{business.name}</span>
+          </p>
           {products.length === 0 ? (
             <p className="rounded-xl border border-dashed border-border px-6 py-8 text-center text-sm text-muted">
               商品が登録されていません。

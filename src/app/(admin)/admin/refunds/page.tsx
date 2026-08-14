@@ -2,21 +2,17 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/permissions";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
-import { isAdminRole } from "@/lib/auth/role";
 import { listRefunds, listUnresolvedFailedRefunds } from "@/lib/services/refund.service";
 import { RefundListView } from "@/components/refund/RefundListView";
 import { FailedRefundsPanel } from "@/components/refund/FailedRefundsPanel";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata = { title: "返金一覧" };
 
-interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
-}
-
-export default async function AdminRefundsPage({ searchParams }: PageProps) {
+export default async function AdminRefundsPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/refunds");
 
@@ -24,79 +20,39 @@ export default async function AdminRefundsPage({ searchParams }: PageProps) {
     redirect("/admin");
   }
 
-  const { businessId } = await searchParams;
-  const isAdmin = isAdminRole(session.profile.role);
-
   const businesses = await findManageableBusinesses();
-
-  if (!businessId && !isAdmin && businesses.length === 1 && businesses[0]) {
-    redirect(`/admin/refunds?businessId=${businesses[0].id}`);
-  }
+  const business = businesses[0];
 
   let refundsResult = null;
   let failedRefunds = null;
-  if (businessId) {
-    const result = await listRefunds(session.profile, { businessId });
+  if (business) {
+    const result = await listRefunds(session.profile, { businessId: SINGLE_BUSINESS_ID });
     if (result.ok) refundsResult = result.data;
 
-    const failedResult = await listUnresolvedFailedRefunds(session.profile, { businessId });
+    const failedResult = await listUnresolvedFailedRefunds(session.profile, {
+      businessId: SINGLE_BUSINESS_ID,
+    });
     if (failedResult.ok) failedRefunds = failedResult.data;
   }
-
-  const selectedBusiness = businesses.find((b) => b.id === businessId);
 
   return (
     <div className="space-y-6">
       <h2 className="text-lg font-semibold text-foreground">返金一覧</h2>
 
-      {businesses.length > 1 && (
-        <form method="get" action="/admin/refunds">
-          <label htmlFor="businessId" className="block text-sm font-medium">
-            事業を選択
-          </label>
-          <div className="mt-1 flex items-center gap-2">
-            <select
-              name="businessId"
-              id="businessId"
-              defaultValue={businessId ?? ""}
-              className="rounded-xl border border-border px-4 py-2 text-sm"
-            >
-              <option value="">-- 事業を選択 --</option>
-              {businesses.map((b) => (
-                <option key={b.id} value={b.id}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-slate-50"
-            >
-              表示
-            </button>
-          </div>
-        </form>
-      )}
-
-      {!businessId && (
+      {!business && (
         <p className="text-sm text-muted">
-          {businesses.length === 0
-            ? "操作可能な事業がありません。"
-            : "事業を選択して返金一覧を表示します。"}
+          操作可能な事業がありません。
         </p>
       )}
 
-      {businessId && (
+      {business && (
         <>
-          {selectedBusiness && (
-            <p className="text-sm text-muted">
-              事業:{" "}
-              <span className="font-medium text-foreground">{selectedBusiness.name}</span>
-            </p>
-          )}
+          <p className="text-sm text-muted">
+            事業: <span className="font-medium text-foreground">{business.name}</span>
+          </p>
 
           {failedRefunds !== null && (
-            <FailedRefundsPanel businessId={businessId} refunds={failedRefunds} />
+            <FailedRefundsPanel businessId={SINGLE_BUSINESS_ID} refunds={failedRefunds} />
           )}
 
           {refundsResult === null ? (

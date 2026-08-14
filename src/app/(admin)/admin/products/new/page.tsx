@@ -5,27 +5,20 @@ import { ProductForm } from "@/components/admin/ProductForm";
 import { createProductAction } from "../actions";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
+import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
 export const metadata: Metadata = { title: "商品 新規登録" };
 
-interface PageProps {
-  searchParams: Promise<{ businessId?: string }>;
-}
-
-export default async function AdminProductsNewPage({ searchParams }: PageProps) {
+export default async function AdminProductsNewPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/products/new");
 
-  const { businessId } = await searchParams;
-
   const businesses = await findManageableBusinesses();
 
-  const returnPath = businessId
-    ? `/admin/products?businessId=${businessId}`
-    : "/admin/products";
+  const returnPath = `/admin/products?businessId=${SINGLE_BUSINESS_ID}`;
 
   return (
     <div>
@@ -43,7 +36,7 @@ export default async function AdminProductsNewPage({ searchParams }: PageProps) 
           <ProductForm
             action={createProductAction}
             businesses={businesses}
-            defaultBusinessId={businessId}
+            defaultBusinessId={SINGLE_BUSINESS_ID}
             submitLabel="登録する"
           />
         )}
