@@ -14,8 +14,7 @@ import type { Profile, UserRole } from "@/types/database";
 
 export type ManagementScope = {
   role: UserRole;
-  /** admin のとき null（全事業） */
-  businessNames: string[] | null;
+  businessNames: string[];
 };
 
 /** 純粋関数: profiles.role + 割当事業 ID で business 操作可否 */
@@ -285,12 +284,8 @@ export async function getManagementScope(): Promise<ManagementScope | null> {
     return null;
   }
 
-  if (isAdminRole(profile.role)) {
-    return { role: profile.role, businessNames: null };
-  }
-
-  // マルチテナント撤回（2026年8月）により、business_admin の担当事業は
-  // 常に SINGLE_BUSINESS_ID の1件のみ（実割当データは参照しない）。
+  // マルチテナント撤回（2026年8月）により、admin/business_admin とも
+  // 実質的に SINGLE_BUSINESS_ID の1件のみを扱う（実割当データは参照しない）。
   try {
     const businessNames = await findBusinessNamesByIds([SINGLE_BUSINESS_ID]);
     return { role: profile.role, businessNames };
