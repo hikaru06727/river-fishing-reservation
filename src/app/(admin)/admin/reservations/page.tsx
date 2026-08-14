@@ -5,7 +5,7 @@ import { ReservationFilters } from "@/components/admin/ReservationFilters";
 import { ReservationSummaryCards } from "@/components/admin/ReservationSummaryCards";
 import { AddonCleanupIssuesPanel } from "@/components/reservation/AddonCleanupIssuesPanel";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
-import { getManagementScope } from "@/lib/auth/management-access";
+import { getManagementScope, summarizeManagementScope } from "@/lib/auth/management-access";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
 import {
   buildAdminReservationSearchParams,
@@ -17,7 +17,6 @@ import {
   getTodayReservationSummary,
 } from "@/lib/reservations/get-admin-reservations";
 import { listUnresolvedAddonCleanupIssues } from "@/lib/services/reservation-addon-cleanup.service";
-import { isAdminRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -63,14 +62,15 @@ export default async function AdminReservationsPage({
   );
   const addonCleanupIssues = cleanupIssueResults.flatMap((r) => (r.ok ? r.data : []));
 
+  const scopeSummary = scope ? summarizeManagementScope(scope) : null;
   const scopeDescription =
-    scope && isAdminRole(scope.role)
-      ? "全事業の予約"
-      : scope && scope.businessNames && scope.businessNames.length > 0
-        ? `担当事業: ${scope.businessNames.join("、")}`
-        : scope
-          ? "担当事業が未割当のため、操作可能な予約はありません"
-          : "予約一覧";
+    !scopeSummary
+      ? "予約一覧"
+      : scopeSummary.kind === "admin"
+        ? "全事業対象の予約"
+        : scopeSummary.kind === "assigned"
+          ? `担当事業: ${scopeSummary.businessNames.join("、")}`
+          : "担当事業が未割当のため、操作可能な予約はありません";
 
   const filterParams = buildAdminReservationSearchParams({
     date: filters.date,

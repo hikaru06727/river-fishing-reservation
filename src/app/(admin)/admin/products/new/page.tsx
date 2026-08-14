@@ -5,6 +5,7 @@ import { ProductForm } from "@/components/admin/ProductForm";
 import { createProductAction } from "../actions";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { findManageableBusinesses } from "@/lib/repositories/businesses.repository";
+import { hasPermission } from "@/lib/permissions";
 import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,10 @@ export const metadata: Metadata = { title: "商品 新規登録" };
 export default async function AdminProductsNewPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/products/new");
+
+  if (!hasPermission(session.profile.role, "PRODUCT_MANAGE")) {
+    redirect("/admin");
+  }
 
   const businesses = await findManageableBusinesses();
 

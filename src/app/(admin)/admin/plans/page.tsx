@@ -2,10 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminPlansTable } from "@/components/admin/AdminPlansTable";
 import { PlanFilters } from "@/components/admin/PlanFilters";
-import { getManagementScope } from "@/lib/auth/management-access";
+import { getManagementScope, summarizeManagementScope } from "@/lib/auth/management-access";
 import { getAuthenticatedManagement } from "@/lib/auth/get-user";
 import { hasPermission } from "@/lib/permissions";
-import { isAdminRole } from "@/lib/auth/role";
 import {
   buildAdminPlanSearchParams,
   getAdminPlans,
@@ -40,16 +39,17 @@ export default async function AdminPlansPage({ searchParams }: AdminPlansPagePro
     getSelectableSpotsForPlans(),
   ]);
 
-  const isAdmin = scope != null && isAdminRole(scope.role);
+  const scopeSummary = scope ? summarizeManagementScope(scope) : null;
+  const isAdmin = scopeSummary?.kind === "admin";
 
   const scopeDescription =
-    scope && isAdmin
-      ? "全事業のプラン"
-      : scope && scope.businessNames && scope.businessNames.length > 0
-        ? `担当事業: ${scope.businessNames.join("、")}`
-        : scope
-          ? "担当事業が未割当のため、操作可能なプランはありません"
-          : "プラン一覧";
+    !scopeSummary
+      ? "プラン一覧"
+      : scopeSummary.kind === "admin"
+        ? "全事業対象のプラン"
+        : scopeSummary.kind === "assigned"
+          ? `担当事業: ${scopeSummary.businessNames.join("、")}`
+          : "担当事業が未割当のため、操作可能なプランはありません";
 
   const filterParams = buildAdminPlanSearchParams(filters);
   const returnToQuery = new URLSearchParams(

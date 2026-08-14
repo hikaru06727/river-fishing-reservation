@@ -9,6 +9,7 @@ import {
   findManageableSpots,
 } from "@/lib/repositories/businesses.repository";
 import { getCurrentTaxRate } from "@/lib/repositories/tax-rates.repository";
+import { isAdminRole, isBusinessAdminRole } from "@/lib/auth/role";
 import { SINGLE_BUSINESS_ID } from "@/lib/feature-flags";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,10 @@ export const metadata: Metadata = { title: "手動売上 新規登録" };
 export default async function AdminManualSalesNewPage() {
   const session = await getAuthenticatedManagement();
   if (!session) redirect("/login?next=/admin/manual-sales/new");
+
+  if (!isAdminRole(session.profile.role) && !isBusinessAdminRole(session.profile.role)) {
+    redirect("/admin");
+  }
 
   const [businesses, locations, taxRate] = await Promise.all([
     findManageableBusinesses(),
